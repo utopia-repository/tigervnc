@@ -1,0 +1,12 @@
+usr/bin/tigervncconfig usr/bin
+usr/bin/tigervncpasswd usr/bin
+usr/bin/x0tigervncserver usr/bin
+usr/bin/Xtigervnc usr/bin
+usr/bin/tigervncserver usr/bin
+usr/share/man/man1/tigervncconfig.1.gz usr/share/man/man1
+usr/share/man/man1/tigervncpasswd.1.gz usr/share/man/man1
+usr/share/man/man1/tigervncserver.1.gz usr/share/man/man1
+usr/share/man/man1/x0tigervncserver.1.gz usr/share/man/man1
+usr/share/man/man5/vnc.conf.5x.gz  usr/share/man/man5
+etc/vnc.conf etc
+etc/X11/Xvnc-session etc/X11

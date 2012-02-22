@@ -1,0 +1,925 @@
+#! /usr/bin/perl
+# vim: set sw=2 sts=2 ts=8 syn=perl expandtab:
+#
+# vncserver - wrapper script to start an X VNC server.
+#
+# Copyright (C) 2004-2006 Joachim Falk <joachim.falk@gmx.de>
+# Please report all errors to Joachim Falk and not to OL.
+#
+# This file is based on a vncserver script provided by:
+#
+#  Copyright (C) 2004 Ola Lundqvist <opal@debian.org>
+#  Copyright (C) 2004 Marcus Brinkmann <Marcus.Brinkmann@ruhr-uni-bochum.de>
+#  Copyright (C) 2004 Dirk Eddelbuettel <edd@debian.org>
+#  Copyright (C) 2002-2003 RealVNC Ltd.
+#  Copyright (C) 1999 AT&T Laboratories Cambridge.  All Rights Reserved.
+#  Copyright (C) 1997, 1998 Olivetti & Oracle Research Laboratory
+#
+# This is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this software; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+# USA.
+
+package config;
+
+#########################################################################
+#
+# I thank Manoj for the code below. All errors are mine, though.
+#
+# readConfigFile reads in a config file and sets variables according to it.
+#
+
+sub readConfigFile {
+  my ( $ConfigFile ) = @_;
+  
+  eval { do "$ConfigFile"; };
+  if ($@) {
+    print STDERR "Error parsing config file, $@";
+  }
+  
+#  my $lineno = 0;
+#  while (<$cf>) {
+#    chomp;
+#    $lineno++;
+#    s/\#.*//og;
+#    next if /^\s*$/og;
+#    $_ .= ";" unless /;\s*$/;
+#    if (/^\s*([^=]+)\s*=\s*(\S.*)$/o) {
+#      my $ret = eval "$1=$2";
+#      if ($@) {
+#	print STDERR "Error parsing config file $ConfigFile!\n";
+#	print STDERR "$lineno:$_\n";
+#      }
+#    }
+#  }
+}
+
+package main;
+
+use strict;
+use File::Basename;
+use File::Path;
+use File::Spec;
+use DirHandle;
+use File::stat;
+use IO::File;
+use Socket;
+use Cwd 'abs_path';
+use Getopt::Long;
+use Errno qw(:POSIX);
+use vars qw($host $prog $binbase %cmds);
+
+#
+# Set global constants
+#
+
+# Get the program name
+$prog = basename($0);
+
+# Get install base bin dir
+$binbase = dirname(abs_path($0));
+
+#
+# Routine to make sure we're operating in a sane environment.
+#
+sub sanityCheck {
+  #
+  # Check we have all the commands we'll need on the path.
+  #
+
+cmd:
+  foreach my $cmd ("uname","xauth","Xtigervnc","tigervncpasswd") {
+    foreach my $dir ($binbase, split(/:/,$ENV{PATH})) {
+      $cmds{$cmd} = File::Spec->catfile($dir, $cmd);
+      next cmd if -x $cmds{$cmd};
+    }
+    print STDERR "$prog: couldn't find \"$cmd\" on your PATH.\n";
+    exit 1;
+  }
+
+  #
+  # Check the HOME environment variable is set
+  #
+
+  if (!defined($ENV{HOME})) {
+    print STDERR "$prog: The HOME environment variable is not set.\n";
+    exit 1;
+  }
+}
+
+sub readConfigFile {
+  my $options = shift;
+  
+  # Add aliases of ::config to %$options
+  foreach my $key (keys %$options) {
+    no strict 'refs';
+    *{"config::$key"} = \$options->{$key};
+  }
+  foreach my $ConfigFile (@_) {
+    next unless -f $ConfigFile; 
+    config::readConfigFile( $ConfigFile );
+  }
+#  foreach my $key (keys %$options) {
+#    if ( defined $config::{$key} &&
+#         defined *{$config::{$key}}{SCALAR} ) {
+#      $options->{$key} = ${*{$config::{$key}}{SCALAR}};
+#    }
+#    print $key, " => ", $options->{$key}, "\n";
+#  }
+}
+
+sub readXFConfig {
+  my $options = shift;
+  my ($XFConfigPath) = @_;
+  
+  my $cf;
+  foreach my $path (split(/:/, $XFConfigPath)) {
+    last if defined ($cf = IO::File->new( "<$path" ));
+  }
+  return unless defined $cf;
+  my $lineno = 0;
+  my ( $fontPath, $colorPath );
+  while (<$cf>) {
+    chomp;
+    $lineno++;
+    s/\#.*//og;
+    next if /^\s*$/og;
+    if (/^\s*FontPath\s*"(\S.*)"\s*$/o) {
+      if (defined $fontPath) {
+        $fontPath .= ",$1";
+      } else {
+        $fontPath  = $1;
+      }
+    }
+#   if (/^\s*RgbPath\s*"(\S.*)"\s*$/o) {
+#     $colorPath = $1;
+#   }
+  }
+  if (defined $fontPath) {
+    my @fontPathElements = split(/\s*,\s*/, $fontPath);
+    
+    $fontPath = '';
+    foreach my $tempFontPath (@fontPathElements) {
+      # is font directory or fontserver (xfs) ?
+      if ($tempFontPath !~ m{^[^/]*/[^/]*:\d+$}) {
+        # font directory
+	$tempFontPath =~ s/:unscaled$//; # remove :unscaled
+	# is really a font directory ?
+	next unless -r "$tempFontPath/fonts.dir"; # skip if not
+      }
+      $fontPath .= "$tempFontPath,";
+    }
+    chop $fontPath; # remove last ','
+    $options->{'fontPath'}  = $fontPath;
+  }
+# if (defined $colorPath) {
+#   $options->{'colorPath'} = $colorPath;
+# }
+}
+
+###############################################################################
+#
+# checkGeometryAndDepth simply makes sure that the geometry and depth values
+# are sensible.
+#
+
+sub checkGeometryAndDepth {
+  my ( $options ) = @_;
+  
+  my $wmDecorationWidth;
+  my $wmDecorationHeight;
+  
+  if ($options->{'wmDecoration'} =~ /^(\d+)x(\d+)$/) {
+    ($wmDecorationWidth, $wmDecorationHeight) = ($1,$2);
+  } else {
+    print STDERR "$prog: wmDecoration $options->{'wmDecoration'} is invalid\n";
+    exit 1;
+  }
+  if ($options->{'geometry'} =~ /^(\d+)x(\d+)$/) {
+    my ( $width, $height ) = ( $1, $2 );
+    $width  -= $wmDecorationWidth;
+    $height -= $wmDecorationHeight;
+    if (($width<1) || ($height<1)) {
+      print STDERR "$prog: geometry $options->{'geometry'} is invalid\n";
+      exit 1;
+    }
+    
+    $width  = int(($width +3)/4)*4;
+    $height = int(($height+1)/2)*2;
+    
+    $options->{'geometry'} = "${width}x${height}";
+  } else {
+    print STDERR "$prog: geometry $options->{'geometry'} is invalid\n";
+    exit 1;
+  }
+
+  if ($options->{'pixelformat'}) {
+    unless ($options->{'pixelformat'} =~ m/^(?:rgb|bgr)(\d)(\d)(\d)$/) {
+      die 'Internal logic error !';
+    }
+    if (!defined $options->{'depth'}) {
+      $options->{'depth'} = $1+$2+$3;
+    } elsif ($options->{'depth'} < $1+$2+$3) {
+      print STDERR "Depth $options->{'depth'} and pixelformat $options->{'pixelformat'} are inconsistent.\n";
+      exit 1;
+    }
+  }
+  if (($options->{'depth'} < 8) || ($options->{'depth'} > 32)) {
+    print STDERR "Depth must be between 8 and 32.\n";
+    exit 1;
+  }
+}
+
+#
+# getXDisplayDefaults uses xdpyinfo to find out the geometry, depth and pixel
+# format of the current X display being used.  If successful, it sets the
+# options as appropriate so that the X VNC server will use the same settings
+# (minus an allowance for window manager decorations on the geometry).  Using
+# the same depth and pixel format means that the VNC server won't have to
+# translate pixels when the desktop is being viewed on this X display (for
+# TrueColor displays anyway).
+#
+
+sub getXDisplayDefaults {
+  my ( $options ) = @_;
+  
+  my (@lines, @matchlines, $defaultVisualId, $i);
+  
+  return if (!defined($ENV{DISPLAY}));
+  
+  @lines = `xdpyinfo 2>/dev/null`;
+  
+  return if ($? != 0);
+  
+  @matchlines = grep(/dimensions/, @lines);
+  if (@matchlines) {
+    my ($width, $height) = ($matchlines[0] =~ /(\d+)x(\d+) pixels/);
+    $options->{'geometry'} = "${width}x${height}";
+  }
+  
+  @matchlines = grep(/default visual id/, @lines);
+  if (@matchlines) {
+    ($defaultVisualId) = ($matchlines[0] =~ /id:\s+(\S+)/);
+
+    for ($i = 0; $i < @lines; $i++) {
+      if ($lines[$i] =~ /^\s*visual id:\s+$defaultVisualId$/) {
+	if (($lines[$i+1] !~ /TrueColor/) ||
+	    ($lines[$i+2] !~ /depth/) ||
+	    ($lines[$i+4] !~ /red, green, blue masks/)) {
+	  return;
+	}
+	last;
+      }
+    }
+
+    return if ($i >= @lines);
+
+    ( $options->{'depth'} ) = ($lines[$i+2] =~ /depth:\s+(\d+)/);
+    my ($red,$green,$blue)
+	= ($lines[$i+4]
+	   =~ /masks:\s+0x([0-9a-f]+), 0x([0-9a-f]+), 0x([0-9a-f]+)/);
+
+    $red = hex($red);
+    $green = hex($green);
+    $blue = hex($blue);
+
+    if ($red > $blue) {
+      $red = int(log($red) / log(2)) - int(log($green) / log(2));
+      $green = int(log($green) / log(2)) - int(log($blue) / log(2));
+      $blue = int(log($blue) / log(2)) + 1;
+      $options->{'pixelformat'} = "rgb$red$green$blue";
+    } else {
+      $blue = int(log($blue) / log(2)) - int(log($green) / log(2));
+      $green = int(log($green) / log(2)) - int(log($red) / log(2));
+      $red = int(log($red) / log(2)) + 1;
+      $options->{'pixelformat'} = "bgr$blue$green$red";
+    }
+  }
+}
+
+#
+# Check if tcp port is available
+#
+sub checkTCPPortUsed {
+  my ($port) = @_;
+  my $proto  = getprotobyname('tcp');
+  
+  socket(S, AF_INET, SOCK_STREAM, $proto) || die "$prog: socket failed: $!";
+  setsockopt(S, SOL_SOCKET, SO_REUSEADDR, pack("l", 1)) || die "$prog: setsockopt failed: $!";
+  if (!bind(S, sockaddr_in($port, INADDR_ANY))) {
+    # print "$prog: bind ($port) failed: $!\n";
+    close(S);
+    return 1;
+  }
+  close(S);
+  return 0;
+}
+
+#
+# checkDisplayNumberUsed checks if the given display number is used by vnc.
+# A display number n is used if something is listening on the VNC server port
+# (5900+n).
+#
+
+sub checkDisplayNumberUsed {
+  my ($n) = @_;
+  return &checkTCPPortUsed( 5900 + $n ) ||
+	 &checkTCPPortUsed( 6000 + $n );
+}
+
+#
+# checkDisplayNumberAvailable checks if the given display number is available.
+# A display number n is taken if something is listening on the VNC server port
+# (5900+n) or the X server port (6000+n).
+#
+
+sub checkDisplayNumberAvailable {
+  my ($n) = @_;
+
+  return 0 if &checkDisplayNumberUsed($n);
+
+  if (-e "/tmp/.X$n-lock") {
+    print "\nWarning: $host:$n is taken because of /tmp/.X$n-lock\n";
+    print "Remove this file if there is no X server $host:$n\n";
+    return 0;
+  }
+
+  if (-e "/tmp/.X11-unix/X$n") {
+    print "\nWarning: $host:$n is taken because of /tmp/.X11-unix/X$n\n";
+    print "Remove this file if there is no X server $host:$n\n";
+    return 0;
+  }
+  return 1;
+}
+
+#
+# getDisplayNumber gets the lowest available display number.  A display number
+# n is taken if something is listening on the VNC server port (5900+n) or the
+# X server port (6000+n).
+#
+
+sub getDisplayNumber {
+  foreach my $n (1..99) {
+    return $n if &checkDisplayNumberAvailable($n);
+  }
+  
+  print STDERR "$prog: no free display number on $host.\n";
+  exit -1;
+}
+
+sub cleanStale {
+  my ( $options, $usedDisplay ) = @_;
+  my $pidFile  = pidFile($options,$usedDisplay);
+  my @x11Locks = ("/tmp/.X$usedDisplay-lock", "/tmp/.X11-unix/X$usedDisplay");
+  
+  # vnc pidfile stale
+  my $msg = "";
+  if (-e $pidFile) {
+    $msg .= "Cleaning pidfile '$pidFile'";
+    unless ($options->{'dry-run'}) {
+      $msg .= ": $!" unless unlink($pidFile) || $! == &ENOENT;
+    }
+    $msg .= "\n";
+  }
+  if (!&checkDisplayNumberUsed($usedDisplay)) {
+    foreach my $entry (grep { -e $_ } @x11Locks) {
+      $msg .= "Cleaning stale x11 lock '$entry'";
+      unless ($options->{'dry-run'}) {
+        $msg .= ": $!" unless unlink($pidFile) || $! == &ENOENT;
+      }
+      $msg .= "\n";
+    }
+  }
+  print $msg;
+}
+
+sub runningUserVncservers {
+  my ($options) = @_;
+  my %runningUserVncservers;
+  
+  my $d = DirHandle->new($options->{'vncUserDir'});
+  if (defined $d) {
+    while (defined(my $entry = $d->read)) {
+      if ( $entry =~ m/^\Q$host\E:(\d+)\.pid$/ ) {
+	my $usedDisplay = $1;
+	my $pidFile     = 
+          File::Spec->catfile($options->{'vncUserDir'}, $entry);
+	my $pid;
+	
+	chop($pid = `cat $pidFile`);
+	if (kill(0, $pid)) {
+	  # vnc running
+	  $runningUserVncservers{$usedDisplay} = "$host:$usedDisplay";
+	} elsif ($options->{'cleanstale'}) {
+	  cleanStale($options, $usedDisplay);
+	}
+      }
+    }
+    undef $d;
+  }
+  return \%runningUserVncservers;
+}
+
+sub pidFile {
+  my ($options,$usedDisplay) = @_;
+  $usedDisplay = $options->{'displayNumber'} unless defined $usedDisplay;
+  return "$options->{'vncUserDir'}/$host:$usedDisplay.pid";
+}
+
+sub desktopLog {
+  return "$_[0]->{'vncUserDir'}/$host:$_[0]->{'displayNumber'}.log";
+}
+
+#
+# killXvncServer
+#
+
+sub killXvncServer {
+  my ($options) = @_;
+  my $pidFile    = &pidFile( $options );
+  my $desktopLog = &desktopLog( $options );
+  
+  if (! -r $pidFile) {
+    print STDERR
+        "\nCan't find file $pidFile\n".
+	"You'll have to kill the Xtigervnc process manually\n\n";
+    return 1;
+  }
+  my $pid;
+  
+  $SIG{'HUP'} = 'IGNORE';
+  chop($pid = `cat $pidFile`);
+  print "Killing Xtigervnc process ID $pid\n";
+  unless ($options->{'dry-run'}) {
+    unless (kill('TERM', $pid) || $! == &ESRCH) {
+      print STDERR "Can't kill '$pid': $!\n";
+      return 1;
+    }
+    sleep 1;
+    unless (kill('KILL', $pid) || $! == &ESRCH) {
+      print STDERR "Can't kill '$pid': $!\n";
+      return 1;
+    }
+  }
+  &cleanStale($options,$options->{'displayNumber'});
+  
+  # If option -clean is given, also remove the logfile
+  if (!$options->{'dry-run'} && $options->{'clean'}) {
+    unless (unlink($desktopLog) || $! == &ENOENT) {
+      print STDERR "Can't remove '$desktopLog': $!\n";
+      return 1;
+    }
+  }
+  return 0;
+}
+
+#
+# quotedString returns a string which yields the original string when parsed
+# by a shell.
+#
+
+sub quotedString {
+  my ($in) = @_;
+
+  $in =~ s/\'/\'\"\'\"\'/g;
+  return "'$in'";
+}
+
+#
+# removeSlashes turns slashes into underscores for use as a file name.
+#               turns also spaces and tabs into underscores (Marcus).
+#
+
+sub removeSlashes {
+  my ($in) = @_;
+
+  $in =~ s|[/\s]|_|g;		# space and tab
+  return "$in";
+}
+
+# Make an X server cookie
+sub CreateMITCookie {
+  my ( $options ) = @_;
+  my $displayNumber  = $options->{'displayNumber'};
+  my $xauthorityFile = $options->{'xauthorityFile'};
+  my $cookie;
+  
+  chop($cookie = `mcookie`); # try mcookie
+  unless ( defined $cookie ) {
+    # mcookie failed => make an X server cookie the old fashioned way
+    srand(time+$$+unpack("L",`cat $options->{'vncPasswdFile'}`));
+    $cookie = "";
+    for (1..16) {
+      $cookie .= sprintf("%02x", int(rand(256)));
+    }
+  }
+  system($cmds{"xauth"}, "-f", "$xauthorityFile", "add", "$host:$displayNumber", ".", "$cookie");
+  system($cmds{"xauth"}, "-f", "$xauthorityFile", "add", "$host/unix:$displayNumber", ".", "$cookie"); 
+}
+
+# Make sure the user has a password.
+sub CreateVNCPasswd {
+  my ( $options ) = @_;
+  my $vncPasswdFile = $options->{'vncPasswdFile'};
+  my $st = stat($vncPasswdFile);
+  
+  if (!defined($st) || ($st->mode & 077)) {
+    print "\nYou will require a password to access your desktops.\n\n";
+    unless (unlink($vncPasswdFile) || $! == &ENOENT) {
+      print STDERR "Can't remove old vnc passwd file '$vncPasswdFile': $!!\n";
+      exit 1;
+    }
+    system($cmds{"tigervncpasswd"}, $vncPasswdFile); 
+    exit 1 if (($? >> 8) != 0);
+  }
+}
+
+# Now start the X VNC Server
+sub startXvncServer {
+  my ( $options ) = @_;
+  my $vncPort    = 5900 + $options->{'displayNumber'};
+  my $pidFile    = &pidFile($options);
+  my $desktopLog = &desktopLog($options);
+  my $vncStartup = $options->{'vncStartup'};
+  
+  # Make sure the user has a password.
+  &CreateVNCPasswd( $options );
+  &CreateMITCookie( $options );
+  
+  my $cmd = $cmds{"Xtigervnc"}." :$options->{'displayNumber'}";
+  $cmd .= " -desktop " . &quotedString($options->{'desktopName'});
+  if (defined $options->{'vncClasses'}) {
+    $cmd .= " -httpd $options->{'vncClasses'}";
+    print ("Found $options->{'vncClasses'} for http connections.\n");
+    if (defined($options->{'httpport'}) ||
+        defined($options->{'basehttpport'}) ) {
+      my $v = $options->{'httpport'} ||
+	      $options->{'basehttpport'} + $options->{'displayNumber'};
+      $cmd .= " -httpport $v";
+      print ("Listening to $v for http connections.\n");
+    }
+  }
+  $cmd .= " -auth $options->{'xauthorityFile'}";
+  $cmd .= " -geometry $options->{'geometry'}" if ($options->{'geometry'});
+  $cmd .= " -depth $options->{'depth'}" if ($options->{'depth'});
+  $cmd .= " -pixelformat $options->{'pixelformat'}" if ($options->{'pixelformat'});
+  $cmd .= " -rfbwait $options->{'rfbwait'}";
+  $cmd .= " -rfbauth $options->{'vncPasswdFile'}";
+  $cmd .= " -rfbport $vncPort";
+  $cmd .= " -pn";
+  $cmd .= " -localhost" if ($options->{'localhost'} =~ m/^(?:yes|true|1)$/i);
+  $cmd .= ' -fp "' . $options->{'fontPath'}  . '"' if ($options->{'fontPath'});
+# $cmd .= ' -co "' . $options->{'colorPath'} . '"' if ($options->{'colorPath'});
+  
+  foreach my $arg (@ARGV) {
+      $cmd .= " " . &quotedString($arg);
+  }
+  $cmd .= " > " . &quotedString($desktopLog) . " 2>&1";
+  
+  # Run $cmd and record the process ID.
+  print "$cmd & echo \$! >".$pidFile, "\n" if $options->{'verbose'};
+  system("$cmd & echo \$! >".$pidFile) unless $options->{'dry-run'};
+  # Give Xtigervnc a chance to start up
+  sleep(3); 
+  
+  print "\nNew '$options->{'desktopName'}' desktop at $host:$options->{'displayNumber'}\n\n";
+  
+  # Create the user's vncxstartup script if necessary.
+  if (!(-e $vncStartup)) {
+      print "Creating default startup script $vncStartup\n";
+      unless ($options->{'dry-run'}) {
+        my $sf = IO::File->new( ">$vncStartup" );
+        print $sf $options->{'defaultVncStartup'};
+        $sf->close;
+        chmod 0755, $vncStartup;
+      }
+  }
+  # Run the X startup script.
+  
+  print "Starting applications specified in $vncStartup\n";
+  print "Log file is $desktopLog\n\n";
+  
+  # If the unix domain socket exists then use that (DISPLAY=:n) otherwise use
+  # TCP (DISPLAY=host:n)
+  if (-e "/tmp/.X11-unix/X$options->{'displayNumber'}" ) {
+    $ENV{DISPLAY}= ":$options->{'displayNumber'}";
+  } else {
+    $ENV{DISPLAY}= "$host:$options->{'displayNumber'}";
+  }
+  $ENV{VNCDESKTOP} = $options->{'desktopName'};
+  
+  if ($vncStartup) {
+    $cmd  = &quotedString($vncStartup);
+    $cmd .= join('', map { ' ' . &quotedString($_) } @{$options->{'sessionArgs'}});
+    $cmd .= ' >> ' . &quotedString($desktopLog) . ' 2>&1 &';
+    print $cmd, "\n" if $options->{'verbose'};
+    system($cmd) unless $options->{'dry-run'};
+  }
+  exit;
+}
+
+#
+# usage
+#
+
+sub usage {
+  my ($err) = @_;
+  
+  my $prefix = " " x length("  $prog ");
+  print STDERR "usage:\n".
+    "  $prog -help|-h|-?            This help message. Further help in vnc4server(1).\n\n".
+
+    "  $prog [:<number>]            X11 display for VNC server\n".
+    $prefix."[-dry-run]             Take no real action\n".
+    $prefix."[-verbose]             Be more verbose\n".
+    $prefix."[-useold]              Only start VNC server if not already running\n".
+    $prefix."[-name <desktop-name>] VNC desktop name\n".
+    $prefix."[-depth <depth>]       Desktop bit depth (8|16|24|32)\n".
+    $prefix."[-pixelformat          X11 server pixel format\n".
+    $prefix."  rgb888|rgb565|rgb332   blue color channel encoded in lower bits\n".
+    $prefix." |bgr888|bgr565|bgr233]  red color channel encoded in lower bits\n".
+    $prefix."[-geometry <dim>]      Desktop geometry in <width>x<height>\n".
+    $prefix."[-xdisplaydefaults]    Get geometry and pixelformat from running X\n".
+    $prefix."[-wmDecoration <dim>]  Shrink geometry by dim\n".
+    $prefix."[-localhost yes|no]    Only accept VNC connections from localhost\n".
+    $prefix."[-httpport     port]   Port of internal http server\n".
+    $prefix."[-basehttpport port]   Calculate http port from base port + display nr\n".
+    $prefix."[-fp fontpath]         Colon separated list of font locations\n".
+#   $prefix."[-co colordbpath]      Location of color name database\n".
+    $prefix."[-cleanstale]          Do not choke on a stake lockfile\n".
+    $prefix."<X11-options ...>      Further options for Xtigervnc(1)\n".
+    $prefix."[-- sessiontype]       Arguments for the VNC startup script Xvnc-session\n\n".
+
+    "  $prog -kill                  Kill a VNC server\n".
+    $prefix."[:<number>|:*]         VNC server to kill, * for all\n".
+    $prefix."[-dry-run]             Take no real action\n".
+    $prefix."[-verbose]             Be more verbose\n".
+    $prefix."[-clean]               Also clean log files of VNC session\n\n";
+    
+  exit($err ? 1 : 0);
+#    'cleanstale'        => \$options->{'cleanstale'},
+}
+
+sub main {
+  #
+  # First make sure we're operating in a sane environment.
+  #
+  &sanityCheck();
+  
+  # Get the hostname
+  chop($host = `$cmds{"uname"} -n`);
+  
+  #
+  # Global options.  You may want to configure some of these for your site.
+  # Use /etc/vnc.conf and ~/.vnc/vnc.conf for this purpose.
+  #
+  my $options = {
+      # a guess at typical size for window manager decoration
+      wmDecoration		=> "4x24",
+      geometry			=> "1280x1024",
+      depth			=> 32,
+      pixelformat		=> undef,
+      desktopName		=> "X-$ENV{LOGNAME}",
+      rfbwait			=> 120000,
+      useold			=> 0,
+      cleanstale		=> 0,
+      clean			=> 0,
+      kill			=> 0,
+      displayNumber		=> undef,
+      displayHost		=> undef,
+      localhost			=> 1,
+      fontPath			=>
+	"/usr/share/fonts/X11/misc,".
+	"/usr/share/fonts/X11/cyrillic,".
+	"/usr/share/fonts/X11/100dpi/:unscaled,".
+	"/usr/share/fonts/X11/75dpi/:unscaled,".
+	"/usr/share/fonts/X11/Type1,".
+	"/usr/share/fonts/X11/100dpi,".
+	"/usr/share/fonts/X11/75dpi",
+#     colorPath			=>
+#     	"/etc/X11/rgb",
+      XFConfigPath		=>
+        "/etc/X11/xorg.conf:/etc/X11/XF86Config-4:/etc/X11/XF86Config",
+      xauthorityFile		=>
+        "$ENV{XAUTHORITY}" || "$ENV{HOME}/.Xauthority",
+      defaultVncStartup         =>
+        "#! /bin/sh\n\n".
+        "vncconfig -iconic &\n".
+        "/etc/X11/Xsession \$@\n".
+        "vncserver -kill \$DISPLAY\n",
+      vncUserDir		=>
+        File::Spec->catfile($ENV{HOME}, ".vnc"),
+      vncPasswdFile		=>
+        undef, # later derived from vncUserDir
+      vncStartup		=>
+        undef, # later derived from vncUserDir
+      sessionArgs		=> [],
+  };
+  
+  #
+  # Then source in configuration files, first the site wide one and then the
+  # user specific one.
+  #
+  {
+    my $tmpOpt = { XFConfigPath => $options->{'XFConfigPath'} };
+    &readConfigFile($tmpOpt, "/etc/vnc.conf");
+    &readXFConfig($options, $tmpOpt->{'XFConfigPath'});
+  }
+  &readConfigFile($options, "/etc/vnc.conf");
+  
+  if (!(-d $options->{'vncUserDir'})) {
+    # Create the user's vnc directory if necessary.
+    if (-e $options->{'vncUserDir'}) {
+      print STDERR "$prog: Could not create $options->{'vncUserDir'}, file exists but is not a directory.\n";
+      exit 1;
+    }
+    if (!mkpath ($options->{'vncUserDir'}, 0, 0755)) {
+      print STDERR "$prog: Could not create $options->{'vncUserDir'}.\n";
+      exit 1;
+    }
+  }
+  if (-f File::Spec->catfile($options->{'vncUserDir'}, "Xvnc-session")) {
+    $options->{'vncStartup'} =
+      File::Spec->catfile($options->{'vncUserDir'}, "Xvnc-session");
+  }
+  &readConfigFile($options, File::Spec->catfile($options->{'vncUserDir'}, "vnc.conf"));
+  unless (defined $options->{'vncStartup'}) {
+    $options->{'vncStartup'} =
+      File::Spec->catfile($options->{'vncUserDir'}, "Xvnc-session");
+  }
+  
+  if (! defined $options->{'vncClasses'}) {
+    $options->{'vncClasses'} = "/var/www/vnc" if -d "/var/www/vnc";
+  } elsif (! -d $options->{'vncClasses'}) {
+    print STDERR "VNC class files can not be found at $options->{'vncClasses'}.";
+    exit 1;
+  }
+  unless (defined $options->{'vncPasswdFile'}) {
+    $options->{'vncPasswdFile'} =
+      File::Spec->catfile($options->{'vncUserDir'}, "passwd");
+  }
+  
+  # seperate session args
+  {
+    my @newargv;
+    my $ref = \@newargv;
+    
+    foreach my $entry (@ARGV) {
+      if ( $entry eq '--' ) {
+	$ref = $options->{'sessionArgs'};
+      } else {
+	push @$ref, $entry;
+      }
+    }
+    @ARGV = @newargv;
+  }
+  
+  # Check command line options
+  my $opt = {};
+  my $p = new Getopt::Long::Parser;
+  $p->configure("pass_through");
+  my $rc = $p->getoptions(
+    'help|h|?'          => \$opt->{'help'},
+    'xdisplaydefaults'  => sub {
+      &getXDisplayDefaults($options); },
+    'geometry=s'        => sub {
+      $options->{'geometry'} = $_[1];
+      $options->{'wmDecoration'} = "0x0"; },
+    'depth=i'           => \$options->{'depth'},
+    'pixelformat=s'     => sub {
+      $options->{'pixelformat'} = $_[1];
+      undef $options->{'depth'}; },
+    'wmDecoration=s'    => \$options->{'wmDecoration'},
+    'name=s'            => \$options->{'dektopName'},
+    'fp=s'              => sub {
+      $options->{'fontPath'} = $_[1];
+      $opt->{'fp'} = $_[1]; },
+#   'co=s'              => sub {
+#     $options->{'colorPath'} = $_[1];
+#     $opt->{'co'} = $_[1]; },
+    'httpport=i'        => sub {
+      $options->{'httpport'} = $_[1];
+      undef $options->{'basehttpport'}; },
+    'basehttpport=i'    => sub {
+      $options->{'basehttpport'} = $_[1];
+      undef $options->{'httpport'}; },
+    'localhost:s'       => \$options->{'localhost'},
+    'useold'            => \$options->{'useold'},
+    'cleanstale'        => \$options->{'cleanstale'},
+    'clean'             => \$options->{'clean'},
+    'kill'              => \$options->{'kill'},
+    'verbose'           => \$options->{'verbose'},
+    'dry-run'           => \$options->{'dry-run'},
+  );
+  
+  &usage(!$rc) if (!$rc || $opt->{'help'});
+  
+  if ((@ARGV > 0) && ($ARGV[0] =~ /^([\w\d.]*):(\d+(?:\.\d+)?|\*)$/)) {
+    shift(@ARGV);
+    if ( ($1 eq "") || ($1 eq "localhost") ) {
+      $options->{'displayHost'} = $host;
+    } else {
+      $options->{'displayHost'} = $1;
+    }
+    $options->{'displayNumber'} = $2 if $2 ne "";
+    $options->{'displayNumber'} =~ s{\.\d+$}{};
+    &usage(1) if $options->{'displayNumber'} eq '*' && !$options->{'kill'};
+  } elsif ((@ARGV > 0) && ($ARGV[0] !~ /^-/)) {
+    &usage(1);
+  } else {
+    $options->{'displayHost'}   = $host;
+  }
+  
+  if ($options->{'displayHost'} ne $host ) {
+    my @cmd = ("ssh", "$options->{'displayHost'}", "vnc4server");
+    push @cmd, "-dry-run" if $options->{'dry-run'};
+    if ( $options->{'kill'} ) {
+      push @cmd, "-kill";
+      push @cmd, ":$options->{'displayNumber'}";
+      push @cmd, "-clean" if ($options->{'clean'});
+    } else {
+      push @cmd, ":$options->{'displayNumber'}";
+      push @cmd, "-geometry", $options->{'geometry'} if ($options->{'geometry'});
+      push @cmd, "-pixelformat", $options->{'pixelformat'} if ($options->{'pixelformat'});
+      push @cmd, "-depth", $options->{'depth'} if ($options->{'depth'});
+      push @cmd, "-name", $options->{'desktopName'} if ($options->{'desktopName'});
+      push @cmd, "-fp", $opt->{'fp'} if ($opt->{'fp'});
+#     push @cmd, "-co", $opt->{'co'} if ($opt->{'co'});
+      push @cmd, "-httpport", $options->{'httpport'} if ($options->{'httpport'});
+      push @cmd, "-basehttpport", $options->{'basehttpport'} if ($options->{'basehttpport'});
+      push @cmd, "-localhost" if ($options->{'localhost'});
+      push @cmd, "-useold" if ($options->{'useold'});
+      push @cmd, "-cleanstale" if ($options->{'cleanstale'});
+      push @cmd, "-wmDecoration", $options->{'wmDecoration'} if ($options->{'wmDecoration'});
+    }
+    push @cmd, @ARGV;
+    print join(" ",@cmd), "\n" if $options->{'verbose'};
+    exec(@cmd);
+    # print "\"".join(" ",@cmd)."\"\n";
+    # die "\nCan't tell if $options->{'displayHost'} equals $host\n";
+    exit -1;
+  }
+
+  my $runningUserVncservers = &runningUserVncservers($options);
+  my @vncs = ();
+  if (defined $options->{'displayNumber'}) {
+    if ($options->{'displayNumber'} eq '*') {
+      push @vncs, sort keys %$runningUserVncservers;
+    } else {
+      push @vncs, $options->{'displayNumber'};
+    }
+  } elsif ($options->{'kill'} || $options->{'useold'}) {
+    push @vncs, sort keys %$runningUserVncservers;
+    if ($#vncs >= 1) {
+      print STDERR "$prog: This is ambiguous. Multiple vncservers are running for this user !\n";
+      foreach my $vnc (@vncs) {
+        print STDERR "  $runningUserVncservers->{$vnc}\n";
+      }
+      exit 1;
+    } elsif ($#vncs == -1) {
+      print STDERR "$prog: No vncserver running for this user !\n";
+      exit 1;
+    }
+  } else {
+    # Find display number.
+    push @vncs, &getDisplayNumber();
+  }
+  
+  if ($options->{'kill'}) {
+    my $err = 0;
+    
+    foreach my $vnc (@vncs) {
+      $options->{'displayNumber'} = $vnc;
+      $err |= &killXvncServer($options);
+    }
+    exit($err ? 1 : 0);
+  } else {
+    $options->{'displayNumber'} = $vncs[0];
+    
+    &checkGeometryAndDepth($options);
+    
+    if (!&checkDisplayNumberAvailable($options->{'displayNumber'}) &&
+        (!$runningUserVncservers->{$options->{'displayNumber'}} ||
+         !$options->{'useold'})) {
+      print STDERR "A VNC server is already running as :$options->{'displayNumber'}\n";
+      exit 1;
+    }
+    if ($runningUserVncservers->{$options->{'displayNumber'}}) {
+      print "\nUsing old '$options->{'desktopName'}' desktop at $host:$options->{'displayNumber'}\n\n";
+    } else {
+      &startXvncServer( $options );
+    }
+  }
+}
+
+&main;

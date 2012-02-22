@@ -1,0 +1,137 @@
+#!/usr/bin/make -f
+# debian/rules for the Debian tigervnc package.
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+# in which directory to build
+DEB_BUILDDIR = $(DEB_SRCDIR)/build
+
+# --disable-maintainer-mode does not seem to do its job! Why?!
+DEB_CONFIGURE_EXTRA_FLAGS += --disable-maintainer-mode
+
+DEB_CONFIGURE_USER_FLAGS += --with-tcpwrappers
+
+#DEB_AUTO_UPDATE_AUTOCONF=2.67
+#DEB_AUTO_UPDATE_AUTOHEADER=2.67
+#DEB_AUTO_UPDATE_AUTOMAKE=1.11
+#DEB_AUTO_UPDATE_ACLOCAL=1.11
+#DEB_AUTO_UPDATE_LIBTOOL
+
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/class/autotools.mk
+
+#flummy:
+#	echo '$$(DEB_ARCH_PACKAGES) $(DEB_ARCH_PACKAGES)'
+#	echo '$$(cdbs_configure_flags) $(cdbs_configure_flags)'
+#	echo '$$(DEB_CONFIGURE_EXTRA_FLAGS) $(DEB_CONFIGURE_EXTRA_FLAGS)'
+#	echo '$$(DEB_CONFIGURE_USER_FLAGS) $(DEB_CONFIGURE_USER_FLAGS)'
+
+configure/tigervnc-server:: $(DEB_BUILDDIR)/unix/xserver/configure.stamp
+
+XORG_DEBIAN_CONFIGURE_FLAGS := \
+	--with-default-font-path="/usr/share/fonts/X11/misc,/usr/share/fonts/X11/cyrillic,/usr/share/fonts/X11/100dpi/:unscaled,/usr/share/fonts/X11/75dpi/:unscaled,/usr/share/fonts/X11/Type1,/usr/share/fonts/X11/100dpi,/usr/share/fonts/X11/75dpi,/var/lib/defoma/x-ttcidfont-conf.d/dirs/TrueType,built-ins" \
+	--with-xkb-path=/usr/share/X11/xkb \
+	--with-xkb-output=/var/lib/xkb \
+	--with-default-xkb-rules=evdev \
+	--with-sha1=libgcrypt \
+	--with-int10=x86emu \
+	--with-os-vendor="Debian" \
+	--without-dtrace \
+	--disable-static \
+	--disable-werror \
+	--disable-debug \
+	--enable-unit-tests \
+	--disable-builddocs \
+	--disable-install-libxf86config \
+	--disable-null-root-cursor \
+	--enable-mitshm \
+	--enable-xres \
+	--disable-xcsecurity \
+	--disable-xcalibrate \
+	--disable-tslib \
+	--disable-multibuffer \
+	--enable-dbe \
+	--disable-xf86bigfont \
+	--enable-dpms \
+	--disable-config-dbus \
+	--enable-config-udev \
+	--disable-config-hal \
+	--enable-xorg \
+	--disable-xquartz \
+	--disable-xwin \
+	--disable-xsdl \
+	--disable-xfake \
+	--disable-install-setuid \
+	--enable-aiglx \
+	--enable-glx-tls \
+	--enable-registry \
+	--enable-composite \
+	--enable-record \
+	--enable-xv \
+	--enable-xvmc \
+	--enable-dga \
+	--enable-screensaver \
+	--enable-xdmcp \
+	--enable-xdm-auth-1 \
+	--enable-glx \
+	--enable-dri \
+	--enable-dri2 \
+	--enable-xinerama \
+	--enable-xf86vidmode \
+	--enable-xace \
+	--enable-xselinux \
+	--enable-xfree86-utils \
+	--enable-kdrive \
+	--enable-xcsecurity
+
+# Next step is run configure script. It is very difficult use correct parameters.
+# You should use same parameters as used in your distribution X server and add
+# --disable-xvfb --disable-xnest --disable-xorg
+$(DEB_BUILDDIR)/unix/xserver/configure.stamp:
+	mkdir -p $(DEB_BUILDDIR)/unix/xserver
+	chmod a+x unix/xserver/configure
+	cd $(DEB_BUILDDIR)/unix/xserver && \
+	  $(DEB_CONFIGURE_SCRIPT_ENV) ../../../unix/xserver/configure \
+		$(DEB_CONFIGURE_NORMAL_ARGS) \
+		$(cdbs_configure_flags) \
+		$(DEB_CONFIGURE_EXTRA_FLAGS) \
+		$(DEB_CONFIGURE_USER_FLAGS) \
+		$(XORG_DEBIAN_CONFIGURE_FLAGS) \
+		--with-builderstring="tigervnc-xorg-server 1.0.90.:1.7.7-13 (Joachim Falk <joachim.falk@gmx.de>)" \
+		--disable-xfbdev \
+		--disable-dmx \
+		--disable-xvfb \
+		--disable-xnest \
+		--disable-xephyr \
+		--disable-xorg
+	touch $@
+
+build/tigervnc-server::
+	cd $(DEB_BUILDDIR)/unix/xserver && make
+
+install/tigervnc-server::
+	mkdir -p debian/tmp/usr/bin
+	cp -pr $(DEB_BUILDDIR)/unix/xserver/hw/vnc/Xvnc \
+	  debian/tmp/usr/bin
+	mv debian/tmp/usr/bin/vncviewer \
+	  debian/tmp/usr/bin/xvncviewer 
+	mv debian/tmp/usr/share/man/man1/vncviewer.1 \
+	  debian/tmp/usr/share/man/man1/xvncviewer.1
+	find debian/tmp -name "*vnc*" | while read line; do \
+	  mv "$$line" `echo "$$line" | sed -e 's/vnc/tigervnc/g'`; \
+	done
+	cp -pr debian/helpers/* \
+	  debian/tmp
+	find debian/tmp/usr/share/man -type f | while read line; do \
+	  sed -e 's/\<vncviewer\>/xtigervncviewer/g' \
+	      -e 's/\<vncpasswd\>/tigervncpasswd/g' \
+	      -e 's/\<vncconfig\>/tigervncconfig/g' \
+	      -e 's/\<vncserver\>/tigervncserver/g' \
+	      -e 's/\<Xvnc\>/Xtigervnc/g' $$line | \
+	    gzip -9 > $$line.gz; \
+	  rm -f $$line; \
+	done
+
+clean::
+	rm -rf $(DEB_BUILDDIR)

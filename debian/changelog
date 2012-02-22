@@ -1,0 +1,65 @@
+tigervnc (1.1.0-2jf) stable; urgency=low
+
+  * Added RH patch tigervnc11-ldnow.patch disabling lazy symbol resolution for libvnc.so
+
+  * Added RH patch tigervnc11-rh690245.patch which add TLS encryption to VeNCrypt
+    
+      TigerVNC (Xvnc, x0vncserver, the libvnc.so module, and vncviewer) now
+      supports TLS encryption (using VeNCrypt) which allows TLS encrypted
+      communication between a server and a viewer. (BZ#653491)
+
+  * Added RH patch tigervnc11-rh588342.patch which fixes EQ overflowing bug.
+    
+      Xvnc could become unresponsive and the following error message was shown
+      in the log: "[mi] EQ overflowing. The server is probably stuck in an
+      infinite loop.". This was caused by a large number of user input events
+      in the Xvnc event queue, which were being processed too slowly. With
+      this update, this issue no longer occurs and the system works as
+      expected. (BZ#588342)
+
+  * Add RH patch tigervnc11-rh628054-xorg.patch which fixes vmware keyboard interaction bug.
+    
+      Prior to this update, Xvnc (the X VNC server; part of the tigervnc
+      package) did not pass keyboard input to a remote VMware workstation
+      because it did not take into account types of keyboards which do not
+      have modifier keys. With this update, Xvnc recognizes all types of
+      keyboards; thus, keyboard input is correctly passed to remote VMware
+      workstations. (BZ#628054)
+
+  * Add RH patch tigervnc11-rh645755.patch fix signal interrupted read
+    
+      The Xvnc server randomly refused connections when the reading of the
+      password file (provided when starting Xvnc with the "-PasswordFile"
+      option) was interrupted by a signal. With this update, the loading of a
+      password file continues after an interrupt signal is issued and
+      connections are no longer refused. (BZ#645755)
+
+  * Apply RH patch tigervnc-viewer-reparent.patch which adds vncviewer embedding support via -Parent option.
+
+  * Apply RH patch tigervnc-102434.patch which adds -passwdInput option to vncviewer.
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Thu, 13 Oct 2011 20:12:48 +0200
+
+tigervnc (1.1.0-1jf) stable; urgency=low
+
+  * Updated to tigervnc 1.1.0
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Mon, 12 Sep 2011 08:08:35 +0200
+
+tigervnc (1.0.90-3jf) stable; urgency=low
+
+  * added tcpwrappers support
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Sun, 04 Sep 2011 15:49:07 +0200
+
+tigervnc (1.0.90-2jf) stable; urgency=low
+
+  * vncviewer => xvncviewer
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Sun, 31 Jul 2011 22:26:46 +0200
+ 
+tigervnc (1.0.90-1jf) stable; urgency=low
+
+  * Initial dpk package
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Sun, 31 Jul 2011 21:36:46 +0200
