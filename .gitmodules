@@ -1,0 +1,3 @@
+[submodule "xorg-server"]
+	path = xorg-server
+	url = git://git.debian.org/git/pkg-xorg/xserver/xorg-server
