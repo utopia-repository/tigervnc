@@ -8,6 +8,12 @@ include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/class/cmake.mk
 include /usr/share/cdbs/1/class/autotools-files.mk
 
+# xorg patches first
+post-patches:: xorg-apply-patches
+clean:: xorg-reverse-patches
+
+include /usr/share/cdbs/1/rules/patchsys-quilt.mk
+
 # Where the tigervnc sources are
 DEB_SRCDIR   = tigervnc
 # Where to built tigervnc
@@ -29,6 +35,12 @@ DEB_CONFIGURE_USER_FLAGS += --with-tcpwrappers
 #	echo '$$(cdbs_configure_flags) $(cdbs_configure_flags)'
 #	echo '$$(DEB_CONFIGURE_EXTRA_FLAGS) $(DEB_CONFIGURE_EXTRA_FLAGS)'
 #	echo '$$(DEB_CONFIGURE_USER_FLAGS) $(DEB_CONFIGURE_USER_FLAGS)'
+
+xorg-apply-patches:
+	cd $(CURDIR)/xorg-server && debian/rules patch
+
+xorg-reverse-patches:
+	cd $(CURDIR)/xorg-server && debian/rules unpatch
 
 configure/tigervnc-server:: $(DEB_BUILDDIR)/unix/xserver/configure.stamp
 
