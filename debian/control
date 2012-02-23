@@ -10,6 +10,7 @@ Uploaders: Joachim Falk <joachim.falk@gmx.de>
 # everything on is for the DMX and Xnest servers.
 Build-Depends:
  debhelper (>= 5.0.0),
+ cdbs (>= 0.4.89),
  quilt,
  lsb-release,
  pkg-config,
