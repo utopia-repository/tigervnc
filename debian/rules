@@ -4,8 +4,14 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-# in which directory to build
-DEB_BUILDDIR = $(DEB_SRCDIR)/build
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/class/cmake.mk
+include /usr/share/cdbs/1/class/autotools-files.mk
+
+# Where the tigervnc sources are
+DEB_SRCDIR   = tigervnc
+# Where to built tigervnc
+DEB_BUILDDIR = $(CURDIR)/build/tigervnc
 
 # --disable-maintainer-mode does not seem to do its job! Why?!
 DEB_CONFIGURE_EXTRA_FLAGS += --disable-maintainer-mode
@@ -17,9 +23,6 @@ DEB_CONFIGURE_USER_FLAGS += --with-tcpwrappers
 #DEB_AUTO_UPDATE_AUTOMAKE=1.11
 #DEB_AUTO_UPDATE_ACLOCAL=1.11
 #DEB_AUTO_UPDATE_LIBTOOL
-
-include /usr/share/cdbs/1/rules/debhelper.mk
-include /usr/share/cdbs/1/class/autotools.mk
 
 #flummy:
 #	echo '$$(DEB_ARCH_PACKAGES) $(DEB_ARCH_PACKAGES)'
