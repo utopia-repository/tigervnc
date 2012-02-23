@@ -1,3 +1,10 @@
+tigervnc (1.1.90-1jf) stable; urgency=low
+
+  * Updated to tigervnc 1.1.90
+  * Updated to xorg-server (2:1.7.7-14) squeeze
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Wed, 22 Feb 2012 22:24:01 +0100
+
 tigervnc (1.1.0-2jf) stable; urgency=low
 
   * Added RH patch tigervnc11-ldnow.patch disabling lazy symbol resolution for libvnc.so
