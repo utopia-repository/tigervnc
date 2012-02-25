@@ -1,4 +1,4 @@
-0001-Apply-RH-patch-tigervnc-viewer-reparent.patch-which-.patch
+# 0001-Apply-RH-patch-tigervnc-viewer-reparent.patch-which-.patch needs heavy porting, as tigervnc switched to fltk to unify their windows/unix codebases for vncviewer
 0002-Add-RH-patch-tigervnc11-rh645755.patch-fix-signal-in.patch
 0003-Add-RH-patch-tigervnc11-rh628054-xorg.patch-which-fi.patch
 0004-Added-RH-patch-tigervnc11-rh588342.patch-which-fixes.patch
