@@ -6,31 +6,29 @@
 
 include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/class/cmake.mk
-include /usr/share/cdbs/1/class/autotools-files.mk
 
 # Do our complex patch dance first! After that quilt patch system can proceed!
-clean:: unpatch
+clean:: unpatch clean-xorg
 unpatch: reverse-patches-dance
 apply-patches: apply-patches-dance
 reverse-patches-dance: reverse-patches
 
 include /usr/share/cdbs/1/rules/patchsys-quilt.mk
 
+DEB_DH_AUTORECONF_ARGS       = $(CURDIR)/xorg-autoreconf.sh
+DEB_DH_AUTORECONF_CLEAN_ARGS =
+
+#include /usr/share/cdbs/1/rules/autoreconf.mk we need the deautoreconf in the unpatch sequence
+
 # Where the tigervnc sources are
 DEB_SRCDIR   = tigervnc
 # Where to built tigervnc
-DEB_BUILDDIR = $(CURDIR)/build/tigervnc
+DEB_BUILDDIR = $(CURDIR)/build
 
 # --disable-maintainer-mode does not seem to do its job! Why?!
 DEB_CONFIGURE_EXTRA_FLAGS += --disable-maintainer-mode
 
 DEB_CONFIGURE_USER_FLAGS += --with-tcpwrappers
-
-#DEB_AUTO_UPDATE_AUTOCONF=2.67
-#DEB_AUTO_UPDATE_AUTOHEADER=2.67
-#DEB_AUTO_UPDATE_AUTOMAKE=1.11
-#DEB_AUTO_UPDATE_ACLOCAL=1.11
-#DEB_AUTO_UPDATE_LIBTOOL
 
 #flummy:
 #	echo '$$(DEB_ARCH_PACKAGES) $(DEB_ARCH_PACKAGES)'
@@ -47,6 +45,15 @@ apply-patches-unify-xorg-and-vnc-tree: apply-patches-xorg
 reverse-patches-dance: reverse-patches-xorg
 reverse-patches-xorg: reverse-patches-remove-xorg-from-vnc-tree
 reverse-patches-remove-xorg-from-vnc-tree: reverse-patches-vnc-unpatch-xorg
+reverse-patches-vnc-unpatch-xorg: reverse-patches-deautoreconf
+
+.PHONY: reverse-patches-deautoreconf
+
+post-patches::
+	dh_autoreconf $(DEB_DH_AUTORECONF_ARGS)
+
+reverse-patches-deautoreconf:
+	dh_autoreconf_clean $(DEB_DH_AUTORECONF_CLEAN_ARGS)
 
 .PHONY: apply-patches-vnc-patch-xorg reverse-patches-vnc-unpatch-xorg
 
@@ -81,13 +88,16 @@ reverse-patches-remove-xorg-from-vnc-tree:
 		rm -f .apply-patches-unify-xorg-and-vnc-tree.stamp; \
 	fi
 
-.PHONY: apply-patches-xorg reverse-patches-xorg
+.PHONY: apply-patches-xorg reverse-patches-xorg clean-xorg
 
 apply-patches-xorg:
 	cd $(CURDIR)/xorg-server && debian/rules patch
 
 reverse-patches-xorg:
 	cd $(CURDIR)/xorg-server && debian/rules unpatch
+
+clean-xorg:
+	cd $(CURDIR)/xorg-server && debian/rules clean
 
 configure/tigervnc-server:: $(DEB_BUILDDIR)/unix/xserver/configure.stamp
 
@@ -153,15 +163,20 @@ XORG_DEBIAN_CONFIGURE_FLAGS := \
 # --disable-xvfb --disable-xnest --disable-xorg
 $(DEB_BUILDDIR)/unix/xserver/configure.stamp:
 	mkdir -p $(DEB_BUILDDIR)/unix/xserver
-	chmod a+x unix/xserver/configure
+#	cd $(DEB_SRCDIR)/unix/xserver && { \
+#	  if ! test -f configure; then \
+#	    autoreconf --force -v --install; \
+#	  fi; \
+#	  chmod a+x configure; \
+#	}
 	cd $(DEB_BUILDDIR)/unix/xserver && \
-	  $(DEB_CONFIGURE_SCRIPT_ENV) ../../../unix/xserver/configure \
+	  $(DEB_CONFIGURE_SCRIPT_ENV) ../../../tigervnc/unix/xserver/configure \
 		$(DEB_CONFIGURE_NORMAL_ARGS) \
 		$(cdbs_configure_flags) \
 		$(DEB_CONFIGURE_EXTRA_FLAGS) \
 		$(DEB_CONFIGURE_USER_FLAGS) \
 		$(XORG_DEBIAN_CONFIGURE_FLAGS) \
-		--with-builderstring="tigervnc-xorg-server 1.0.90.:1.7.7-13 (Joachim Falk <joachim.falk@gmx.de>)" \
+		--with-builderstring="tigervnc-xorg-server 1.1.90.:1.7.7-14 (Joachim Falk <joachim.falk@gmx.de>)" \
 		--disable-xfbdev \
 		--disable-dmx \
 		--disable-xvfb \
