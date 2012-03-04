@@ -99,69 +99,77 @@ reverse-patches-xorg:
 clean-xorg:
 	cd $(CURDIR)/xorg-server && debian/rules clean
 
+$(DEB_BUILDDIR)/unix/xserver/debian/confflags: post-patches
+	mkdir -p $(dir $@)
+	cd $(DEB_SRCDIR)/unix/xserver && { \
+		debian/rules echo_confflags | sed -ne '/^CONFFLAGS:/{s/^[^:]*:\s*//;p}' > $@; \
+	}
+
 configure/tigervnc-server:: $(DEB_BUILDDIR)/unix/xserver/configure.stamp
 
-#FIXME: We need to get this automatically from the debian xorg package!
-XORG_DEBIAN_CONFIGURE_FLAGS := \
-	--with-default-font-path="/usr/share/fonts/X11/misc,/usr/share/fonts/X11/cyrillic,/usr/share/fonts/X11/100dpi/:unscaled,/usr/share/fonts/X11/75dpi/:unscaled,/usr/share/fonts/X11/Type1,/usr/share/fonts/X11/100dpi,/usr/share/fonts/X11/75dpi,/var/lib/defoma/x-ttcidfont-conf.d/dirs/TrueType,built-ins" \
-	--with-xkb-path=/usr/share/X11/xkb \
-	--with-xkb-output=/var/lib/xkb \
-	--with-default-xkb-rules=evdev \
-	--with-sha1=libgcrypt \
-	--with-int10=x86emu \
-	--with-os-vendor="Debian" \
-	--without-dtrace \
-	--disable-static \
-	--disable-werror \
-	--disable-debug \
-	--enable-unit-tests \
-	--disable-builddocs \
-	--disable-install-libxf86config \
-	--disable-null-root-cursor \
-	--enable-mitshm \
-	--enable-xres \
-	--disable-xcsecurity \
-	--disable-xcalibrate \
-	--disable-tslib \
-	--disable-multibuffer \
-	--enable-dbe \
-	--disable-xf86bigfont \
-	--enable-dpms \
-	--disable-config-dbus \
-	--enable-config-udev \
-	--disable-config-hal \
-	--enable-xorg \
-	--disable-xquartz \
-	--disable-xwin \
-	--disable-xsdl \
-	--disable-xfake \
-	--disable-install-setuid \
-	--enable-aiglx \
-	--enable-glx-tls \
-	--enable-registry \
-	--enable-composite \
-	--enable-record \
-	--enable-xv \
-	--enable-xvmc \
-	--enable-dga \
-	--enable-screensaver \
-	--enable-xdmcp \
-	--enable-xdm-auth-1 \
-	--enable-glx \
-	--enable-dri \
-	--enable-dri2 \
-	--enable-xinerama \
-	--enable-xf86vidmode \
-	--enable-xace \
-	--enable-xselinux \
-	--enable-xfree86-utils \
-	--enable-kdrive \
-	--enable-xcsecurity
+##FIXME: We need to get this automatically from the debian xorg package!
+#XORG_DEBIAN_CONFIGURE_FLAGS := \
+#	--with-default-font-path="/usr/share/fonts/X11/misc,/usr/share/fonts/X11/cyrillic,/usr/share/fonts/X11/100dpi/:unscaled,/usr/share/fonts/X11/75dpi/:unscaled,/usr/share/fonts/X11/Type1,/usr/share/fonts/X11/100dpi,/usr/share/fonts/X11/75dpi,/var/lib/defoma/x-ttcidfont-conf.d/dirs/TrueType,built-ins" \
+#	--with-xkb-path=/usr/share/X11/xkb \
+#	--with-xkb-output=/var/lib/xkb \
+#	--with-default-xkb-rules=evdev \
+#	--with-sha1=libgcrypt \
+#	--with-int10=x86emu \
+#	--with-os-vendor="Debian" \
+#	--without-dtrace \
+#	--disable-static \
+#	--disable-werror \
+#	--disable-debug \
+#	--enable-unit-tests \
+#	--disable-builddocs \
+#	--disable-install-libxf86config \
+#	--disable-null-root-cursor \
+#	--enable-mitshm \
+#	--enable-xres \
+#	--disable-xcsecurity \
+#	--disable-xcalibrate \
+#	--disable-tslib \
+#	--disable-multibuffer \
+#	--enable-dbe \
+#	--disable-xf86bigfont \
+#	--enable-dpms \
+#	--disable-config-dbus \
+#	--enable-config-udev \
+#	--disable-config-hal \
+#	--enable-xorg \
+#	--disable-xquartz \
+#	--disable-xwin \
+#	--disable-xsdl \
+#	--disable-xfake \
+#	--disable-install-setuid \
+#	--enable-aiglx \
+#	--enable-glx-tls \
+#	--enable-registry \
+#	--enable-composite \
+#	--enable-record \
+#	--enable-xv \
+#	--enable-xvmc \
+#	--enable-dga \
+#	--enable-screensaver \
+#	--enable-xdmcp \
+#	--enable-xdm-auth-1 \
+#	--enable-glx \
+#	--enable-dri \
+#	--enable-dri2 \
+#	--enable-xinerama \
+#	--enable-xf86vidmode \
+#	--enable-xace \
+#	--enable-xselinux \
+#	--enable-xfree86-utils \
+#	--enable-kdrive \
+#	--enable-xcsecurity
+
+XORG_DEBIAN_CONFIGURE_FLAGS = $(shell cat $(DEB_BUILDDIR)/unix/xserver/debian/confflags)
 
 # Next step is run configure script. It is very difficult use correct parameters.
 # You should use same parameters as used in your distribution X server and add
 # --disable-xvfb --disable-xnest --disable-xorg
-$(DEB_BUILDDIR)/unix/xserver/configure.stamp:
+$(DEB_BUILDDIR)/unix/xserver/configure.stamp: $(DEB_BUILDDIR)/unix/xserver/debian/confflags
 	mkdir -p $(DEB_BUILDDIR)/unix/xserver
 #	cd $(DEB_SRCDIR)/unix/xserver && { \
 #	  if ! test -f configure; then \
@@ -182,7 +190,10 @@ $(DEB_BUILDDIR)/unix/xserver/configure.stamp:
 		--disable-xvfb \
 		--disable-xnest \
 		--disable-xephyr \
-		--disable-xorg
+		--disable-xorg \
+		--disable-dri \
+		--disable-dri2
+
 	touch $@
 
 build/tigervnc-server::
