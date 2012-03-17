@@ -9,8 +9,12 @@ Uploaders: Joachim Falk <joachim.falk@gmx.de>
 # x11proto-print-dev and libfreetype6-dev are for Xprint
 # everything on is for the DMX and Xnest servers.
 Build-Depends:
- debhelper (>= 5.0.0),
  cdbs (>= 0.4.89),
+ zlib1g-dev,
+ libfltk1.1-dev,
+ libwrap0-dev,
+# this are dependencies from xorg deb
+ debhelper (>= 5.0.0),
  quilt,
  lsb-release,
  pkg-config,
@@ -18,7 +22,6 @@ Build-Depends:
  flex,
  automake,
  libtool,
- libwrap0-dev,
  xutils-dev (>= 1:7.4+4),
  x11proto-bigreqs-dev (>= 1:1.1.0),
  x11proto-composite-dev (>= 1:0.4), 

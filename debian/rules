@@ -27,14 +27,18 @@ DEB_BUILDDIR = $(CURDIR)/build
 
 # --disable-maintainer-mode does not seem to do its job! Why?!
 DEB_CONFIGURE_EXTRA_FLAGS += --disable-maintainer-mode
+DEB_CONFIGURE_EXTRA_FLAGS += --with-tcpwrappers
 
-DEB_CONFIGURE_USER_FLAGS += --with-tcpwrappers
+DEB_CMAKE_INSTALL_PREFIX  = /usr
+DEB_CMAKE_EXTRA_FLAGS     += -DUSE_INCLUDED_ZLIB:BOOL=OFF
+DEB_CMAKE_EXTRA_FLAGS     += -DUSE_INCLUDED_FLTK:BOOL=OFF
 
 #flummy:
 #	echo '$$(DEB_ARCH_PACKAGES) $(DEB_ARCH_PACKAGES)'
 #	echo '$$(cdbs_configure_flags) $(cdbs_configure_flags)'
 #	echo '$$(DEB_CONFIGURE_EXTRA_FLAGS) $(DEB_CONFIGURE_EXTRA_FLAGS)'
 #	echo '$$(DEB_CONFIGURE_USER_FLAGS) $(DEB_CONFIGURE_USER_FLAGS)'
+#	echo '$$(DEB_CMAKE_EXTRA_FLAGS) $(DEB_CMAKE_EXTRA_FLAGS)'
 
 .PHONY: apply-patches-dance reverse-patches-dance
 
@@ -49,11 +53,16 @@ reverse-patches-vnc-unpatch-xorg: reverse-patches-deautoreconf
 
 .PHONY: reverse-patches-deautoreconf
 
-post-patches::
-	dh_autoreconf $(DEB_DH_AUTORECONF_ARGS)
+post-patches:: $(DEB_SRCDIR)/unix/xserver/.autoreconf-xorg.stamp
+
+$(DEB_SRCDIR)/unix/xserver/.autoreconf-xorg.stamp:
+	dh_autoreconf $(DEB_DH_AUTORECONF_ARGS) && touch $@
 
 reverse-patches-deautoreconf:
-	dh_autoreconf_clean $(DEB_DH_AUTORECONF_CLEAN_ARGS)
+	if test -f $(DEB_SRCDIR)/unix/xserver/.autoreconf-xorg.stamp; then \
+	  dh_autoreconf_clean $(DEB_DH_AUTORECONF_CLEAN_ARGS); \
+	  rm -f $(DEB_SRCDIR)/unix/xserver/.autoreconf-xorg.stamp; \
+	fi
 
 .PHONY: apply-patches-vnc-patch-xorg reverse-patches-vnc-unpatch-xorg
 
@@ -99,70 +108,13 @@ reverse-patches-xorg:
 clean-xorg:
 	cd $(CURDIR)/xorg-server && debian/rules clean
 
-$(DEB_BUILDDIR)/unix/xserver/debian/confflags: post-patches
+$(DEB_BUILDDIR)/unix/xserver/debian/confflags:
 	mkdir -p $(dir $@)
 	cd $(DEB_SRCDIR)/unix/xserver && { \
 		debian/rules echo_confflags | sed -ne '/^CONFFLAGS:/{s/^[^:]*:\s*//;p}' > $@; \
 	}
 
 configure/tigervnc-server:: $(DEB_BUILDDIR)/unix/xserver/configure.stamp
-
-##FIXME: We need to get this automatically from the debian xorg package!
-#XORG_DEBIAN_CONFIGURE_FLAGS := \
-#	--with-default-font-path="/usr/share/fonts/X11/misc,/usr/share/fonts/X11/cyrillic,/usr/share/fonts/X11/100dpi/:unscaled,/usr/share/fonts/X11/75dpi/:unscaled,/usr/share/fonts/X11/Type1,/usr/share/fonts/X11/100dpi,/usr/share/fonts/X11/75dpi,/var/lib/defoma/x-ttcidfont-conf.d/dirs/TrueType,built-ins" \
-#	--with-xkb-path=/usr/share/X11/xkb \
-#	--with-xkb-output=/var/lib/xkb \
-#	--with-default-xkb-rules=evdev \
-#	--with-sha1=libgcrypt \
-#	--with-int10=x86emu \
-#	--with-os-vendor="Debian" \
-#	--without-dtrace \
-#	--disable-static \
-#	--disable-werror \
-#	--disable-debug \
-#	--enable-unit-tests \
-#	--disable-builddocs \
-#	--disable-install-libxf86config \
-#	--disable-null-root-cursor \
-#	--enable-mitshm \
-#	--enable-xres \
-#	--disable-xcsecurity \
-#	--disable-xcalibrate \
-#	--disable-tslib \
-#	--disable-multibuffer \
-#	--enable-dbe \
-#	--disable-xf86bigfont \
-#	--enable-dpms \
-#	--disable-config-dbus \
-#	--enable-config-udev \
-#	--disable-config-hal \
-#	--enable-xorg \
-#	--disable-xquartz \
-#	--disable-xwin \
-#	--disable-xsdl \
-#	--disable-xfake \
-#	--disable-install-setuid \
-#	--enable-aiglx \
-#	--enable-glx-tls \
-#	--enable-registry \
-#	--enable-composite \
-#	--enable-record \
-#	--enable-xv \
-#	--enable-xvmc \
-#	--enable-dga \
-#	--enable-screensaver \
-#	--enable-xdmcp \
-#	--enable-xdm-auth-1 \
-#	--enable-glx \
-#	--enable-dri \
-#	--enable-dri2 \
-#	--enable-xinerama \
-#	--enable-xf86vidmode \
-#	--enable-xace \
-#	--enable-xselinux \
-#	--enable-xfree86-utils \
-#	--enable-kdrive \
-#	--enable-xcsecurity
 
 XORG_DEBIAN_CONFIGURE_FLAGS = $(shell cat $(DEB_BUILDDIR)/unix/xserver/debian/confflags)
 
@@ -171,12 +123,6 @@ XORG_DEBIAN_CONFIGURE_FLAGS = $(shell cat $(DEB_BUILDDIR)/unix/xserver/debian/co
 # --disable-xvfb --disable-xnest --disable-xorg
 $(DEB_BUILDDIR)/unix/xserver/configure.stamp: $(DEB_BUILDDIR)/unix/xserver/debian/confflags
 	mkdir -p $(DEB_BUILDDIR)/unix/xserver
-#	cd $(DEB_SRCDIR)/unix/xserver && { \
-#	  if ! test -f configure; then \
-#	    autoreconf --force -v --install; \
-#	  fi; \
-#	  chmod a+x configure; \
-#	}
 	cd $(DEB_BUILDDIR)/unix/xserver && \
 	  $(DEB_CONFIGURE_SCRIPT_ENV) ../../../tigervnc/unix/xserver/configure \
 		$(DEB_CONFIGURE_NORMAL_ARGS) \
@@ -193,18 +139,19 @@ $(DEB_BUILDDIR)/unix/xserver/configure.stamp: $(DEB_BUILDDIR)/unix/xserver/debia
 		--disable-xorg \
 		--disable-dri \
 		--disable-dri2
-
 	touch $@
 
 build/tigervnc-server::
 	cd $(DEB_BUILDDIR)/unix/xserver && make
 
 install/tigervnc-server::
-	mkdir -p debian/tmp/usr/bin
+	mkdir -p debian/tmp/usr/bin debian/tmp/usr/share
 	cp -pr $(DEB_BUILDDIR)/unix/xserver/hw/vnc/Xvnc \
 	  debian/tmp/usr/bin
+	mv debian/tmp/usr/man \
+	  debian/tmp/usr/share
 	mv debian/tmp/usr/bin/vncviewer \
-	  debian/tmp/usr/bin/xvncviewer 
+	  debian/tmp/usr/bin/xvncviewer
 	mv debian/tmp/usr/share/man/man1/vncviewer.1 \
 	  debian/tmp/usr/share/man/man1/xvncviewer.1
 	find debian/tmp -name "*vnc*" | while read line; do \
