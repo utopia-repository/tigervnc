@@ -4,6 +4,13 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+# Where the tigervnc sources are
+DEB_SRCDIR   = tigervnc
+# Don't override DEB_BUILDDIR as /usr/share/cdbs/1/class/cmake.mk does not
+# support this
+## Where to built tigervnc
+#DEB_BUILDDIR = $(CURDIR)/obj-$(DEB_BUILD_GNU_TYPE)
+
 include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/class/cmake.mk
 
@@ -19,11 +26,6 @@ DEB_DH_AUTORECONF_ARGS       = $(CURDIR)/xorg-autoreconf.sh
 DEB_DH_AUTORECONF_CLEAN_ARGS =
 
 #include /usr/share/cdbs/1/rules/autoreconf.mk we need the deautoreconf in the unpatch sequence
-
-# Where the tigervnc sources are
-DEB_SRCDIR   = tigervnc
-# Where to built tigervnc
-DEB_BUILDDIR = $(CURDIR)/build
 
 # --disable-maintainer-mode does not seem to do its job! Why?!
 DEB_CONFIGURE_EXTRA_FLAGS += --disable-maintainer-mode
@@ -110,9 +112,8 @@ clean-xorg:
 
 $(DEB_BUILDDIR)/unix/xserver/debian/confflags:
 	mkdir -p $(dir $@)
-	cd $(DEB_SRCDIR)/unix/xserver && { \
-		debian/rules echo_confflags | sed -ne '/^CONFFLAGS:/{s/^[^:]*:\s*//;p}' > $@; \
-	}
+	( cd $(DEB_SRCDIR)/unix/xserver && debian/rules echo_confflags ) | \
+	  sed -ne '/^CONFFLAGS:/{s/^[^:]*:\s*//;p}' > $@
 
 configure/tigervnc-server:: $(DEB_BUILDDIR)/unix/xserver/configure.stamp
 
