@@ -1,0 +1,11 @@
+*.substvars
+stamp-*
+autoreconf.after
+autoreconf.before
+tigervnc-common
+tigervnc-standalone-server
+tigervnc-scraping-server
+tigervnc-xorg-extension/
+tigervnc-viewer
+tmp
+files
