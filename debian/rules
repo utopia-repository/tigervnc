@@ -36,10 +36,7 @@ DEB_CMAKE_EXTRA_FLAGS     += -DUSE_INCLUDED_ZLIB:BOOL=OFF
 DEB_CMAKE_EXTRA_FLAGS     += -DUSE_INCLUDED_FLTK:BOOL=OFF
 
 #flummy:
-#	echo '$$(DEB_ARCH_PACKAGES) $(DEB_ARCH_PACKAGES)'
-#	echo '$$(cdbs_configure_flags) $(cdbs_configure_flags)'
 #	echo '$$(DEB_CONFIGURE_EXTRA_FLAGS) $(DEB_CONFIGURE_EXTRA_FLAGS)'
-#	echo '$$(DEB_CONFIGURE_USER_FLAGS) $(DEB_CONFIGURE_USER_FLAGS)'
 #	echo '$$(DEB_CMAKE_EXTRA_FLAGS) $(DEB_CMAKE_EXTRA_FLAGS)'
 
 .PHONY: apply-patches-dance reverse-patches-dance
@@ -115,7 +112,7 @@ $(DEB_BUILDDIR)/unix/xserver/debian/confflags:
 	( cd $(DEB_SRCDIR)/unix/xserver && debian/rules echo_confflags ) | \
 	  sed -ne '/^CONFFLAGS:/{s/^[^:]*:\s*//;p}' > $@
 
-configure/tigervnc-server:: $(DEB_BUILDDIR)/unix/xserver/configure.stamp
+configure/tigervnc-standalone-server configure/tigervnc-xorg-extension:: $(DEB_BUILDDIR)/unix/xserver/configure.stamp
 
 XORG_DEBIAN_CONFIGURE_FLAGS = $(shell cat $(DEB_BUILDDIR)/unix/xserver/debian/confflags)
 
@@ -126,11 +123,13 @@ $(DEB_BUILDDIR)/unix/xserver/configure.stamp: $(DEB_BUILDDIR)/unix/xserver/debia
 	mkdir -p $(DEB_BUILDDIR)/unix/xserver
 	cd $(DEB_BUILDDIR)/unix/xserver && \
 	  $(DEB_CONFIGURE_SCRIPT_ENV) ../../../tigervnc/unix/xserver/configure \
-		$(DEB_CONFIGURE_NORMAL_ARGS) \
-		$(cdbs_configure_flags) \
-		$(DEB_CONFIGURE_EXTRA_FLAGS) \
-		$(DEB_CONFIGURE_USER_FLAGS) \
+		--prefix=/usr \
+		--mandir=\$${prefix}/share/man \
+		--infodir=\$${prefix}/share/info \
+		--sysconfdir=/etc \
+		--localstatedir=/var \
 		$(XORG_DEBIAN_CONFIGURE_FLAGS) \
+		$(DEB_CONFIGURE_EXTRA_FLAGS) \
 		--with-builderstring="tigervnc-xorg-server 1.1.90.:1.7.7-14 (Joachim Falk <joachim.falk@gmx.de>)" \
 		--disable-xfbdev \
 		--disable-dmx \
@@ -142,20 +141,29 @@ $(DEB_BUILDDIR)/unix/xserver/configure.stamp: $(DEB_BUILDDIR)/unix/xserver/debia
 		--disable-dri2
 	touch $@
 
-build/tigervnc-server::
-	cd $(DEB_BUILDDIR)/unix/xserver && make
+build/tigervnc-standalone-server build/tigervnc-xorg-extension::
+	$(MAKE) -C $(DEB_BUILDDIR)/unix/xserver
 
-install/tigervnc-server::
-	mkdir -p debian/tmp/usr/bin debian/tmp/usr/share
-	cp -pr $(DEB_BUILDDIR)/unix/xserver/hw/vnc/Xvnc \
-	  debian/tmp/usr/bin
-	mv debian/tmp/usr/man \
-	  debian/tmp/usr/share
-	mv debian/tmp/usr/bin/vncviewer \
-	  debian/tmp/usr/bin/xvncviewer
-	mv debian/tmp/usr/share/man/man1/vncviewer.1 \
-	  debian/tmp/usr/share/man/man1/xvncviewer.1
-	find debian/tmp -name "*vnc*" | while read line; do \
+install/tigervnc-common::
+	mkdir -p $(DEB_DESTDIR)/usr/share/doc
+	mv $(DEB_DESTDIR)/usr/man \
+	  $(DEB_DESTDIR)/usr/share
+	mv $(DEB_DESTDIR)/usr/doc \
+	  $(DEB_DESTDIR)/usr/share/doc/tigervnc-common
+
+install/tigervnc-viewer::
+	mv $(DEB_DESTDIR)/usr/bin/vncviewer \
+	  $(DEB_DESTDIR)/usr/bin/xvncviewer
+	mv $(DEB_DESTDIR)/usr/share/man/man1/vncviewer.1 \
+	  $(DEB_DESTDIR)/usr/share/man/man1/xvncviewer.1
+
+install/tigervnc-standalone-server install/tigervnc-xorg-extension::
+	$(MAKE) -C $(DEB_BUILDDIR)/unix/xserver/hw/vnc DESTDIR=$(DEB_DESTDIR) install
+
+common-binary-arch common-binary-indep:: debian/tmp/common-binary-impl.stamp
+
+debian/tmp/common-binary-impl.stamp:
+	cd $(DEB_DESTDIR) && find usr/bin usr/share/man -name "*vnc*" | while read line; do \
 	  mv "$$line" `echo "$$line" | sed -e 's/vnc/tigervnc/g'`; \
 	done
 	cp -pr debian/helpers/* \
@@ -169,6 +177,7 @@ install/tigervnc-server::
 	    gzip -9 > $$line.gz; \
 	  rm -f $$line; \
 	done
+	touch $@
 
 clean::
 	rm -rf $(DEB_BUILDDIR)

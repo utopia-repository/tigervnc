@@ -86,12 +86,27 @@ Standards-Version: 3.8.4
 Vcs-Git: git://git.debian.org/git/pkg-xorg/xserver/xorg-server
 Vcs-Browser: http://git.debian.org/?p=pkg-xorg/xserver/xorg-server.git
 
-Package: tigervnc-server
+Package: tigervnc-common
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+Description: Virtual network computing; Common software needed by clients and servers
+ VNC stands for Virtual Network Computing. It is, in essence, a remote
+ display system which allows you to view a computing `desktop' environment
+ not only on the machine where it is running, but from anywhere on the
+ Internet and from a wide variety of machine architectures.
+ .
+ It is implemented in a client/server model. This package provides the common
+ software for both client and server.
+
+Package: tigervnc-scraping-server
 Architecture: any
 Depends:
  xserver-common (>= 2:1.7.7),
  keyboard-configuration [linux-any kfreebsd-any],
  udev (>= 149) [linux-any],
+ tigervnc-common,
  ${shlibs:Depends},
  ${misc:Depends},
 Recommends: libgl1-mesa-dri (>= 7.1~rc1)
@@ -106,20 +121,73 @@ Description: Virtual network computing server software
  not only on the machine where it is running, but from anywhere on the
  Internet and from a wide variety of machine architectures.
  .
- This package provides a vncserver to which X clients can connect and the
- server generates a display that can be viewed with a vncviewer.
+ This package provides a vncserver which uses screen scraping of an already
+ running X server to provide its VNC desktop. The VNC desktop can be viewed
+ by any vncviewer even on other operating systems.
  .
- It contains an X server connector so clients can connect to your local X
- desktop directly.
+ Note: If you only want to scrap your local X11 server, you should consider
+ the tigervnc-xorg-extension package. This package provides the vnc extension
+ for your local X11 server. The usage of this extension is more efficient
+ than a scraping vnc server.
+
+Package: tigervnc-standalone-server
+Architecture: any
+Depends:
+ xserver-common (>= 2:1.7.7),
+ keyboard-configuration [linux-any kfreebsd-any],
+ udev (>= 149) [linux-any],
+ tigervnc-common,
+ ${shlibs:Depends},
+ ${misc:Depends},
+Recommends: libgl1-mesa-dri (>= 7.1~rc1)
+Suggests: xfonts-100dpi | xfonts-75dpi, xfonts-scalable
+Provides:
+ vnc-server,
+ ${videoabi},
+ ${inputabi}
+Description: Virtual network computing server software
+ VNC stands for Virtual Network Computing. It is, in essence, a remote
+ display system which allows you to view a computing `desktop' environment
+ not only on the machine where it is running, but from anywhere on the
+ Internet and from a wide variety of machine architectures.
+ .
+ This package provides a standalone vncserver to which X clients can connect.
+ The server generates a display that can be viewed with a vncviewer.
  .
  Note: This server does not need a display. You need a vncviewer to see
  something. This viewer may also be on a computer running other operating
  systems.
 
+Package: tigervnc-xorg-extension
+Architecture: any
+Depends:
+ xserver-common (>= 2:1.7.7),
+ keyboard-configuration [linux-any kfreebsd-any],
+ udev (>= 149) [linux-any],
+ tigervnc-common,
+ ${shlibs:Depends},
+ ${misc:Depends},
+Recommends: libgl1-mesa-dri (>= 7.1~rc1)
+Suggests: xfonts-100dpi | xfonts-75dpi, xfonts-scalable
+Provides:
+ vnc-server,
+ vnc-xorg-extension,
+ ${videoabi},
+ ${inputabi}
+Description: Virtual network computing server software
+ VNC stands for Virtual Network Computing. It is, in essence, a remote
+ display system which allows you to view a computing `desktop' environment
+ not only on the machine where it is running, but from anywhere on the
+ Internet and from a wide variety of machine architectures.
+ .
+ It contains an X server connector so clients can connect to your local X
+ desktop directly.
+
 Package: tigervnc-viewer
 Architecture: any
 Depends:
  xserver-common (>= 2:1.7.7),
+ tigervnc-common,
  ${shlibs:Depends},
  ${misc:Depends},
 Provides:

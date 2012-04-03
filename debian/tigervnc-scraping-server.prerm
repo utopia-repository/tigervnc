@@ -4,7 +4,7 @@ set -e
 bindir=/usr/bin
 mandir=/usr/share/man
 
-for tiger in tigervncconfig tigervncpasswd tigervncserver x0tigervncserver; do
+for tiger in x0tigervncserver; do
   notiger=`echo $tiger | sed -e 's/tiger//'`;
   if [ -f $bindir/$tiger ]; then
     update-alternatives --remove $notiger $bindir/$tiger
