@@ -91,6 +91,9 @@ Architecture: any
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
+Conflicts:
+ tigervnc-server (<< 1.1.90),
+ tigervnc-viewer (<< 1.1.90)
 Description: Virtual network computing; Common software needed by clients and servers
  VNC stands for Virtual Network Computing. It is, in essence, a remote
  display system which allows you to view a computing `desktop' environment
@@ -115,6 +118,8 @@ Provides:
  vnc-server,
  ${videoabi},
  ${inputabi}
+Replaces: tigervnc-server (<< 1.1.90)
+Breaks: tigervnc-server (<< 1.1.90)
 Description: Virtual network computing server software
  VNC stands for Virtual Network Computing. It is, in essence, a remote
  display system which allows you to view a computing `desktop' environment
@@ -139,12 +144,15 @@ Depends:
  tigervnc-common,
  ${shlibs:Depends},
  ${misc:Depends},
+ ${perl:Depends}
 Recommends: libgl1-mesa-dri (>= 7.1~rc1)
 Suggests: xfonts-100dpi | xfonts-75dpi, xfonts-scalable
 Provides:
  vnc-server,
  ${videoabi},
  ${inputabi}
+Replaces: tigervnc-server (<< 1.1.90)
+Breaks: tigervnc-server (<< 1.1.90)
 Description: Virtual network computing server software
  VNC stands for Virtual Network Computing. It is, in essence, a remote
  display system which allows you to view a computing `desktop' environment
@@ -174,6 +182,8 @@ Provides:
  vnc-xorg-extension,
  ${videoabi},
  ${inputabi}
+Replaces: tigervnc-server (<< 1.1.90)
+Breaks: tigervnc-server (<< 1.1.90)
 Description: Virtual network computing server software
  VNC stands for Virtual Network Computing. It is, in essence, a remote
  display system which allows you to view a computing `desktop' environment
