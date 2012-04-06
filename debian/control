@@ -2,7 +2,7 @@ Source: tigervnc
 Section: x11
 Priority: optional
 Maintainer: Joachim Falk <joachim.falk@gmx.de>
-Uploaders: Joachim Falk <joachim.falk@gmx.de>,
+Uploaders:
  Mike Gabriel <mike.gabriel@das-netzwerkteam.de>
 # all the Build-Depends up to x11proto-xf86-dri-dev are for the normal Xorg
 # server, and common dependencies for the DIX.

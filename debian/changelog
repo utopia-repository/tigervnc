@@ -7,6 +7,7 @@ tigervnc (1.2.0-2) UNRELEASED; urgency=low
   * Add Mike Gabriel <mike.gabriel@das-netzwerkteam.de> to uploaders.
   * Add libxft-dev as build-dependency.
   * Add libxcursor-dev as build-dependency.
+  * Fix lintian issue: maintainer-also-in-uploaders.
 
  -- Mike Gabriel <mike.gabriel@das-netzwerkteam.de>  Fri, 06 Apr 2012 17:05:31 +0200
 
