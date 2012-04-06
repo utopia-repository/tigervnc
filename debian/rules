@@ -35,6 +35,20 @@ DEB_CMAKE_INSTALL_PREFIX  = /usr
 DEB_CMAKE_EXTRA_FLAGS     += -DUSE_INCLUDED_ZLIB:BOOL=OFF
 DEB_CMAKE_EXTRA_FLAGS     += -DUSE_INCLUDED_FLTK:BOOL=OFF
 
+# rawr paranoia
+CFLAGS   += -Wall -g -fstack-protector --param=ssp-buffer-size=4 -Wformat -Wformat-security -Werror=format-security
+CXXFLAGS += -Wall -g -fstack-protector --param=ssp-buffer-size=4 -Wformat -Wformat-security -Werror=format-security
+ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
+	CFLAGS   += -O0
+	CXXFLAGS += -O0
+else
+	CFLAGS   += -O3 -DNDEBUG
+	CXXFLAGS += -O3 -DNDEBUG
+endif
+# We need that as /usr/share/cdbs/1/class/cmake.mk is buggy and does not use the :STRING qualifier
+DEB_CMAKE_EXTRA_FLAGS += -DCMAKE_C_FLAGS:STRING="$(CFLAGS)"
+DEB_CMAKE_EXTRA_FLAGS += -DCMAKE_CXX_FLAGS:STRING="$(CXXFLAGS)"
+
 #flummy:
 #	echo '$$(DEB_CONFIGURE_EXTRA_FLAGS) $(DEB_CONFIGURE_EXTRA_FLAGS)'
 #	echo '$$(DEB_CMAKE_EXTRA_FLAGS) $(DEB_CMAKE_EXTRA_FLAGS)'
@@ -123,6 +137,8 @@ $(DEB_BUILDDIR)/unix/xserver/configure.stamp: $(DEB_BUILDDIR)/unix/xserver/debia
 	mkdir -p $(DEB_BUILDDIR)/unix/xserver
 	cd $(DEB_BUILDDIR)/unix/xserver && \
 	  $(DEB_CONFIGURE_SCRIPT_ENV) ../../../tigervnc/unix/xserver/configure \
+		CFLAGS="$(CFLAGS)" \
+		CPPFLAGS="$(CPPFLAGS)" \
 		--prefix=/usr \
 		--mandir=\$${prefix}/share/man \
 		--infodir=\$${prefix}/share/info \
