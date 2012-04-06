@@ -1,3 +1,9 @@
+tigervnc (1.2.0-3) UNRELEASED; urgency=low
+
+  * Fixup built problem with -Werror=format-security
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Fri, 06 Apr 2012 22:52:17 +0200
+
 tigervnc (1.2.0-2) UNRELEASED; urgency=low
 
   * Add Mike Gabriel <mike.gabriel@das-netzwerkteam.de> to uploaders.
