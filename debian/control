@@ -78,6 +78,7 @@ Build-Depends:
  libxres-dev (>= 1:0.99.1),
  libxfixes-dev (>= 1:3.0.0),
  libxft-dev,
+ libxcursor-dev,
  libxv-dev,
  libxinerama-dev,
 # unit tests
