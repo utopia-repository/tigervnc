@@ -11,6 +11,7 @@ Uploaders:
 # everything on is for the DMX and Xnest servers.
 Build-Depends:
  cdbs (>= 0.4.89),
+ dh-autoreconf,
  zlib1g-dev,
  libfltk1.1-dev,
  libwrap0-dev,
