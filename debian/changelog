@@ -12,6 +12,7 @@ tigervnc (1.2.0-2) UNRELEASED; urgency=low
     => dh-autoreconf.
   * Bump standards version to 3.9.3.
   * Fix Vcs-Git: and Vcs-Browser: in /debian/control.
+  * Build-depend on debhelper (>= 8).
 
  -- Mike Gabriel <mike.gabriel@das-netzwerkteam.de>  Fri, 06 Apr 2012 17:05:31 +0200
 

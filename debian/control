@@ -16,7 +16,7 @@ Build-Depends:
  libfltk1.1-dev,
  libwrap0-dev,
 # this are dependencies from xorg deb
- debhelper (>= 5.0.0),
+ debhelper (>= 8),
  quilt,
  lsb-release,
  pkg-config,
