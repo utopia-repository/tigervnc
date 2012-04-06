@@ -86,7 +86,7 @@ Build-Depends:
  libglib2.0-dev,
  xkb-data,
  x11-xkb-utils,
-Standards-Version: 3.8.4
+Standards-Version: 3.9.3
 Vcs-Git: git://git.debian.org/git/pkg-xorg/xserver/xorg-server
 Vcs-Browser: http://git.debian.org/?p=pkg-xorg/xserver/xorg-server.git
 
