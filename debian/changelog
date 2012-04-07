@@ -1,7 +1,8 @@
-tigervnc (1.2.0-2) UNRELEASED; urgency=low
+tigervnc (1.2.0+X1.7.7_14-2) UNRELEASED; urgency=low
 
   [ Joachim Falk ]
   * Fixup built problem with -Werror=format-security
+  * Changed pkg version to also include xserver upstream version
 
   [ Mike Gabriel ]
   * Add Mike Gabriel <mike.gabriel@das-netzwerkteam.de> to uploaders.
@@ -14,7 +15,7 @@ tigervnc (1.2.0-2) UNRELEASED; urgency=low
   * Fix Vcs-Git: and Vcs-Browser: in /debian/control.
   * Build-depend on debhelper (>= 8).
 
- -- Mike Gabriel <mike.gabriel@das-netzwerkteam.de>  Fri, 06 Apr 2012 17:05:31 +0200
+ -- Joachim Falk <joachim.falk@gmx.de>  Sat, 07 Apr 2012 21:26:43
 
 tigervnc (1.2.0-1) stable; urgency=low
 

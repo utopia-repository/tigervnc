@@ -49,9 +49,28 @@ endif
 DEB_CMAKE_EXTRA_FLAGS += -DCMAKE_C_FLAGS:STRING="$(CFLAGS)"
 DEB_CMAKE_EXTRA_FLAGS += -DCMAKE_CXX_FLAGS:STRING="$(CXXFLAGS)"
 
-#flummy:
-#	echo '$$(DEB_CONFIGURE_EXTRA_FLAGS) $(DEB_CONFIGURE_EXTRA_FLAGS)'
-#	echo '$$(DEB_CMAKE_EXTRA_FLAGS) $(DEB_CMAKE_EXTRA_FLAGS)'
+# This is stolen from xorg-server/debian/xsfbs/xsfbs.mk
+# Determine (source) package name from Debian changelog.
+SOURCE_NAME:=$(shell dpkg-parsechangelog -ldebian/changelog \
+                        | grep '^Source:' | awk '{print $$2}')
+
+# Determine package version from Debian changelog.
+SOURCE_VERSION:=$(shell dpkg-parsechangelog -ldebian/changelog \
+                        | grep '^Version:' | awk '{print $$2}')
+
+# Determine upstream version number.
+UPSTREAM_VERSION:=$(shell echo $(SOURCE_VERSION) | sed 's/-.*//')
+
+# Determine the source version without the epoch for make-orig-tar-gz
+NO_EPOCH_VER:=$(shell echo $(UPSTREAM_VERSION) | sed 's/^.://')
+
+debug-debian-rules:
+	@echo '$$(DEB_CONFIGURE_EXTRA_FLAGS) $(DEB_CONFIGURE_EXTRA_FLAGS)'
+	@echo '$$(DEB_CMAKE_EXTRA_FLAGS) $(DEB_CMAKE_EXTRA_FLAGS)'
+	@echo '$$(SOURCE_NAME) $(SOURCE_NAME)'
+	@echo '$$(SOURCE_VERSION) $(SOURCE_VERSION)'
+	@echo '$$(UPSTREAM_VERSION) $(UPSTREAM_VERSION)'
+	@echo '$$(NO_EPOCH_VER) $(NO_EPOCH_VER)'
 
 .PHONY: apply-patches-dance reverse-patches-dance
 
