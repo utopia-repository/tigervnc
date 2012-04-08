@@ -103,13 +103,13 @@ apply-patches-vnc-patch-xorg: $(DEB_SRCDIR)/unix/xserver/.apply-patches-vnc-patc
 
 $(DEB_SRCDIR)/unix/xserver/.apply-patches-vnc-patch-xorg.stamp:
 	cd $(DEB_SRCDIR)/unix/xserver && { \
-		patch -p1 < ../../../../xserver.patch && \
+		patch -p1 < ../../../xserver.patch && \
 		touch .apply-patches-vnc-patch-xorg.stamp; \
 	}
 
 reverse-patches-vnc-unpatch-xorg:
 	cd $(DEB_SRCDIR)/unix/xserver && if test -f .apply-patches-vnc-patch-xorg.stamp; then \
-		patch -R -p1 < ../../../../xserver.patch; \
+		patch -R -p1 < ../../../xserver.patch; \
 		rm -f .apply-patches-vnc-patch-xorg.stamp; \
 	fi
 
@@ -119,7 +119,7 @@ apply-patches-unify-xorg-and-vnc-tree: $(DEB_SRCDIR)/unix/xserver/.apply-patches
 
 $(DEB_SRCDIR)/unix/xserver/.apply-patches-unify-xorg-and-vnc-tree.stamp:
 	cd $(DEB_SRCDIR)/unix/xserver && { \
-		lndir ../../../../xorg-server . && \
+		lndir ../../../xorg-server . && \
 		find -type l > .apply-patches-unify-xorg-and-vnc-tree.stamp; \
 	}
 
