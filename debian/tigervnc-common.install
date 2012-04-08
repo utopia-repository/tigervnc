@@ -2,4 +2,3 @@ usr/bin/tigervncconfig usr/bin
 usr/bin/tigervncpasswd usr/bin
 usr/share/man/man1/tigervncconfig.1.gz usr/share/man/man1
 usr/share/man/man1/tigervncpasswd.1.gz usr/share/man/man1
-usr/share/doc/tigervnc-common usr/share/doc

@@ -21,6 +21,7 @@ tigervnc (1.2.0+X1.7.7-1) UNRELEASED; urgency=low
   * Build-depend on debhelper (>= 8).
   * Create stampdir before patch Xorg tree.
   * Add patch: 0002-xorg-fix-compilation-with-werror-int-to-pointer-cast.patch
+  * tigervnc-common: split up dh_install into install, manpages and docs.
 
  -- Joachim Falk <joachim.falk@gmx.de>  Mon, 28 May 2012 14:50:39 +0200
 
