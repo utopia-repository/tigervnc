@@ -3,10 +3,103 @@ Upstream-Name: tigervnc
 Upstream-Contact: Peter Åstrand, Pierre Ossman, Adam Tkac
 Source: http://sourceforge.net/apps/mediawiki/tigervnc/index.php
 
-Files: tigervnc/*
-Copyright: TODO
-License: TODO
- LICENSE TEXT - TODO
+Files: tigervnc/java/com/tigervnc/*
+       tigervnc/unix/tx/*
+       tigervnc/unix/vncconfig/*
+       tigervnc/unix/vncpasswd/*
+       tigervnc/unix/vncserver
+       tigervnc/unix/x0vncserver/*
+       tigervnc/vncviewer/*
+       tigervnc/win/rfb_win32/*
+       tigervnc/win/vncconfig/*
+       tigervnc/win/winvnc/*
+       tigervnc/win/wm_hooks/*
+       tigervnc/common/os/*
+       tigervnc/common/network/*
+       tigervnc/common/rdr/*
+       tigervnc/common/rfb/*
+Copyright: Copyright (C) 1999 AT&T Laboratories Cambridge
+           Copyright (C) 2002-2005 RealVNC Ltd.
+           Copyright (C) 2000-2006 TightVNC Group
+           Copyright (C) 2005-2006 Martin Koegler
+           Copyright (C) 2005-2006 Sun Microsystems, Inc.
+           Copyright (C) 2006 OCCAM Financial Technology
+           Copyright (C) 2000-2008 Constantin Kaplinsky
+           Copyright (C) 2004-2009 Peter Astrand for Cendio AB
+           Copyright (C) 2010 Antoine Martin
+           Copyright (C) 2010 m-privacy GmbH
+           Copyright (C) 2009-2011 D. R. Commander
+           Copyright (C) 2009-2011 Pierre Ossman for Cendio AB
+           Copyright (C) 2004, 2009-2011 Red Hat, Inc.
+           Copyright (C) 2009-2011 TigerVNC Team
+           All Rights Reserved.
+License: GPLv2+
+ This program is free software; you can redistribute it
+ and/or modify it under the terms of the GNU General Public
+ License as published by the Free Software Foundation; either
+ version 2 of the License, or (at your option) any later
+ version.
+ .
+ This program is distributed in the hope that it will be
+ useful, but WITHOUT ANY WARRANTY; without even the implied
+ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ PURPOSE.  See the GNU General Public License for more
+ details.
+ .
+ You should have received a copy of the GNU General Public
+ License along with this package; if not, write to the Free
+ Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ Boston, MA  02110-1301 USA
+ .
+ On Debian systems, the full text of the GNU General Public
+ License version 2 can be found in the file
+ `/usr/share/common-licenses/GPL-2'.
+
+Files: tigervnc/common/Xregion/*
+Copyright: 1987, 1988, 1998 (C) The Open Group
+           1987, 1988 (C) Digital Equipment Corporation, Maynard,
+               Massachusetts.
+           All rights reserved.
+License: MIT/X11 style license
+ Permission to use, copy, modify, distribute, and sell this software and its
+ documentation for any purpose is hereby granted without fee, provided that
+ the above copyright notice appear in all copies and that both that
+ copyright notice and this permission notice appear in supporting
+ documentation.
+ .
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+ OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ .
+ Except as contained in this notice, the name of The Open Group shall not be
+ used in advertising or otherwise to promote the sale, use or other dealings
+ in this Software without prior written authorization from The Open Group.
+
+Files: tigervnc/common/fltk/*
+Copyright: 1998-2011 (C) Bill Spitzak <spitzak@users.sourceforge.net> and others
+License: LGPLv2+
+ This library is free software; you can redistribute it
+ and/or modify it under the terms of the GNU Library General
+ Public License as published by the Free Software Foundation;
+ either version 2 of the License, or (at your option) any
+ later version.
+ .
+ This library is distributed in the hope that it will be
+ useful, but WITHOUT ANY WARRANTY; without even the implied
+ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ PURPOSE.  See the GNU Library General Public License for
+ more details.
+ .
+ You should have received a copy of the GNU Library General
+ Public License along with this library; if not, write to the
+ Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ Boston, MA  02110-1301 USA
 
 Files: xorg-server/*
 Copyright: 2000-2001 Juliusz Chroboczek
