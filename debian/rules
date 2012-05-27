@@ -20,6 +20,7 @@ unpatch: reverse-patches-dance
 apply-patches: apply-patches-dance
 reverse-patches-dance: reverse-patches
 
+QUILT_PATCH_DIR = $(CURDIR)/debian/patchdir
 include /usr/share/cdbs/1/rules/patchsys-quilt.mk
 
 DEB_DH_AUTORECONF_ARGS       = $(CURDIR)/xorg-autoreconf.sh
@@ -132,17 +133,17 @@ reverse-patches-remove-xorg-from-vnc-tree:
 .PHONY: apply-patches-xorg reverse-patches-xorg clean-xorg
 
 apply-patches-xorg:
-	cd $(CURDIR)/xorg-server && debian/rules patch
+	cd $(CURDIR)/xorg-server && chmod a+x debian/rules && debian/rules patch
 
 reverse-patches-xorg:
-	cd $(CURDIR)/xorg-server && debian/rules unpatch
+	cd $(CURDIR)/xorg-server && chmod a+x debian/rules && debian/rules unpatch
 
 clean-xorg:
-	cd $(CURDIR)/xorg-server && debian/rules clean
+	cd $(CURDIR)/xorg-server && chmod a+x debian/rules && debian/rules clean
 
 $(DEB_BUILDDIR)/unix/xserver/debian/confflags:
 	mkdir -p $(dir $@)
-	( cd $(DEB_SRCDIR)/unix/xserver && debian/rules echo_confflags ) | \
+	( cd $(DEB_SRCDIR)/unix/xserver && chmod a+x debian/rules && debian/rules echo_confflags ) | \
 	  sed -ne '/^CONFFLAGS:/{s/^[^:]*:\s*//;p}' > $@
 
 configure/tigervnc-standalone-server configure/tigervnc-xorg-extension:: $(DEB_BUILDDIR)/unix/xserver/configure.stamp
