@@ -103,13 +103,13 @@ apply-patches-vnc-patch-xorg: $(DEB_SRCDIR)/unix/xserver/.apply-patches-vnc-patc
 
 $(DEB_SRCDIR)/unix/xserver/.apply-patches-vnc-patch-xorg.stamp:
 	cd $(DEB_SRCDIR)/unix/xserver && { \
-		patch -p1 < ../../../xserver.patch && \
+		patch --no-backup-if-mismatch -p1 < ../../../xserver.patch && \
 		touch .apply-patches-vnc-patch-xorg.stamp; \
 	}
 
 reverse-patches-vnc-unpatch-xorg:
 	cd $(DEB_SRCDIR)/unix/xserver && if test -f .apply-patches-vnc-patch-xorg.stamp; then \
-		patch -R -p1 < ../../../xserver.patch; \
+		patch --no-backup-if-mismatch -R -p1 < ../../../xserver.patch; \
 		rm -f .apply-patches-vnc-patch-xorg.stamp; \
 	fi
 
