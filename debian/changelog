@@ -19,6 +19,7 @@ tigervnc (1.2.0+X1.7.7-1) UNRELEASED; urgency=low
   * Bump standards version to 3.9.3.
   * Fix Vcs-Git: and Vcs-Browser: in /debian/control.
   * Build-depend on debhelper (>= 8).
+  * Create stampdir before patch Xorg tree.
 
  -- Joachim Falk <joachim.falk@gmx.de>  Mon, 28 May 2012 14:50:39 +0200
 

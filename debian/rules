@@ -133,7 +133,8 @@ reverse-patches-remove-xorg-from-vnc-tree:
 .PHONY: apply-patches-xorg reverse-patches-xorg clean-xorg
 
 apply-patches-xorg:
-	cd $(CURDIR)/xorg-server && chmod a+x debian/rules && debian/rules patch
+	cd $(CURDIR)/xorg-server && chmod a+x debian/rules && \
+	  debian/rules stampdir/stampdir && debian/rules patch
 
 reverse-patches-xorg:
 	cd $(CURDIR)/xorg-server && chmod a+x debian/rules && debian/rules unpatch
