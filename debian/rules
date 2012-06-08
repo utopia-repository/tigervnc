@@ -65,6 +65,15 @@ UPSTREAM_VERSION:=$(shell echo $(SOURCE_VERSION) | sed 's/-.*//')
 # Determine the source version without the epoch for make-orig-tar-gz
 NO_EPOCH_VER:=$(shell echo $(UPSTREAM_VERSION) | sed 's/^.://')
 
+# Highly modified and adapted from http://wiki.debian.org/SandroTosi/Svn_get-orig-source
+TIGERVNC_PACKAGE = tigervnc
+TIGERVNC_VERSION = $(shell echo ${NO_EPOCH_VER} | cut -d"+" -f1)
+TIGERVNC_TARBALL = $(TIGERVNC_PACKAGE)_$(TIGERVNC_VERSION).orig.tar.gz
+
+X11_PACKAGE = xorg-server
+X11_VERSION = $(shell echo ${NO_EPOCH_VER} | cut -d"X" -f2 | cut -d"-" -f1)
+X11_TARBALL = $(X11_PACKAGE)_$(X11_VERSION).orig.tar.gz
+
 debug-debian-rules:
 	@echo '$$(DEB_CONFIGURE_EXTRA_FLAGS) $(DEB_CONFIGURE_EXTRA_FLAGS)'
 	@echo '$$(DEB_CMAKE_EXTRA_FLAGS) $(DEB_CMAKE_EXTRA_FLAGS)'
@@ -72,6 +81,12 @@ debug-debian-rules:
 	@echo '$$(SOURCE_VERSION) $(SOURCE_VERSION)'
 	@echo '$$(UPSTREAM_VERSION) $(UPSTREAM_VERSION)'
 	@echo '$$(NO_EPOCH_VER) $(NO_EPOCH_VER)'
+	@echo '$$(TIGERVNC_PACKAGE) $(TIGERVNC_PACKAGE)'
+	@echo '$$(TIGERVNC_VERSION) $(TIGERVNC_VERSION)'
+	@echo '$$(TIGERVNC_TARBALL) $(TIGERVNC_TARBALL)'
+	@echo '$$(X11_PACKAGE) $(X11_PACKAGE)'
+	@echo '$$(X11_VERSION) $(X11_VERSION)'
+	@echo '$$(X11_TARBALL) $(X11_TARBALL)'
 
 .PHONY: apply-patches-dance reverse-patches-dance
 
@@ -215,6 +230,15 @@ debian/tmp/common-binary-impl.stamp:
 	  rm -f $$line; \
 	done
 	touch $@
+
+get-orig-source:
+	( git submodule update --init || { echo "Ups... Can't fetch subprojects!"; exit -1; } )
+	( cd $(DEB_SRCDIR) && pristine-tar checkout ../$(TIGERVNC_TARBALL) ) && \
+	  mv -f $(DEB_SRCDIR)/../$(TIGERVNC_TARBALL) $(CURDIR)/../tigervnc_$(NO_EPOCH_VER).orig-$(TIGERVNC_PACKAGE).tar.gz
+	( cd $(CURDIR)/xorg-server && pristine-tar checkout ../$(X11_TARBALL) ) && \
+	  mv -f $(CURDIR)/$(X11_TARBALL) $(CURDIR)/../tigervnc_$(NO_EPOCH_VER).orig-$(X11_PACKAGE).tar.gz
+
+.PHONY: get-orig-source
 
 clean::
 	rm -rf $(DEB_BUILDDIR)
