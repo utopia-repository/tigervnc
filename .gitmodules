@@ -1,3 +1,6 @@
 [submodule "xorg-server"]
 	path = xorg-server
 	url = git://git.debian.org/git/pkg-xorg/xserver/xorg-server
+[submodule "tigervnc"]
+	path = tigervnc
+	url = git://git.debian.org/git/pkg-tigervnc/pkg-tigervnc.git
