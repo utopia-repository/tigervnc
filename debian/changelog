@@ -1,3 +1,10 @@
+tigervnc (1.2.0+X1.12.1.902-1) UNRELEASED; urgency=low
+
+  [ Joachim Falk ]
+  * Switched to xorg-server used in debian unstable
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Thu, 14 Jun 2012 18:22:54 +0200
+
 tigervnc (1.2.0+X1.7.7-1) UNRELEASED; urgency=low
 
   [ Joachim Falk ]
