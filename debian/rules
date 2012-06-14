@@ -232,11 +232,19 @@ debian/tmp/common-binary-impl.stamp:
 	touch $@
 
 get-orig-source:
-	( git submodule update --init || { echo "Ups... Can't fetch subprojects!"; exit -1; } )
+	git submodule update --init || { echo "Ups... Can't fetch subprojects!"; exit 1; }
 	( cd $(DEB_SRCDIR) && pristine-tar checkout ../$(TIGERVNC_TARBALL) ) && \
 	  mv -f $(DEB_SRCDIR)/../$(TIGERVNC_TARBALL) $(CURDIR)/../tigervnc_$(NO_EPOCH_VER).orig-$(TIGERVNC_PACKAGE).tar.gz
-	( cd $(CURDIR)/xorg-server && pristine-tar checkout ../$(X11_TARBALL) ) && \
-	  mv -f $(CURDIR)/$(X11_TARBALL) $(CURDIR)/../tigervnc_$(NO_EPOCH_VER).orig-$(X11_PACKAGE).tar.gz
+	( cd $(CURDIR) && { git checkout -b pristine-tar remotes/origin/pristine-tar || true; } ) && { \
+	  cp -pr $(CURDIR)/xorg-server $(CURDIR)/xorg-server-help && \
+	  ( cd xorg-server-help && \
+            { git checkout -b pristine-tar remotes/origin/pristine-tar || true; } && \
+	    { git remote add pkg-tigervnc .. || true; } && \
+	    git fetch pkg-tigervnc && \
+	    git merge remotes/pkg-tigervnc/pristine-tar && \
+	    pristine-tar checkout ../$(X11_TARBALL) ) && \
+	  mv -f $(CURDIR)/$(X11_TARBALL) $(CURDIR)/../tigervnc_$(NO_EPOCH_VER).orig-$(X11_PACKAGE).tar.gz && \
+	  rm -rf $(CURDIR)/xorg-server-help; } || { rm -rf $(CURDIR)/xorg-server-help; exit 1; }
 	pristine-tar checkout ../tigervnc_$(NO_EPOCH_VER).orig.tar.gz
 
 .PHONY: get-orig-source
