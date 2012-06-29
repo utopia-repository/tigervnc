@@ -20,6 +20,10 @@ tigervnc (1.2.0+X1.7.7-1) UNRELEASED; urgency=low
   * Added missing cmake, pristine-tar, libjpeg-dev build dependencies
   * Removed unneeded fltk build dependency
   * Improved reverse-patches-deautoreconf target in debian/rules
+  * Added patches for TigerVNC 1.2.0 from archlinux
+    - 0800-archlinux-fixup-gnutls.patch fixes a wrong config check
+    - 0898-archlinux-xorg111.patch enables use of xorg server 1.11
+    - 0899-archlinux-xorg112.patch enables use of xorg server 1.12
 
   [ Mike Gabriel ]
   * Add Mike Gabriel <mike.gabriel@das-netzwerkteam.de> to uploaders.
