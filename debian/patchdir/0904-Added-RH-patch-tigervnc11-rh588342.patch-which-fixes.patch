@@ -13,11 +13,9 @@ expected. (BZ#588342)
  unix/xserver/hw/vnc/Input.cc |    7 +++++++
  1 files changed, 7 insertions(+), 0 deletions(-)
 
-diff --git a/unix/xserver/hw/vnc/Input.cc b/unix/xserver/hw/vnc/Input.cc
-index f36244a..a905ceb 100644
---- a/unix/xserver/hw/vnc/Input.cc
-+++ b/unix/xserver/hw/vnc/Input.cc
-@@ -153,6 +153,9 @@ void InputDevice::PointerButtonAction(int buttonMask)
+--- tigervnc/./unix/xserver/hw/vnc/Input.cc.orig	2012-06-29 10:12:47.000000000 +0200
++++ tigervnc/./unix/xserver/hw/vnc/Input.cc	2012-06-29 10:20:37.000000000 +0200
+@@ -162,6 +162,9 @@
  
  	initInputDevice();
  
@@ -27,17 +25,13 @@ index f36244a..a905ceb 100644
  	for (i = 0; i < BUTTONS; i++) {
  		if ((buttonMask ^ oldButtonMask) & (1 << i)) {
  			int action = (buttonMask & (1<<i)) ?
-@@ -195,6 +198,10 @@ void InputDevice::PointerMove(const rfb::Point &pos)
- 	n = GetPointerEvents(eventq, pointerDev, MotionNotify, 0, POINTER_ABSOLUTE,
- 			     &mask);
- #endif
-+
+@@ -201,6 +204,9 @@
+ 
+ 	initInputDevice();
+ 
 +	/* Flush event queue to ensure we don't flood it */
 +	mieqProcessInputEvents();
 +
- 	enqueueEvents(pointerDev, n);
- 
- 	cursorPos = pos;
--- 
-1.7.2.5
-
+ 	valuators[0] = pos.x;
+ 	valuators[1] = pos.y;
+ #if XORG < 110
