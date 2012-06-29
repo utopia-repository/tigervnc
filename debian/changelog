@@ -9,6 +9,7 @@ tigervnc (1.2.0+X1.7.7-1) UNRELEASED; urgency=low
     .orig files remaining
   * Moved xorg-autoreconf.sh and xserver.patch symlink into debian dir
   * Added missing cmake, pristine-tar, libjpeg-dev build dependencies
+  * Removed unneeded fltk build dependency
 
   [ Mike Gabriel ]
   * Add Mike Gabriel <mike.gabriel@das-netzwerkteam.de> to uploaders.
@@ -25,7 +26,7 @@ tigervnc (1.2.0+X1.7.7-1) UNRELEASED; urgency=low
   * tigervnc-common: split up dh_install into install, manpages and docs.
   * Other binary packages: handle manpages by dh_manpages.
 
- -- Joachim Falk <joachim.falk@gmx.de>  Mon, 28 May 2012 14:50:39 +0200
+ -- Joachim Falk <joachim.falk@gmx.de>  Fri, 29 Jun 2012 19:34:13 +0200
 
 tigervnc (1.2.0-1) stable; urgency=low
 
