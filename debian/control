@@ -12,8 +12,13 @@ Uploaders:
 Build-Depends:
  cdbs (>= 0.4.89),
  dh-autoreconf,
+ cmake (>= 2.8),
+ pristine-tar,
  zlib1g-dev,
  libfltk1.1-dev,
+ libjpeg-dev,
+ libxft-dev,
+ libxcursor-dev,
  libwrap0-dev,
 # this are dependencies from xorg deb
  debhelper (>= 8),
@@ -78,8 +83,6 @@ Build-Depends:
  libxtst-dev (>= 1:0.99.1),
  libxres-dev (>= 1:0.99.1),
  libxfixes-dev (>= 1:3.0.0),
- libxft-dev,
- libxcursor-dev,
  libxv-dev,
  libxinerama-dev,
 # unit tests
