@@ -111,8 +111,13 @@ $(DEB_SRCDIR)/unix/xserver/.autoreconf-xorg.stamp:
 
 reverse-patches-deautoreconf:
 	if test -f $(DEB_SRCDIR)/unix/xserver/.autoreconf-xorg.stamp; then \
-	  dh_autoreconf_clean $(DEB_DH_AUTORECONF_CLEAN_ARGS); \
-	  rm -f $(DEB_SRCDIR)/unix/xserver/.autoreconf-xorg.stamp; \
+	  dh_autoreconf_clean $(DEB_DH_AUTORECONF_CLEAN_ARGS) && \
+	  rm -f $(DEB_SRCDIR)/unix/xserver/.autoreconf-xorg.stamp \
+	  	$(CURDIR)/debian/autoreconf.before \
+	  	$(CURDIR)/debian/autoreconf.after; \
+	else \
+	  rm -f $(CURDIR)/debian/autoreconf.before \
+	  	$(CURDIR)/debian/autoreconf.after; \
 	fi
 
 .PHONY: apply-patches-vnc-patch-xorg reverse-patches-vnc-unpatch-xorg
