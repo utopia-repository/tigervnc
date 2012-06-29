@@ -15,7 +15,6 @@ Build-Depends:
  cmake (>= 2.8),
  pristine-tar,
  zlib1g-dev,
- libfltk1.1-dev,
  libjpeg-dev,
  libxft-dev,
  libxcursor-dev,
