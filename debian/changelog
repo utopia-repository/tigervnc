@@ -4,6 +4,7 @@ tigervnc (1.2.0+X1.12.1.902-1) UNRELEASED; urgency=low
   * Switched to xorg-server used in debian unstable
   * Updated get-orig-source to get pristine-tar info for xorg-server
     from pkg-tigervnc git.
+  * Switched debian/xserver.patch to use patch for xorg 110
 
  -- Joachim Falk <joachim.falk@gmx.de>  Thu, 14 Jun 2012 23:22:54 +0200
 
