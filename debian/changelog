@@ -13,6 +13,7 @@ tigervnc (1.2.0+X1.12.1.902-1) UNRELEASED; urgency=low
   [ Mike Gabriel ]
   * Droped patch that got accepted by Xorg upstream:
     0903-Add-RH-patch-tigervnc11-rh628054-xorg.patch-which-fi.patch
+  * Move README.txt to debian/README.source (cf. Debian policy 4.14).
 
  -- Joachim Falk <joachim.falk@gmx.de>  Fri, 29 Jun 2012 20:15:27 +0200
 
