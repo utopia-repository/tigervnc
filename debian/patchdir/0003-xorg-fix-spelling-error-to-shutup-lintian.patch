@@ -1,0 +1,11 @@
+--- tigervnc/unix/xserver/os/osinit.c	2012-07-01 19:27:42.000000000 +0200
++++ tigervnc/unix/xserver/os/osinit.c	2012-07-01 19:28:29.000000000 +0200
+@@ -129,7 +129,7 @@
+ 
+ #ifdef SA_SIGINFO
+     if (sip->si_code == SI_USER) {
+-        ErrorF("Recieved signal %d sent by process %ld, uid %ld\n",
++        ErrorF("Received signal %d sent by process %ld, uid %ld\n",
+                signo, (long) sip->si_pid, (long) sip->si_uid);
+     }
+     else {
