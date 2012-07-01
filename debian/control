@@ -91,6 +91,7 @@ Build-Depends:
 Standards-Version: 3.9.3
 Vcs-Git: git://git.debian.org/git/pkg-tigervnc/pkg-tigervnc.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-tigervnc/pkg-tigervnc.git 
+Homepage: http://www.tigervnc.org
 
 Package: tigervnc-common
 Architecture: any

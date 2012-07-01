@@ -17,6 +17,7 @@ tigervnc (1.2.0+X1.7.7-1) UNRELEASED; urgency=low
     - 0899-archlinux-xorg112.patch enables use of xorg server 1.12
   * Fix spelling error in manpage to shutup lintian
   * Fix spelling error in xorg server to shutup lintian
+  * Add homepage field to control to shutup lintian
 
   [ Mike Gabriel ]
   * Add Mike Gabriel <mike.gabriel@das-netzwerkteam.de> to uploaders.
