@@ -1,0 +1,42 @@
+--- tigervnc/unix/x0vncserver/x0vncserver.man.orig	2012-07-01 20:06:45.000000000 +0200
++++ tigervnc/unix/x0vncserver/x0vncserver.man	2012-07-01 20:10:12.000000000 +0200
+@@ -15,7 +15,7 @@
+ .SH OPTIONS
+ .B x0vncserver
+ interprets the command line as a list of parameters with optional values.
+-Running \fBx0vncserver -h\fP will show a list of all valid parameters with
++Running \fBx0vncserver \-h\fP will show a list of all valid parameters with
+ short descriptions.  All parameters are optional, but normally you would have
+ to use the \fBPasswordFile\fP parameter (see its description below).
+ .PP
+@@ -53,7 +53,7 @@
+ output.
+ .TP
+ .B HostsFile
+-This parameter allows to specify a file name with IP access control rules.
++This parameter allows one to specify a file name with IP access control rules.
+ The file should include one rule per line, and the rule format is one of the
+ following: +\fIaddress\fP/\fInetmask\fP (accept connections from the
+ specified address group), -\fIaddress\fP/\fInetmask\fP (reject connections)
+@@ -148,7 +148,7 @@
+ assumed by default (top left corner).  Video area is not checked for actual
+ changes, it is assumed to be changing continuously and is sent in each screen
+ update.  Normally, video area is compressed with JPEG (if allowed by the
+-client).  Note that this setting can be overriden by TigerVNC clients
++client).  Note that this setting can be overridden by TigerVNC clients
+ supporting VideoRectangleSelection protocol extension.  In other words,
+ clients may choose video selection themselves, but if they do not, then the
+ \fBVideoArea\fP parameter will take effect.  If the argument is empty, no
+diff --git a/vncviewer/vncviewer.man b/vncviewer/vncviewer.man
+index 9a0c864..6797296 100644
+--- tigervnc/vncviewer/vncviewer.man
++++ tigervnc/vncviewer/vncviewer.man
+@@ -204,7 +204,7 @@ machine name should be specified as known to the gateway machine, e.g.
+ "localhost" denotes the \fIgateway\fR, not the machine where vncviewer
+ was launched. The environment variable \fIVNC_VIA_CMD\fR can override
+ the default tunnel command of
+-\fB/usr/bin/ssh\ -f\ -L\ "$L":"$H":"$R"\ "$G"\ sleep\ 20\fR.  The tunnel
++\fB/usr/bin/ssh\ \-f\ \-L\ "$L":"$H":"$R"\ "$G"\ sleep\ 20\fR.  The tunnel
+ command is executed with the environment variables \fIL\fR, \fIH\fR,
+ \fIR\fR, and \fIG\fR taken the values of the local port number, the remote
+ host, the port number on the remote host, and the gateway machine

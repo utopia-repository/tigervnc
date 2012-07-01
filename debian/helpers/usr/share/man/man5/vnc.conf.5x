@@ -27,7 +27,7 @@ is the site wide configuration file for
 .BR vncserver (1),
 the free X server for
 .B Virtual Network Computing
-(VNC). It can be used to change the behaviour of the server at startup time,
+(VNC). It can be used to change the behavior of the server at startup time,
 although for all values suitable defaults are preset.
 
 .I vnc.conf
@@ -68,10 +68,10 @@ The options are given with their default value if this is known.
 .IR $vncClasses\ \| =\ " /var/www/vnc """;
 Should be the path to the java classes of the server.
 .TP
-.IR $XFConfigPath\ \| =\ " /etc/X11/xorg.conf:/etc/X11/XF86Config-4:/etc/X11/XF86Config """; 
+.IR $XFConfigPath\ \| =\ " /etc/X11/xorg.conf """;
 
 Can be set to the global
-.I XF86Config
+.I xorg.conf 
 file. This will be
 parsed to gain default values for
 .I $fontPath
@@ -83,7 +83,7 @@ invalid file,
 for example.
 .TP
 .IR $fontPath
-Should a comma seperated list of fonts to be added to the font
+Should be a comma separated list of fonts to be added to the font
 path. If not specified, and
 .I $XFConfigPath
 is valid, vncserver will read the $fontPath from there. If both are
