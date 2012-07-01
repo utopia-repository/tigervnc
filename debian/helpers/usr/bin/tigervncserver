@@ -709,7 +709,7 @@ sub main {
 #     colorPath			=>
 #     	"/etc/X11/rgb",
       XFConfigPath		=>
-        "/etc/X11/xorg.conf:/etc/X11/XF86Config-4:/etc/X11/XF86Config",
+        "/etc/X11/xorg.conf",
       xauthorityFile		=>
         "$ENV{XAUTHORITY}" || "$ENV{HOME}/.Xauthority",
       defaultVncStartup         =>
