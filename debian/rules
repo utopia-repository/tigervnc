@@ -243,7 +243,7 @@ get-orig-source:
 	git submodule update --init || { echo "Ups... Can't fetch subprojects!"; exit 1; }
 	( cd $(DEB_SRCDIR) && pristine-tar checkout ../$(TIGERVNC_TARBALL) ) && \
 	  mv -f $(DEB_SRCDIR)/../$(TIGERVNC_TARBALL) $(CURDIR)/../tigervnc_$(NO_EPOCH_VER).orig-$(TIGERVNC_PACKAGE).tar.gz
-	( cd $(CURDIR) && { git checkout -b pristine-tar remotes/origin/pristine-tar || true; } ) && { \
+	( cd $(CURDIR) && { git fetch origin pristine-tar:pristine-tar || true; } ) && { \
 	  cp -pr $(CURDIR)/xorg-server $(CURDIR)/xorg-server-help && \
 	  ( cd xorg-server-help && \
             { git checkout -b pristine-tar remotes/origin/pristine-tar || true; } && \
