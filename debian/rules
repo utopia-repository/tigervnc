@@ -249,7 +249,7 @@ get-orig-source:
             { git checkout -b pristine-tar remotes/origin/pristine-tar || true; } && \
 	    { git remote add pkg-tigervnc .. || true; } && \
 	    git fetch pkg-tigervnc && \
-	    git merge remotes/pkg-tigervnc/pristine-tar && \
+	    git merge remotes/pkg-tigervnc/pristine-tar -m "Merge in pristine-tar delta+id files for currently used xorg-server version." && \
 	    pristine-tar checkout ../$(X11_TARBALL) ) && \
 	  mv -f $(CURDIR)/$(X11_TARBALL) $(CURDIR)/../tigervnc_$(NO_EPOCH_VER).orig-$(X11_PACKAGE).tar.gz && \
 	  rm -rf $(CURDIR)/xorg-server-help; } || { rm -rf $(CURDIR)/xorg-server-help; exit 1; }
