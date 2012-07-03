@@ -158,7 +158,7 @@ License: MIT/X11 License
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  DEALINGS IN THE SOFTWARE.
-
+ .
  The following licenses are 'legacy': usually MIT/X11 licenses with the name
  of the copyright holder(s) in the license statement, but also some BSD-like
  licenses.
@@ -1422,7 +1422,7 @@ License: MIT/X11 License
  Copyright © 2006-2007 Keith Packard
  Copyright © 2008 Red Hat, Inc
  Copyright © 2008 George Sapountzis <gsap7@yahoo.gr>
-
+ .
  Permission to use, copy, modify, distribute, and sell this software and its
  documentation for any purpose is hereby granted without fee, provided that
  the above copyright notice appear in all copies and that both that copyright
@@ -1445,7 +1445,7 @@ License: MIT/X11 License
  .
  Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
              2005 Lars Knoll & Zack Rusin, Trolltech
-
+ .
  Permission to use, copy, modify, distribute, and sell this software and its
  documentation for any purpose is hereby granted without fee, provided that
  the above copyright notice appear in all copies and that both that
@@ -1472,7 +1472,7 @@ License: MIT/X11 License
  Copyright (c) 2000, 2001 Nokia Home Communications
  Copyright © 2007, 2008 Red Hat, Inc.
  All rights reserved.
-
+ .
  Permission is hereby granted, free of charge, to any person obtaining a
  copy of this software and associated documentation files (the
  "Software"), to deal in the Software without restriction, including
@@ -1763,7 +1763,7 @@ License: MIT/X11 License
  specific, written prior permission.  J. Kean Johnston makes no
  representations about the suitability of this software for any purpose.
  It is provided "as is" without express or implied warranty.
-
+ .
  J. KEAN JOHNSTON DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
  INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
  EVENT SHALL J. KEAN JOHNSTON BE LIABLE FOR ANY SPECIAL, INDIRECT OR
