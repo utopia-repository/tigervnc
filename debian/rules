@@ -42,6 +42,7 @@ DEB_CMAKE_EXTRA_FLAGS     += -DUSE_INCLUDED_FLTK:BOOL=ON
 # rawr paranoia
 CFLAGS   += -Wall -g -fstack-protector --param=ssp-buffer-size=4 -Wformat -Wformat-security -Werror=format-security
 CXXFLAGS += -Wall -g -fstack-protector --param=ssp-buffer-size=4 -Wformat -Wformat-security -Werror=format-security
+LDFLAGS  += -Wl,-z,relro
 ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
 	CFLAGS   += -O0
 	CXXFLAGS += -O0
@@ -52,6 +53,8 @@ endif
 # We need that as /usr/share/cdbs/1/class/cmake.mk is buggy and does not use the :STRING qualifier
 DEB_CMAKE_EXTRA_FLAGS += -DCMAKE_C_FLAGS:STRING="$(CFLAGS)"
 DEB_CMAKE_EXTRA_FLAGS += -DCMAKE_CXX_FLAGS:STRING="$(CXXFLAGS)"
+DEB_CMAKE_EXTRA_FLAGS += -DCMAKE_EXE_LINKER_FLAGS="$(LDFLAGS)"
+DEB_CMAKE_EXTRA_FLAGS += -DCMAKE_SHARED_LINKER_FLAGS="$(LDFLAGS)"
 
 # This is stolen from xorg-server/debian/xsfbs/xsfbs.mk
 # Determine (source) package name from Debian changelog.
@@ -183,6 +186,7 @@ $(DEB_BUILDDIR)/unix/xserver/configure.stamp: $(DEB_BUILDDIR)/unix/xserver/debia
 	  $(DEB_CONFIGURE_SCRIPT_ENV) ../../../tigervnc/unix/xserver/configure \
 		CFLAGS="$(CFLAGS)" \
 		CPPFLAGS="$(CPPFLAGS)" \
+		LDFLAGS="$(LDFLAGS)" \
 		--prefix=/usr \
 		--mandir=\$${prefix}/share/man \
 		--infodir=\$${prefix}/share/info \
