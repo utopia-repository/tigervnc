@@ -38,6 +38,7 @@ tigervnc (1.2.0+X1.7.7-1) UNRELEASED; urgency=low
   * Fix spelling error in xorg server to shutup lintian
   * Add homepage field to control to shutup lintian
   * Fix copyright file to shutup lintian
+  * Ported over patch for tcpwrappers support from TigerVNC 1.0.90
 
   [ Mike Gabriel ]
   * Add Mike Gabriel <mike.gabriel@das-netzwerkteam.de> to uploaders.
