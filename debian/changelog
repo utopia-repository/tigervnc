@@ -29,7 +29,6 @@ tigervnc (1.2.0+X1.7.7-1) UNRELEASED; urgency=low
   * Fix lintian issue: maintainer-also-in-uploaders.
   * Fix lintian issue: missing-build-dependency-for-dh_-command dh_autoreconf
     => dh-autoreconf.
-  * Bump standards version to 3.9.3.
   * Fix Vcs-Git: and Vcs-Browser: in /debian/control.
   * Build-depend on debhelper (>= 8).
   * Create stampdir before patch Xorg tree.
