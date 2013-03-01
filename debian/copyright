@@ -1,4 +1,4 @@
-Format: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?op=file&rev=166
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0
 Upstream-Name: tigervnc
 Upstream-Contact: Peter Åstrand, Pierre Ossman, Adam Tkac
 Source: http://sourceforge.net/apps/mediawiki/tigervnc/index.php
@@ -60,7 +60,7 @@ Copyright: 1987, 1988, 1998 (C) The Open Group
            1987, 1988 (C) Digital Equipment Corporation, Maynard,
                Massachusetts.
            All rights reserved.
-License: MIT/X11 style license
+License: MIT/X11-style
  Permission to use, copy, modify, distribute, and sell this software and its
  documentation for any purpose is hereby granted without fee, provided that
  the above copyright notice appear in all copies and that both that
@@ -115,7 +115,7 @@ Copyright: 2000-2001 Juliusz Chroboczek
            2005-2008 Daniel Stone
            2006-2009 Simon Thum
            2006 Luc Verhaegen
-License: MIT/X11 License
+License: MIT/X11
  The following is the 'standard copyright' agreed upon by most contributors,
  and is currently the canonical license preferred by the X.Org Foundation.
  This is a slight variant of the common MIT license form published by the

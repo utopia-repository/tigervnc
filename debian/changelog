@@ -1,3 +1,11 @@
+tigervnc (1.2.0+X1.12.1.902-2) UNRELEASED; urgency=low
+
+  * debian/copyright:
+    - Fixed "Format" field for DEP5
+    - Slight tune ups for MIT/X11 license keywords
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Fri, 01 Mar 2013 10:55:25 -0500
+
 tigervnc (1.2.0+X1.12.1.902-1) UNRELEASED; urgency=low
 
   [ Joachim Falk ]
