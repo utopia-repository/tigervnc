@@ -1,6 +1,6 @@
 *** ABOUT GENERATING THE DEBS (SOURCE AND BINARY) ***
 
-For a successful built of this package, three orig source tarballs are
+For a successful build of this package, three orig source tarballs are
 needed:
 
 - tigervnc_<tigervnc-version>+X<xorg-version>.orig.tar.gz
