@@ -5,6 +5,8 @@ tigervnc (1.2.0+X1.12.1.902-2) UNRELEASED; urgency=low
     - Slight tune ups for MIT/X11 license keywords
   * debian/gbp.conf
     - added 'submodules = True' so git-buildpackage works out-of-the-git-tree
+  * debian/control
+    - added myself to uploaders
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Fri, 01 Mar 2013 10:55:25 -0500
 
