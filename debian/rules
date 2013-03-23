@@ -268,7 +268,6 @@ get-orig-source:
 	    pristine-tar checkout ../$(X11_TARBALL) ) && \
 	  mv -f $(CURDIR)/$(X11_TARBALL) $(CURDIR)/../tigervnc_$(NO_EPOCH_VER).orig-$(X11_PACKAGE).tar.gz && \
 	  rm -rf $(CURDIR)/xorg-server-help; } || { rm -rf $(CURDIR)/xorg-server-help; exit 1; }
-	pristine-tar checkout ../tigervnc_$(NO_EPOCH_VER).orig.tar.gz
 
 .PHONY: get-orig-source
 

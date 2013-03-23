@@ -3,6 +3,7 @@ tigervnc (1.2.0+X1.12.4-1) UNRELEASED; urgency=low
   * Updated xorg-server to 2:1.12.4-5
   * Support new git wich uses a .git file for submodules instead of .git
     directory
+  * Switched to using --create-empty-orig instead of empty pristine-tar
 
  -- Joachim Falk <joachim.falk@gmx.de>  Sat, 23 Mar 2013 16:33:12 +0100
 
