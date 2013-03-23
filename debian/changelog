@@ -1,3 +1,9 @@
+tigervnc (1.2.0+X1.12.1.902-3) UNRELEASED; urgency=low
+
+  * Updated xorg-server to 2:1.12.4-5
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Sat, 23 Mar 2013 13:33:12 +0100
+
 tigervnc (1.2.0+X1.12.1.902-2) UNRELEASED; urgency=low
 
   * debian/copyright:
