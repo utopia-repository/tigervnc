@@ -1,4 +1,4 @@
-tigervnc (1.2.0+X1.12.1.902-3) UNRELEASED; urgency=low
+tigervnc (1.2.0+X1.12.4-1) UNRELEASED; urgency=low
 
   * Updated xorg-server to 2:1.12.4-5
 
