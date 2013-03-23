@@ -254,7 +254,13 @@ get-orig-source:
 	  mv -f $(DEB_SRCDIR)/../$(TIGERVNC_TARBALL) $(CURDIR)/../tigervnc_$(NO_EPOCH_VER).orig-$(TIGERVNC_PACKAGE).tar.gz
 	( cd $(CURDIR) && { git fetch origin pristine-tar:pristine-tar || true; } ) && { \
 	  cp -pr $(CURDIR)/xorg-server $(CURDIR)/xorg-server-help && \
-	  ( cd xorg-server-help && \
+	  ( cd $(CURDIR)/xorg-server-help && \
+	    if test -f .git; then \
+	      gitdir=`sed -ne '/^gitdir:/{s/^[^:]*:\s*//;p}' .git`; \
+	      test x"$$gitdir" != x"" -a -d "$$gitdir" || exit 1; \
+	      rm -f .git && cp -pr "$$gitdir" .git || exit 1; \
+	      sed -e '/worktree/d' $$gitdir/config > .git/config || exit 1; \
+	    fi && \
             { git checkout -b pristine-tar remotes/origin/pristine-tar || true; } && \
 	    { git remote add pkg-tigervnc .. || true; } && \
 	    git fetch pkg-tigervnc && \
