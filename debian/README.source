@@ -4,7 +4,8 @@ For a successful build of this package, three orig source tarballs are
 needed:
 
 - tigervnc_<tigervnc-version>+X<xorg-version>.orig.tar.gz
-  This tarball is almost empty, only containing this README
+  This tarball is empty and only there because of the requirements of the
+  3.0 (quilt) format.
 - tigervnc_<tigervnc-version>+X<xorg-version>.orig-tigervnc.tar.gz
   This tarball contains the orig tarball for the VNC source code. This
   tarball corresponds to a checkout of the TigerVNC source code, e.g.,
