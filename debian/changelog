@@ -5,6 +5,8 @@ tigervnc (1.2.0+X1.12.4-1) unstable; urgency=low
   * Support new git wich uses a .git file for submodules instead of .git
     directory
   * Switched to using --create-empty-orig instead of empty pristine-tar
+  * debian/README.source
+    - Fixed wrong description of tigervnc_<tigervnc-version>+X<xorg-version>.orig.tar.gz
 
   [ Yaroslav Halchenko ]
   * debian/copyright:
