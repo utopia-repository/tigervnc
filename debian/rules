@@ -149,7 +149,7 @@ apply-patches-unify-xorg-and-vnc-tree: $(DEB_SRCDIR)/unix/xserver/.apply-patches
 
 $(DEB_SRCDIR)/unix/xserver/.apply-patches-unify-xorg-and-vnc-tree.stamp:
 	cd $(DEB_SRCDIR)/unix/xserver && { \
-		lndir ../../../xorg-server . && \
+		tar -xJvf /usr/src/xorg-server.tar.xz && \
 		find -type l > .apply-patches-unify-xorg-and-vnc-tree.stamp; \
 	}
 

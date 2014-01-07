@@ -1,4 +1,12 @@
-tigervnc (1.2.0+X1.12.4-1) unstable; urgency=low
+tigervnc (1.2.0+X1.15.0-1) unstable; urgency=low
+
+  * debian/{control,rules}
+    - Use xorg-server-source source package instead of a convenience
+      git submodule of xorg-server
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 07 Jan 2014 15:11:13 -0500
+
+tigervnc (1.2.0+X1.12.4-1) neurodebian; urgency=low
 
   [ Joachim Falk ]
   * Updated xorg-server to 2:1.12.4-5
