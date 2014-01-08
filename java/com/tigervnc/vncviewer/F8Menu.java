@@ -1,4 +1,5 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
+ * Copyright (C) 2011 Brian P. Hinz
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,15 +13,17 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
  * USA.
  */
 
 package com.tigervnc.vncviewer;
 
+import java.awt.*;
 import java.awt.Cursor;
 import java.awt.event.*;
 import javax.swing.JFrame;
+import javax.swing.JFileChooser;
 import javax.swing.JPopupMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JCheckBoxMenuItem;
@@ -44,18 +47,20 @@ public class F8Menu extends JPopupMenu implements ActionListener {
     addSeparator();
     fullScreen = new JCheckBoxMenuItem("Full Screen");
     fullScreen.setMnemonic(KeyEvent.VK_F);
+    fullScreen.setSelected(cc.fullScreen);
     fullScreen.addActionListener(this);
     add(fullScreen);
     addSeparator();
     clipboard  = addMenuItem("Clipboard...");
     addSeparator();
-    f8 = addMenuItem("Send F"+(cc.menuKey-Keysyms.F1+1));
+    f8 = addMenuItem("Send "+KeyEvent.getKeyText(MenuKey.getMenuKeyCode()), MenuKey.getMenuKeyCode());
     ctrlAltDel = addMenuItem("Send Ctrl-Alt-Del");
     addSeparator();
     refresh    = addMenuItem("Refresh Screen", KeyEvent.VK_H);
     addSeparator();
     newConn    = addMenuItem("New connection...", KeyEvent.VK_W);
     options    = addMenuItem("Options...", KeyEvent.VK_O);
+    save       = addMenuItem("Save connection info as...", KeyEvent.VK_S);
     info       = addMenuItem("Connection info...", KeyEvent.VK_I);
     about      = addMenuItem("About VncViewer...", KeyEvent.VK_A);
     addSeparator();
@@ -98,8 +103,8 @@ public class F8Menu extends JPopupMenu implements ActionListener {
     } else if (actionMatch(ev, clipboard)) {
       cc.clipboardDialog.showDialog(cc.viewport);
     } else if (actionMatch(ev, f8)) {
-      cc.writeKeyEvent(cc.menuKey, true);
-      cc.writeKeyEvent(cc.menuKey, false);
+      cc.writeKeyEvent(MenuKey.getMenuKeySym(), true);
+      cc.writeKeyEvent(MenuKey.getMenuKeySym(), false);
     } else if (actionMatch(ev, ctrlAltDel)) {
       cc.writeKeyEvent(Keysyms.Control_L, true);
       cc.writeKeyEvent(Keysyms.Alt_L, true);
@@ -113,6 +118,22 @@ public class F8Menu extends JPopupMenu implements ActionListener {
       VncViewer.newViewer(cc.viewer);
     } else if (actionMatch(ev, options)) {
       cc.options.showDialog(cc.viewport);
+    } else if (actionMatch(ev, save)) {
+      JFileChooser fc = new JFileChooser();
+      fc.setDialogTitle("Save current configuration as:");
+      fc.setApproveButtonText("OK");
+      fc.setFileHidingEnabled(false);
+      Window fullScreenWindow = Viewport.getFullScreenWindow();
+      if (fullScreenWindow != null)
+        Viewport.setFullScreenWindow(null);
+      int ret = fc.showOpenDialog(cc.viewport);
+      if (fullScreenWindow != null)
+        Viewport.setFullScreenWindow(fullScreenWindow);
+      if (ret == JFileChooser.APPROVE_OPTION) {
+        String filename = fc.getSelectedFile().toString();
+        if (filename != null)
+          Configuration.save(filename);
+      }
     } else if (actionMatch(ev, info)) {
       cc.showInfo();
     } else if (actionMatch(ev, about)) {
@@ -125,7 +146,7 @@ public class F8Menu extends JPopupMenu implements ActionListener {
   CConn cc;
   JMenuItem restore, move, size, minimize, maximize;
   JMenuItem exit, clipboard, ctrlAltDel, refresh;
-  JMenuItem newConn, options, info, about, dismiss;
+  JMenuItem newConn, options, save, info, about, dismiss;
   static JMenuItem f8;
   JCheckBoxMenuItem fullScreen;
   static LogWriter vlog = new LogWriter("F8Menu");

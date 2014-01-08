@@ -1,4 +1,7 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
+ * Copyright 2009-2011 Pierre Ossman for Cendio AB
+ * Copyright (C) 2011 D. R. Commander.  All Rights Reserved.
+ * Copyright (C) 2011 Brian P. Hinz
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,7 +15,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
  * USA.
  */
 
@@ -61,6 +64,16 @@ abstract public class CMsgHandler {
     cp.setName(name);
   }
 
+  public void fence(int flags, int len, byte[] data) 
+  {
+    cp.supportsFence = true;
+  }
+
+  public void endOfContinuousUpdates() 
+  {
+    cp.supportsContinuousUpdates = true;
+  }
+
   public void clientRedirect(int port, String host, 
                              String x509subject) {}
 
@@ -79,7 +92,7 @@ abstract public class CMsgHandler {
   public void serverCutText(String str, int len) {}
 
   public void fillRect(Rect r, int pix) {}
-  public void imageRect(Rect r, int[] pixels) {}
+  public void imageRect(Rect r, Object pixels) {}
   public void copyRect(Rect r, int srcX, int srcY) {}
 
   abstract public PixelFormat getPreferredPF();

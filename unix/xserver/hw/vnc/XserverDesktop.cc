@@ -200,6 +200,8 @@ void XserverDesktop::unblockUpdates()
 
 void XserverDesktop::setFramebuffer(int w, int h, void* fbptr, int stride)
 {
+  ScreenSet layout;
+
   width_ = w;
   height_ = h;
 
@@ -217,8 +219,97 @@ void XserverDesktop::setFramebuffer(int w, int h, void* fbptr, int stride)
   data = (rdr::U8*)fbptr;
   stride_ = stride;
 
-  server->setPixelBuffer(this);
+  layout = computeScreenLayout();
+
+  server->setPixelBuffer(this, layout);
 }
+
+void XserverDesktop::refreshScreenLayout()
+{
+  server->setScreenLayout(computeScreenLayout());
+}
+
+ScreenSet XserverDesktop::computeScreenLayout()
+{
+  ScreenSet layout;
+
+#ifdef RANDR
+  rrScrPrivPtr rp = rrGetScrPriv(pScreen);
+  OutputIdMap newIdMap;
+
+  for (int i = 0;i < rp->numOutputs;i++) {
+      RROutputPtr output;
+      RRCrtcPtr crtc;
+
+      output = rp->outputs[i];
+      crtc = output->crtc;
+
+      /* Disabled? */
+      if ((crtc == NULL) || (crtc->mode == NULL))
+          continue;
+
+      /* Known output? */
+      if (outputIdMap.count(output) == 1)
+        newIdMap[output] = outputIdMap[output];
+      else {
+        rdr::U32 id;
+        OutputIdMap::const_iterator iter;
+
+        while (true) {
+          id = rand();
+          for (iter = outputIdMap.begin();iter != outputIdMap.end();++iter) {
+            if (iter->second == id)
+              break;
+          }
+          if (iter == outputIdMap.end())
+            break;
+        }
+
+        newIdMap[output] = id;
+      }
+
+      layout.add_screen(Screen(newIdMap[output], crtc->x, crtc->y,
+                               crtc->mode->mode.width,
+                               crtc->mode->mode.height,
+                               0));
+  }
+
+  /* Only keep the entries that are currently active */
+  outputIdMap = newIdMap;
+#endif
+
+  /*
+   * Make sure we have something to display. Hopefully it's just temporary
+   * that we have no active outputs...
+   */
+  if (layout.num_screens() == 0)
+    layout.add_screen(Screen(0, 0, 0, pScreen->width, pScreen->height, 0));
+
+  return layout;
+}
+
+#ifdef RANDR
+
+extern RRModePtr vncRandRModeGet(int width, int height);
+
+RRModePtr XserverDesktop::findRandRMode(RROutputPtr output, int width, int height)
+{
+  RRModePtr mode;
+
+  for (int i = 0;i < output->numModes;i++) {
+    if ((output->modes[i]->mode.width == width) &&
+        (output->modes[i]->mode.height == height))
+      return output->modes[i];
+  }
+
+  mode = vncRandRModeGet(width, height);
+  if (mode != NULL)
+    return mode;
+
+  return NULL;
+}
+
+#endif
 
 char* XserverDesktop::substitute(const char* varName)
 {
@@ -485,6 +576,12 @@ static struct timeval XserverDesktopTimeout;
 
 void XserverDesktop::blockHandler(fd_set* fds, OSTimePtr timeout)
 {
+  // We don't have a good callback for when we can init input devices[1],
+  // so we abuse the fact that this routine will be called first thing
+  // once the dix is done initialising.
+  // [1] Technically Xvnc has InitInput(), but libvnc.so has nothing.
+  inputDevice->InitInputDevice();
+
   try {
     int nextTimeout;
 
@@ -727,100 +824,250 @@ void XserverDesktop::clientCutText(const char* str, int len)
   vncClientCutText(str, len);
 }
 
-#ifdef RANDR
+extern RROutputPtr vncRandROutputCreate(ScreenPtr pScreen);
+
 unsigned int XserverDesktop::setScreenLayout(int fb_width, int fb_height,
                                              const rfb::ScreenSet& layout)
 {
-  int               i;
-  Bool              ret;
-  RRScreenSizePtr   pSize;
-  RROutputPtr       output;
-  RRModePtr         mode;
-
-  // Make sure all RandR tables are properly populated
-#if XORG == 15
-  ret = RRGetInfo(pScreen);
+#ifndef RANDR
+  return rfb::resultProhibited;
 #else
-  ret = RRGetInfo(pScreen, FALSE);
-#endif
-  if (!ret)
-    return resultNoResources;
+  int availableOutputs;
+  Bool ret;
 
-  // Register a new size, or get a reference to the existing one
-  pSize = RRRegisterSize(pScreen, fb_width, fb_height,
-                         pScreen->mmWidth, pScreen->mmHeight);
-  if (!pSize) {
-    vlog.error("setScreenLayout: Could not get register new resolution");
-    return resultNoResources;
-  }
-  ret = RRRegisterRate(pScreen, pSize, 60);
-  if (!ret) {
-    vlog.error("setScreenLayout: Could not register a rate for the resolution");
-    return resultNoResources;
-  }
+  rrScrPrivPtr rp = rrGetScrPriv(pScreen);
 
-  // Then we have to call RRGetInfo again for it to copy the RandR
-  // 1.0 information to the 1.2 structures.
-#if XORG == 15
-  ret = RRGetInfo(pScreen);
-#else
-  ret = RRGetInfo(pScreen, FALSE);
-#endif
-  if (!ret)
-    return resultNoResources;
-
-  // Go via RandR to set the resolution in order for X11 notifications
-  // to be sent out properly. We currently only do RandR 1.0, but Xorg
-  // has dropped support for that API. So we have to emulate it via the
-  // same method ProcRRSetScreenConfig() uses.
-  //
-  // FIXME: This will cause setPixelBuffer() to be called, resulting in
-  //        an unnecessary ExtendedDesktopSize to be sent.
-
-  // We'll just reconfigure the first output
-  output = RRFirstOutput(pScreen);
-  if (!output) {
-    vlog.error("setScreenLayout: Could not get first output");
-    return resultNoResources;
-  }
-
-  // Find first mode with matching size
-  mode = NULL;
-  for (i = 0;i < output->numModes;i++) {
-    if ((output->modes[i]->mode.width == fb_width) &&
-        (output->modes[i]->mode.height == fb_height)) {
-      mode = output->modes[i];
-      break;
+  /*
+   * First check that we don't have any active clone modes. That's just
+   * too messy to deal with.
+   */
+  for (int i = 0;i < rp->numCrtcs;i++) {
+    if (rp->crtcs[i]->numOutputs > 1) {
+      vlog.error("Clone mode active. Refusing to touch screen layout.");
+      return rfb::resultInvalid;
     }
   }
-  if (!mode) {
-    vlog.error("setScreenLayout: Could not find a matching mode");
-    return resultNoResources;
+
+  /*
+   * Next count how many useful outputs we have...
+   *
+   * This gets slightly complicated because we might need to hook a CRTC
+   * up to the output, but also check that we don't try to use the same
+   * CRTC for multiple outputs.
+   */
+  std::set<RRCrtcPtr> usedCrtcs;
+  availableOutputs = 0;
+  for (int i = 0;i < rp->numOutputs;i++) {
+    RROutputPtr output;
+
+    output = rp->outputs[i];
+
+    if (output->crtc != NULL)
+      availableOutputs++;
+    else {
+      for (int j = 0;j < output->numCrtcs;j++) {
+        if (output->crtcs[j]->numOutputs != 0)
+          continue;
+        if (usedCrtcs.count(output->crtcs[j]) != 0)
+          continue;
+
+        availableOutputs++;
+        usedCrtcs.insert(output->crtcs[j]);
+
+        break;
+      }
+    }
   }
 
-  // Adjust screen size
-  ret = RRScreenSizeSet(pScreen, fb_width, fb_height,
-                        pScreen->mmWidth, pScreen->mmHeight);
-  if (!ret) {
-    vlog.error("setScreenLayout: Could not adjust screen size");
-    return resultNoResources;
+  /* Try to create more outputs if needed... (only works on Xvnc) */
+  if (layout.num_screens() > availableOutputs) {
+    for (int i = 0;i < (layout.num_screens() - availableOutputs);i++) {
+      RROutputPtr output;
+      output = vncRandROutputCreate(pScreen);
+      if (output == NULL) {
+        vlog.error("Unable to create more screens, as needed by the new client layout.");
+        return rfb::resultInvalid;
+      }
+    }
   }
 
-  // And then the CRTC
-  ret = RRCrtcSet(output->crtc, mode, 0, 0, RR_Rotate_0, 1, &output);
-  if (!ret) {
-    vlog.error("setScreenLayout: Could not adjust CRTC");
-    return resultNoResources;
+  /* First we might need to resize the screen */
+  if ((fb_width != pScreen->width) || (fb_height != pScreen->height)) {
+    /* Try to retain DPI when we resize */
+    ret = RRScreenSizeSet(pScreen, fb_width, fb_height,
+                          pScreen->mmWidth * fb_width / pScreen->width,
+                          pScreen->mmHeight * fb_height / pScreen->height);
+    if (!ret) {
+      vlog.error("Failed to resize screen to %dx%d", fb_width, fb_height);
+      return rfb::resultInvalid;
+    }
   }
 
-  // RandR 1.0 doesn't carry any screen layout information, so we need
-  // to update that manually. This results in another unnecessary
-  // ExtendedDesktopSize.
-  server->setScreenLayout(layout);
+  /* Next, reconfigure all known outputs, and turn off the other ones */
+  for (int i = 0;i < rp->numOutputs;i++) {
+    RROutputPtr output;
+    RRCrtcPtr crtc;
+    RRModePtr mode;
 
-  return resultSuccess;
+    ScreenSet::const_iterator iter;
+
+    output = rp->outputs[i];
+    crtc = output->crtc;
+
+    /* Known? */
+    if (outputIdMap.count(output) == 0)
+      continue;
+
+    /* A known output should have a CRTC, but double check... */
+    if (crtc == NULL) {
+      vlog.error("Existing output '%s' has unexpectedly been disabled",
+                 output->name);
+      continue;
+    }
+
+    /* Find the corresponding screen... */
+    for (iter = layout.begin();iter != layout.end();++iter) {
+      if (iter->id == outputIdMap[output])
+        break;
+    }
+
+    /* Missing? */
+    if (iter == layout.end()) {
+      /* Disable and move on... */
+      ret = RRCrtcSet(crtc, NULL, crtc->x, crtc->y, crtc->rotation, 0, NULL);
+      if (!ret) {
+        vlog.error("Failed to disable unused CRTC for output '%s'",
+                   output->name);
+        return rfb::resultInvalid;
+      }
+      outputIdMap.erase(output);
+      continue;
+    }
+
+    /* Need to switch mode? */
+    if ((crtc->mode->mode.width == iter->dimensions.width()) &&
+        (crtc->mode->mode.height == iter->dimensions.height()))
+      mode = crtc->mode;
+    else {
+      mode = findRandRMode(output, iter->dimensions.width(),
+                           iter->dimensions.height());
+      if (mode == NULL) {
+        vlog.error("Failed to find a suitable mode for %dx%d for output '%s'",
+                   iter->dimensions.width(), iter->dimensions.height(),
+                   output->name);
+        return rfb::resultInvalid;
+      }
+    }
+
+    /* Reconfigure new mode and position */
+    ret = RRCrtcSet(crtc, mode, iter->dimensions.tl.x, iter->dimensions.tl.y,
+                    crtc->rotation, crtc->numOutputs, crtc->outputs);
+    if (!ret) {
+      vlog.error("Failed to reconfigure output '%s' to %dx%d+%d+%d",
+                 output->name,
+                 iter->dimensions.width(), iter->dimensions.height(),
+                 iter->dimensions.tl.x, iter->dimensions.tl.y);
+      return rfb::resultInvalid;
+    }
+  }
+
+  /* Finally, allocate new outputs for new screens */
+  ScreenSet::const_iterator iter;
+  for (iter = layout.begin();iter != layout.end();++iter) {
+    OutputIdMap::const_iterator oi;
+
+    RROutputPtr output;
+    RRCrtcPtr crtc;
+    RRModePtr mode;
+
+    int i;
+
+    /* Does this screen have an output already? */
+    for (oi = outputIdMap.begin();oi != outputIdMap.end();++oi) {
+      if (oi->second == iter->id)
+        break;
+    }
+
+    if (oi != outputIdMap.end())
+      continue;
+
+    /* Find an unused output */
+    for (i = 0;i < rp->numOutputs;i++) {
+      output = rp->outputs[i];
+      crtc = output->crtc;
+
+      /* In use? */
+      if (outputIdMap.count(output) == 1)
+        continue;
+
+      /* Need a CRTC? */
+      if (crtc == NULL) {
+        for (int j = 0;j < output->numCrtcs;j++) {
+          if (output->crtcs[j]->numOutputs != 0)
+            continue;
+
+          crtc = output->crtcs[j];
+          break;
+        }
+
+        /* Couldn't find one... */
+        if (crtc == NULL)
+          continue;
+
+        ret = RRCrtcSet(crtc, NULL, 0, 0, RR_Rotate_0,
+                        1, &output);
+        if (!ret) {
+          vlog.error("Failed to associate a CRTC with output '%s'",
+                     output->name);
+          return rfb::resultInvalid;
+        }
+      }
+
+      break;
+    }
+
+    /* Shouldn't happen */
+    if (i == rp->numOutputs)
+        return rfb::resultInvalid;
+
+    mode = findRandRMode(output, iter->dimensions.width(),
+                         iter->dimensions.height());
+    if (mode == NULL) {
+      vlog.error("Failed to find a suitable mode for %dx%d for output '%s'",
+                 iter->dimensions.width(), iter->dimensions.height(),
+                 output->name);
+      return rfb::resultInvalid;
+    }
+
+    /*
+     * Make sure we already have an entry for this, or
+     * computeScreenLayout() will think it is a brand new output and
+     * assign it a random id.
+     */
+    outputIdMap[output] = iter->id;
+
+    /* Reconfigure new mode and position */
+    ret = RRCrtcSet(crtc, mode,  iter->dimensions.tl.x, iter->dimensions.tl.y,
+                    crtc->rotation, crtc->numOutputs, crtc->outputs);
+    if (!ret) {
+      vlog.error("Failed to reconfigure output '%s' to %dx%d+%d+%d",
+                 output->name,
+                 iter->dimensions.width(), iter->dimensions.height(),
+                 iter->dimensions.tl.x, iter->dimensions.tl.y);
+      return rfb::resultInvalid;
+    }
+  }
+
+  /*
+   * Update timestamp for when screen layout was last changed.
+   * This is normally done in the X11 request handlers, which is
+   * why we have to deal with it manually here.
+   */
+  rp->lastSetTime = currentTime;
+
+  return rfb::resultSuccess;
+#endif
 }
-#endif // RANDR
 
 void XserverDesktop::grabRegion(const rfb::Region& region)
 {

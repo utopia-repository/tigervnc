@@ -18,15 +18,22 @@ include(CheckCSourceRuns)
 include(CMakeMacroLibtoolFile)
 
 project(tigervnc)
-set(VERSION 1.2.0)
+set(VERSION 1.3.0)
 
 # The RC version must always be four comma-separated numbers
-set(RCVERSION 1,2,0,0)
+set(RCVERSION 1,3,0,0)
 
-# Compatibility variables for the migration from autotools
-add_definitions(-DPACKAGE_NAME="${CMAKE_PROJECT_NAME}")
-add_definitions(-DPACKAGE_VERSION="${VERSION}")
-add_definitions(-DLOCALEDIR="${CMAKE_INSTALL_PREFIX}/share/locale")
+# Installation paths
+set(BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin")
+set(DATA_DIR "${CMAKE_INSTALL_PREFIX}/share")
+set(MAN_DIR "${DATA_DIR}/man")
+set(LOCALE_DIR "${DATA_DIR}/locale")
+set(DOC_DIR "${CMAKE_INSTALL_PREFIX}/share/doc/${CMAKE_PROJECT_NAME}-${VERSION}")
+
+if(WIN32)
+set(BIN_DIR "${CMAKE_INSTALL_PREFIX}")
+set(DOC_DIR "${CMAKE_INSTALL_PREFIX}")
+endif()
 
 if(MSVC)
   message(FATAL_ERROR "TigerVNC cannot be built with Visual Studio.  Please use MinGW")
@@ -162,7 +169,6 @@ option(ENABLE_NLS "Enable translation of program messages" ON)
 if(ENABLE_NLS)
   # Tools
   find_package(Gettext)
-  set(LOCALE_DIR "${CMAKE_INSTALL_PREFIX}/share/locale")
 
   # Gettext needs iconv
   find_package(Iconv)
@@ -239,14 +245,16 @@ endif()
 # Check for FLTK
 set(FLTK_SKIP_FLUID TRUE)
 set(FLTK_SKIP_OPENGL TRUE)
-set(FLTK_SKIP_IMAGES TRUE)
 set(FLTK_SKIP_FORMS TRUE)
 find_package(FLTK)
 
 if(UNIX AND NOT APPLE)
   # No proper handling for extra X11 libs that FLTK might need...
   if(X11_Xft_FOUND)
-    set(FLTK_LIBRARIES ${FLTK_LIBRARIES} ${X11_Xft_LIB})
+    # Xft headers include references to fontconfig, so we need
+    # to link to that as well
+    find_library(FONTCONFIG_LIB fontconfig)
+    set(FLTK_LIBRARIES ${FLTK_LIBRARIES} ${X11_Xft_LIB} ${FONTCONFIG_LIB})
   endif()
   if(X11_Xinerama_FOUND)
     set(FLTK_LIBRARIES ${FLTK_LIBRARIES} ${X11_Xinerama_LIB})
@@ -278,47 +286,17 @@ if(FLTK_FOUND)
   # FLTK STR #2660
   check_cxx_source_compiles("#include <FL/Fl_Window.H>\nint main(int c, char** v) { void (Fl_Window::*foo)(const Fl_RGB_Image*,int,int) = &Fl_Window::cursor; return 0; }" HAVE_FLTK_CURSOR)
 
+  # FLTK STR #2697
+  check_cxx_source_compiles("#include <FL/Fl.H>\nint main(int c, char** v) { int X, Y, W, H; Fl::screen_work_area(X, Y, W, H); return 0; }" HAVE_FLTK_WORK_AREA)
+
+  # FLTK STR #2816
+  check_cxx_source_compiles("#include <FL/Fl_Window.H>\nint main(int c, char** v) { Fl_Window::default_icons(0, 0); return 0; }" HAVE_FLTK_ICONS)
+
+  # FLTK STR #2860
+  check_cxx_source_compiles("#include <FL/Fl_Window.H>\nint main(int c, char** v) { void (Fl_Window::*foo)(int,int,int,int) = &Fl_Window::fullscreen_screens; return 0; }" HAVE_FLTK_FULLSCREEN_SCREENS)
+
   set(CMAKE_REQUIRED_INCLUDES)
   set(CMAKE_REQUIRED_LIBRARIES)
-endif()
-
-option(USE_INCLUDED_FLTK
-  "Force the use of the FLTK library bundled with the TigerVNC source")
-if(NOT FLTK_FOUND OR NOT HAVE_FLTK_DEAD_KEYS OR NOT HAVE_FLTK_CLIPBOARD
-  OR NOT HAVE_FLTK_MEDIAKEYS OR NOT HAVE_FLTK_FULLSCREEN
-  OR NOT HAVE_FLTK_CURSOR)
-  set(USE_INCLUDED_FLTK 1)
-endif()
-if(USE_INCLUDED_FLTK)
-  # Check that we have the proper dependencies
-  if(UNIX AND NOT APPLE)
-    if(NOT X11_Xft_FOUND)
-      message(FATAL_ERROR "Xft headers/libraries not found (needed by FLTK.)")
-    endif()
-    if(NOT X11_Xinerama_FOUND)
-      message(FATAL_ERROR "Xinerama headers/libraries not found (needed by FLTK.)")
-    endif()
-    if(NOT X11_Xfixes_FOUND)
-      message(FATAL_ERROR "Xfixes headers/libraries not found (needed by FLTK.)")
-    endif()
-    if(NOT X11_Xcursor_FOUND)
-      message(FATAL_ERROR "Xcursor headers/libraries not found (needed by FLTK.)")
-    endif()
-  endif()
-
-  set(HAVE_FLTK_DEAD_KEYS 1)
-  set(HAVE_FLTK_CLIPBOARD 1)
-  set(HAVE_FLTK_MEDIAKEYS 1)
-  set(HAVE_FLTK_FULLSCREEN 1)
-  set(HAVE_FLTK_CURSOR 1)
-  set(FLTK_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/common/fltk)
-  set(FLTK_LIBRARIES)
-  if(APPLE)
-    set(FLTK_LIBRARIES "-framework Carbon -framework Cocoa -framework ApplicationServices")
-  elseif(NOT WIN32)
-    set(FLTK_LIBRARIES "-ldl")
-  endif()
-  message(STATUS "Using included FLTK library")
 endif()
 
 # Check for GNUTLS library
@@ -344,7 +322,8 @@ if(ENABLE_GNUTLS)
       # system's version (if available) to perform this test.
       set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES};-lz)
     endif()
-    check_function_exists(gnutls_transport_set_global_errno HAVE_OLD_GNUTLS)
+    check_function_exists(gnutls_transport_set_errno HAVE_GNUTLS_SET_ERRNO)
+    check_function_exists(gnutls_transport_set_global_errno HAVE_GNUTLS_SET_GLOBAL_ERRNO)
     check_function_exists(gnutls_x509_crt_print HAVE_GNUTLS_X509_CRT_PRINT)
     check_type_size(gnutls_x509_crt_t GNUTLS_X509_CRT_T)
     check_type_size(gnutls_datum_t GNUTLS_DATUM_T)
@@ -380,6 +359,7 @@ else()
 endif()
 check_function_exists(inet_aton HAVE_INET_ATON)
 check_function_exists(inet_ntop HAVE_INET_NTOP)
+check_function_exists(getaddrinfo HAVE_GETADDRINFO)
 check_type_size(socklen_t SOCKLEN_T)
 set(CMAKE_EXTRA_INCLUDE_FILES) 
 set(CMAKE_REQUIRED_LIBRARIES)
@@ -409,7 +389,10 @@ endif()
 if(ENABLE_NLS)
   add_subdirectory(po)
 endif()
+
 add_subdirectory(vncviewer)
+
+add_subdirectory(media)
 
 include(cmake/BuildPackages.cmake)
 

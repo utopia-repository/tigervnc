@@ -1,4 +1,5 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
+ * Copyright (C) 2011 Brian P. Hinz
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,7 +13,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
  * USA.
  */
 
@@ -26,6 +27,10 @@ public class MsgTypes {
   public static final int msgTypeBell = 2;
   public static final int msgTypeServerCutText = 3;
 
+  public static final int msgTypeEndOfContinuousUpdates = 150;
+
+  public static final int msgTypeServerFence = 248;
+
   // client to server
 
   public static final int msgTypeSetPixelFormat = 0;
@@ -35,6 +40,10 @@ public class MsgTypes {
   public static final int msgTypeKeyEvent = 4;
   public static final int msgTypePointerEvent = 5;
   public static final int msgTypeClientCutText = 6;
+
+  public static final int msgTypeEnableContinuousUpdates = 150;
+
+  public static final int msgTypeClientFence = 248;
 
   public static final int msgTypeSetDesktopSize = 251;
 }

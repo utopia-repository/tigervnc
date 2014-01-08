@@ -1,4 +1,5 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
+ * Copyright (C) 2011-2013 Brian P. Hinz
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,7 +13,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
  * USA.
  */
 
@@ -22,31 +23,43 @@ import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
 import javax.swing.border.*;
+import javax.swing.WindowConstants.*;
 import java.util.*;
 
 import com.tigervnc.rfb.*;
 
 class ServerDialog extends Dialog implements
-                           ActionListener,
-                           ItemListener
+                           ActionListener
 {
 
+  @SuppressWarnings({"unchecked","rawtypes"})
   public ServerDialog(OptionsDialog options_,
                       String defaultServerName, CConn cc_) {
     
     super(true);
     cc = cc_;
-    setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+    setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
     setResizable(false);
     setSize(new Dimension(340, 135));
-    setTitle("VNC Viewer : Connection Details");
+    setTitle("VNC Viewer: Connection Details");
+    addWindowListener(new WindowAdapter() {
+      public void windowClosing(WindowEvent e) {
+        if (VncViewer.nViewers == 1) {
+          cc.viewer.exit(1);
+        } else {
+          ret = false;
+          endDialog();
+        }
+      }
+    });
 
     options = options_;
     getContentPane().setLayout(new GridBagLayout());
 
     JLabel serverLabel = new JLabel("Server:", JLabel.RIGHT);
-    if (options.defaults.getString("server") != null) {
-      server = new JComboBox(options.defaults.getString("server").split(","));
+    if (UserPreferences.get("ServerDialog", "history") != null) {
+      String valueStr = UserPreferences.get("ServerDialog", "history");
+      server = new JComboBox(valueStr.split(","));
     } else {
       server = new JComboBox();
     }
@@ -55,7 +68,7 @@ class ServerDialog extends Dialog implements
     if (UIManager.getLookAndFeel().getID() == "Windows") {
       server.setBorder(BorderFactory.createCompoundBorder(server.getBorder(),
         BorderFactory.createEmptyBorder(0,2,0,0)));
-    } else {
+    } else if (UIManager.getLookAndFeel().getID() == "Metal") {
       ComboBoxEditor editor = server.getEditor();
       JTextField jtf = (JTextField)editor.getEditorComponent();
       jtf.setBorder(new CompoundBorder(jtf.getBorder(), new EmptyBorder(0,2,0,0)));
@@ -63,13 +76,21 @@ class ServerDialog extends Dialog implements
 
     server.setEditable(true);
     editor = server.getEditor();
-    JLabel encryptionLabel = new JLabel("Encryption:");
-    encryption = new JComboBox();
-    serverLabel.setPreferredSize(encryptionLabel.getPreferredSize());
+    editor.getEditorComponent().addKeyListener(new KeyListener() {
+      public void keyTyped(KeyEvent e) {}
+      public void keyReleased(KeyEvent e) {}
+      public void keyPressed(KeyEvent e) {
+        if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+          server.insertItemAt(editor.getItem(), 0);
+          server.setSelectedIndex(0);
+          commit();
+        }
+      }
+    });
 
     JPanel topPanel = new JPanel(new GridBagLayout());
 
-    addGBComponent(new JLabel(cc.logo),topPanel, 0, 0, 1, 1, 0, 0, 0, 1, GridBagConstraints.HORIZONTAL, GridBagConstraints.LINE_START, new Insets(5,5,5,15));
+    addGBComponent(new JLabel(VncViewer.logoIcon),topPanel, 0, 0, 1, 1, 0, 0, 0, 1, GridBagConstraints.HORIZONTAL, GridBagConstraints.LINE_START, new Insets(5,5,5,15));
     addGBComponent(serverLabel,topPanel, 1, 0, 1, 1, 0, 0, 0, 1, GridBagConstraints.HORIZONTAL, GridBagConstraints.LINE_END, new Insets(10,0,5,5));
     addGBComponent(server,topPanel, 2, 0, 1, 1, 0, 0, 1, 1, GridBagConstraints.HORIZONTAL, GridBagConstraints.CENTER, new Insets(10,0,5,40));
 
@@ -106,17 +127,15 @@ class ServerDialog extends Dialog implements
     pack();
   }
 
-  public void itemStateChanged(ItemEvent e) {
-    //Object s = e.getSource();
-  }
-
+  @SuppressWarnings({"unchecked","rawtypes"})
   public void actionPerformed(ActionEvent e) {
     Object s = e.getSource();
     if (s instanceof JButton && (JButton)s == okButton) {
-      ok = true;
-      endDialog();
+      commit();
     } else if (s instanceof JButton && (JButton)s == cancelButton) {
-      ok = false;
+      if (VncViewer.nViewers == 1)
+        cc.viewer.exit(1);
+      ret = false;
       endDialog();
     } else if (s instanceof JButton && (JButton)s == optionsButton) {
       options.showDialog(this);
@@ -126,47 +145,42 @@ class ServerDialog extends Dialog implements
       if (e.getActionCommand().equals("comboBoxEdited")) {
         server.insertItemAt(editor.getItem(), 0);
         server.setSelectedIndex(0);
-        ok = true;
-        endDialog();
       }
     }
-  }
-  
-  public void endDialog() {
-    if (ok) {
-      try {
-        options.defaults.setPref("encryption",(encryption.getSelectedIndex()==1) ? "off" : "on");
-        if (!server.getSelectedItem().toString().equals("")) {
-          String t = (options.defaults.getString("server")==null) ? "" : options.defaults.getString("server");
-          StringTokenizer st = new StringTokenizer(t, ",");
-          StringBuffer sb = new StringBuffer().append((String)server.getSelectedItem());
-          while (st.hasMoreTokens()) {
-            String s = st.nextToken();
-            if (!s.equals((String)server.getSelectedItem()) && !s.equals("")) {
-              sb.append(',');
-              sb.append(s);
-            }
-          }
-          options.defaults.setPref("server", sb.toString());
-        }
-        options.defaults.Save();
-      } catch (java.io.IOException e) {
-        System.out.println(e.toString());
-      } catch(java.security.AccessControlException e) {
-        System.out.println(e.toString());
-		  }
-    }
-    done = true;
-    if (modal) {
-      synchronized (this) {
-        notify();
-      }
-    }
-    this.dispose();
   }
 
+  private void commit() {
+    String serverName = (String)server.getSelectedItem();
+    if (serverName == null || serverName.equals("")) {
+      vlog.error("Invalid servername specified");
+      if (VncViewer.nViewers == 1)
+        cc.viewer.exit(1);
+      ret = false;
+      endDialog();
+    }
+    // set params
+    Configuration.setParam("Server", Hostname.getHost(serverName));
+    Configuration.setParam("Port", Integer.toString(Hostname.getPort(serverName)));
+    // Update the history list
+    String valueStr = UserPreferences.get("ServerDialog", "history");
+    String t = (valueStr == null) ? "" : valueStr;
+    StringTokenizer st = new StringTokenizer(t, ",");
+    StringBuffer sb = new StringBuffer().append((String)server.getSelectedItem());
+    while (st.hasMoreTokens()) {
+      String str = st.nextToken();
+      if (!str.equals((String)server.getSelectedItem()) && !str.equals("")) {
+        sb.append(',');
+        sb.append(str);
+      }
+    }
+    UserPreferences.set("ServerDialog", "history", sb.toString());
+    UserPreferences.save("ServerDialog");
+    endDialog();
+  }
+  
   CConn cc;
-  JComboBox encryption, server;
+  @SuppressWarnings("rawtypes")
+  JComboBox server;
   ComboBoxEditor editor;
   JButton aboutButton, optionsButton, okButton, cancelButton;
   OptionsDialog options;

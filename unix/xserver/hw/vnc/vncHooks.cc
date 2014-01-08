@@ -81,9 +81,12 @@ typedef struct {
   ScreenBlockHandlerProcPtr    BlockHandler;
 #ifdef RENDER
   CompositeProcPtr             Composite;
+  GlyphsProcPtr                Glyphs;
 #endif
 #ifdef RANDR
   RRSetConfigProcPtr           RandRSetConfig;
+  RRScreenSetSizeProcPtr       RandRScreenSetSize;
+  RRCrtcSetProcPtr             RandRCrtcSet;
 #endif
 } vncHooksScreenRec, *vncHooksScreenPtr;
 
@@ -116,7 +119,11 @@ static DevPrivateKeyRec vncHooksGCKeyRec;
 
 // screen functions
 
+#if XORG < 112
 static Bool vncHooksCloseScreen(int i, ScreenPtr pScreen);
+#else
+static Bool vncHooksCloseScreen(ScreenPtr pScreen);
+#endif
 static Bool vncHooksCreateGC(GCPtr pGC);
 static void vncHooksCopyWindow(WindowPtr pWin, DDXPointRec ptOldOrg,
                                RegionPtr pOldRegion);
@@ -133,16 +140,31 @@ static Bool vncHooksDisplayCursor(
 				  DeviceIntPtr pDev,
 #endif
 				  ScreenPtr pScreen, CursorPtr cursor);
+#if XORG < 112
 static void vncHooksBlockHandler(int i, pointer blockData, pointer pTimeout,
                                  pointer pReadmask);
+#else
+static void vncHooksBlockHandler(ScreenPtr pScreen, pointer pTimeout,
+                                 pointer pReadmask);
+#endif
 #ifdef RENDER
 static void vncHooksComposite(CARD8 op, PicturePtr pSrc, PicturePtr pMask, 
 			      PicturePtr pDst, INT16 xSrc, INT16 ySrc, INT16 xMask, 
 			      INT16 yMask, INT16 xDst, INT16 yDst, CARD16 width, CARD16 height);
+static void vncHooksGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst, 
+			      PictFormatPtr maskFormat, INT16 xSrc, INT16 ySrc, int nlists, 
+			      GlyphListPtr lists, GlyphPtr * glyphs);
 #endif
 #ifdef RANDR
 static Bool vncHooksRandRSetConfig(ScreenPtr pScreen, Rotation rotation,
                                    int rate, RRScreenSizePtr pSize);
+static Bool vncHooksRandRScreenSetSize(ScreenPtr pScreen,
+                                       CARD16 width, CARD16 height,
+                                       CARD32 mmWidth, CARD32 mmHeight);
+static Bool vncHooksRandRCrtcSet(ScreenPtr pScreen, RRCrtcPtr crtc,
+                                 RRModePtr mode, int x, int y,
+                                 Rotation rotation, int numOutputs,
+                                 RROutputPtr *outputs);
 #endif
 
 // GC "funcs"
@@ -276,6 +298,7 @@ Bool vncHooksInit(ScreenPtr pScreen, XserverDesktop* desktop)
   ps = GetPictureScreenIfSet(pScreen);
   if (ps) {
     vncHooksScreen->Composite = ps->Composite;
+    vncHooksScreen->Glyphs = ps->Glyphs;
   }
 #endif
 #ifdef RANDR
@@ -283,6 +306,8 @@ Bool vncHooksInit(ScreenPtr pScreen, XserverDesktop* desktop)
   rp = rrGetScrPriv(pScreen);
   if (rp) {
     vncHooksScreen->RandRSetConfig = rp->rrSetConfig;
+    vncHooksScreen->RandRScreenSetSize = rp->rrScreenSetSize;
+    vncHooksScreen->RandRCrtcSet = rp->rrCrtcSet;
   }
 #endif
 
@@ -300,11 +325,18 @@ Bool vncHooksInit(ScreenPtr pScreen, XserverDesktop* desktop)
 #ifdef RENDER
   if (ps) {
     ps->Composite = vncHooksComposite;
+    ps->Glyphs = vncHooksGlyphs;
   }
 #endif
 #ifdef RANDR
   if (rp) {
-    rp->rrSetConfig = vncHooksRandRSetConfig;
+    /* Some RandR callbacks are optional */
+    if (rp->rrSetConfig)
+      rp->rrSetConfig = vncHooksRandRSetConfig;
+    if (rp->rrScreenSetSize)
+      rp->rrScreenSetSize = vncHooksRandRScreenSetSize;
+    if (rp->rrCrtcSet)
+      rp->rrCrtcSet = vncHooksRandRCrtcSet;
   }
 #endif
 
@@ -335,7 +367,11 @@ Bool vncHooksInit(ScreenPtr pScreen, XserverDesktop* desktop)
 // CloseScreen - unwrap the screen functions and call the original CloseScreen
 // function
 
+#if XORG < 112
 static Bool vncHooksCloseScreen(int i, ScreenPtr pScreen_)
+#else
+static Bool vncHooksCloseScreen(ScreenPtr pScreen_)
+#endif
 {
   SCREEN_UNWRAP(pScreen_, CloseScreen);
 
@@ -354,6 +390,7 @@ static Bool vncHooksCloseScreen(int i, ScreenPtr pScreen_)
   ps = GetPictureScreenIfSet(pScreen);
   if (ps) {
     ps->Composite = vncHooksScreen->Composite;
+    ps->Glyphs = vncHooksScreen->Glyphs;
   }
 #endif
 #ifdef RANDR
@@ -361,12 +398,18 @@ static Bool vncHooksCloseScreen(int i, ScreenPtr pScreen_)
   rp = rrGetScrPriv(pScreen);
   if (rp) {
     rp->rrSetConfig = vncHooksScreen->RandRSetConfig;
+    rp->rrScreenSetSize = vncHooksScreen->RandRScreenSetSize;
+    rp->rrCrtcSet = vncHooksScreen->RandRCrtcSet;
   }
 #endif
 
   DBGPRINT((stderr,"vncHooksCloseScreen: unwrapped screen functions\n"));
 
+#if XORG < 112
   return (*pScreen->CloseScreen)(i, pScreen);
+#else
+  return (*pScreen->CloseScreen)(pScreen);
+#endif
 }
 
 // CreateGC - wrap the "GC funcs"
@@ -531,23 +574,37 @@ static Bool vncHooksDisplayCursor(
 // BlockHandler - ignore any changes during the block handler - it's likely
 // these are just drawing the cursor.
 
+#if XORG < 112
 static void vncHooksBlockHandler(int i, pointer blockData, pointer pTimeout,
                                  pointer pReadmask)
+#else
+static void vncHooksBlockHandler(ScreenPtr pScreen_, pointer pTimeout,
+                                 pointer pReadmask)
+#endif
 {
+#if XORG < 112
   SCREEN_UNWRAP(screenInfo.screens[i], BlockHandler);
+#else
+  SCREEN_UNWRAP(pScreen_, BlockHandler);
+#endif
 
   vncHooksScreen->desktop->ignoreHooks(true);
 
+#if XORG < 112
   (*pScreen->BlockHandler) (i, blockData, pTimeout, pReadmask);
+#else
+  (*pScreen->BlockHandler) (pScreen, pTimeout, pReadmask);
+#endif
 
   vncHooksScreen->desktop->ignoreHooks(false);
 
   SCREEN_REWRAP(BlockHandler);
 }
 
-// Composite - needed for RENDER
-
 #ifdef RENDER
+
+// Composite - The core of XRENDER
+
 void vncHooksComposite(CARD8 op, PicturePtr pSrc, PicturePtr pMask, 
 		       PicturePtr pDst, INT16 xSrc, INT16 ySrc, INT16 xMask, 
 		       INT16 yMask, INT16 xDst, INT16 yDst, CARD16 width, CARD16 height)
@@ -590,11 +647,142 @@ void vncHooksComposite(CARD8 op, PicturePtr pSrc, PicturePtr pMask,
     vncHooksScreen->desktop->add_changed(changed.reg);
 }
 
+static int
+GlyphCount(int nlist, GlyphListPtr list, GlyphPtr * glyphs)
+{
+  int count;
+
+  count = 0;
+  while (nlist--) {
+    count += list->len;
+    list++;
+  }
+
+  return count;
+}
+
+static RegionPtr
+GlyphsToRegion(ScreenPtr pScreen, int nlist, GlyphListPtr list, GlyphPtr *glyphs)
+{
+  int n;
+  GlyphPtr glyph;
+  int x, y;
+
+  int nrects = GlyphCount(nlist, list, glyphs);
+  xRectangle rects[nrects];
+  xRectanglePtr rect;
+
+  x = 0;
+  y = 0;
+  rect = &rects[0];
+  while (nlist--) {
+    x += list->xOff;
+    y += list->yOff;
+    n = list->len;
+    list++;
+    while (n--) {
+      glyph = *glyphs++;
+      rect->x = x - glyph->info.x;
+      rect->y = y - glyph->info.y;
+      rect->width = glyph->info.width;
+      rect->height = glyph->info.height;
+      x += glyph->info.xOff;
+      y += glyph->info.yOff;
+      rect++;
+    }
+  }
+
+  return RECTS_TO_REGION(pScreen, nrects, rects, CT_NONE);
+}
+
+// Glyphs - Glyph specific version of Composite (caches and whatnot)
+
+void vncHooksGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst, 
+           PictFormatPtr maskFormat, INT16 xSrc, INT16 ySrc, int nlists, 
+           GlyphListPtr lists, GlyphPtr * glyphs)
+{
+  ScreenPtr pScreen = pDst->pDrawable->pScreen;
+  vncHooksScreenPtr vncHooksScreen = vncHooksScreenPrivate(pScreen);
+  PictureScreenPtr ps = GetPictureScreen(pScreen);
+
+  RegionHelper changed(pScreen);
+
+  if (pDst->pDrawable->type == DRAWABLE_WINDOW &&
+      ((WindowPtr) pDst->pDrawable)->viewable) {
+    rfb::Rect fbrect;
+    BoxRec fbbox;
+    RegionRec fbreg;
+
+    changed.reg = GlyphsToRegion(pScreen, nlists, lists, glyphs);
+    REGION_TRANSLATE(pScreen, changed.reg,
+                     pDst->pDrawable->x, pDst->pDrawable->y);
+
+    fbrect = vncHooksScreen->desktop->getRect();
+    fbbox.x1 = fbrect.tl.x;
+    fbbox.y1 = fbrect.tl.y;
+    fbbox.x2 = fbrect.br.x;
+    fbbox.y2 = fbrect.br.y;
+    REGION_INIT(pScreen, &fbreg, &fbbox, 0);
+
+    REGION_INTERSECT(pScreen, changed.reg, changed.reg, &fbreg);
+
+    REGION_UNINIT(pScreen, &fbreg);
+  } else {
+    changed.init(NullBox, 0);
+  }
+
+  ps->Glyphs = vncHooksScreen->Glyphs;
+  (*ps->Glyphs)(op, pSrc, pDst, maskFormat, xSrc, ySrc, nlists, lists, glyphs);
+  ps->Glyphs = vncHooksGlyphs;
+
+  if (REGION_NOTEMPTY(pScreen, changed.reg))
+    vncHooksScreen->desktop->add_changed(changed.reg);
+}
+
 #endif /* RENDER */
 
 // RandRSetConfig - follow any framebuffer changes
 
 #ifdef RANDR
+
+static void vncPreScreenResize(ScreenPtr pScreen)
+{
+  vncHooksScreenPtr vncHooksScreen = vncHooksScreenPrivate(pScreen);
+
+  // We need to prevent the RFB core from accessing the framebuffer
+  // for a while as there might be updates thrown our way inside
+  // the routines that change the screen (i.e. before we have a
+  // pointer to the new framebuffer).
+  vncHooksScreen->desktop->blockUpdates();
+}
+
+static void vncPostScreenResize(ScreenPtr pScreen, Bool success)
+{
+  vncHooksScreenPtr vncHooksScreen = vncHooksScreenPrivate(pScreen);
+
+  RegionRec reg;
+  BoxRec box;
+
+  if (success) {
+    // Let the RFB core know of the new dimensions and framebuffer
+    vncHooksScreen->desktop->setFramebuffer(pScreen->width, pScreen->height,
+                                            vncFbptr[pScreen->myNum],
+                                            vncFbstride[pScreen->myNum]);
+  }
+
+  vncHooksScreen->desktop->unblockUpdates();
+
+  if (success) {
+    // Mark entire screen as changed
+    box.x1 = 0;
+    box.y1 = 0;
+    box.x2 = pScreen->width;
+    box.y2 = pScreen->height;
+    REGION_INIT(pScreen, &reg, &box, 1);
+
+    vncHooksScreen->desktop->add_changed(&reg);
+  }
+}
 
 static Bool vncHooksRandRSetConfig(ScreenPtr pScreen, Rotation rotation,
                                    int rate, RRScreenSizePtr pSize)
@@ -602,36 +790,61 @@ static Bool vncHooksRandRSetConfig(ScreenPtr pScreen, Rotation rotation,
   vncHooksScreenPtr vncHooksScreen = vncHooksScreenPrivate(pScreen);
   rrScrPrivPtr rp = rrGetScrPriv(pScreen);
   Bool ret;
-  RegionRec reg;
-  BoxRec box;
 
-  // We need to prevent the RFB core from accessing the framebuffer
-  // for a while as there might be updates thrown our way inside
-  // rrSetConfig (i.e. before we have a pointer to the new framebuffer).
-  vncHooksScreen->desktop->blockUpdates();
+  vncPreScreenResize(pScreen);
 
   rp->rrSetConfig = vncHooksScreen->RandRSetConfig;
   ret = (*rp->rrSetConfig)(pScreen, rotation, rate, pSize);
   rp->rrSetConfig = vncHooksRandRSetConfig;
 
+  vncPostScreenResize(pScreen, ret);
+
   if (!ret)
     return FALSE;
 
-  // Let the RFB core know of the new dimensions and framebuffer
-  vncHooksScreen->desktop->setFramebuffer(pScreen->width, pScreen->height,
-                                          vncFbptr[pScreen->myNum],
-                                          vncFbstride[pScreen->myNum]);
+  return TRUE;
+}
 
-  vncHooksScreen->desktop->unblockUpdates();
+static Bool vncHooksRandRScreenSetSize(ScreenPtr pScreen,
+                                       CARD16 width, CARD16 height,
+                                       CARD32 mmWidth, CARD32 mmHeight)
+{
+  vncHooksScreenPtr vncHooksScreen = vncHooksScreenPrivate(pScreen);
+  rrScrPrivPtr rp = rrGetScrPriv(pScreen);
+  Bool ret;
 
-  // Mark entire screen as changed
-  box.x1 = 0;
-  box.y1 = 0;
-  box.x2 = pScreen->width;
-  box.y2 = pScreen->height;
-  REGION_INIT(pScreen, &reg, &box, 1);
+  vncPreScreenResize(pScreen);
 
-  vncHooksScreen->desktop->add_changed(&reg);
+  rp->rrScreenSetSize = vncHooksScreen->RandRScreenSetSize;
+  ret = (*rp->rrScreenSetSize)(pScreen, width, height, mmWidth, mmHeight);
+  rp->rrScreenSetSize = vncHooksRandRScreenSetSize;
+
+  vncPostScreenResize(pScreen, ret);
+
+  if (!ret)
+    return FALSE;
+
+  return TRUE;
+}
+
+static Bool vncHooksRandRCrtcSet(ScreenPtr pScreen, RRCrtcPtr crtc,
+                                 RRModePtr mode, int x, int y,
+                                 Rotation rotation, int num_outputs,
+                                 RROutputPtr *outputs)
+{
+  vncHooksScreenPtr vncHooksScreen = vncHooksScreenPrivate(pScreen);
+  rrScrPrivPtr rp = rrGetScrPriv(pScreen);
+  Bool ret;
+
+  rp->rrCrtcSet = vncHooksScreen->RandRCrtcSet;
+  ret = (*rp->rrCrtcSet)(pScreen, crtc, mode, x, y, rotation,
+                         num_outputs, outputs);
+  rp->rrCrtcSet = vncHooksRandRCrtcSet;
+
+  if (!ret)
+    return FALSE;
+
+  vncHooksScreen->desktop->refreshScreenLayout();
 
   return TRUE;
 }
@@ -667,7 +880,7 @@ public:
 };
 
 
-// ValidateGC - wrap the "ops" if a viewable window
+// ValidateGC - wrap the "ops" if a viewable window OR the screen pixmap
 
 static void vncHooksValidateGC(GCPtr pGC, unsigned long changes,
                                DrawablePtr pDrawable)
@@ -679,7 +892,9 @@ static void vncHooksValidateGC(GCPtr pGC, unsigned long changes,
   (*pGC->funcs->ValidateGC) (pGC, changes, pDrawable);
 
   u.vncHooksGC->wrappedOps = 0;
-  if (pDrawable->type == DRAWABLE_WINDOW && ((WindowPtr) pDrawable)->viewable) {
+  if ((pDrawable->type == DRAWABLE_WINDOW &&
+       ((WindowPtr) pDrawable)->viewable) ||
+      (pDrawable == &pGC->pScreen->GetScreenPixmap(pGC->pScreen)->drawable)) {
     u.vncHooksGC->wrappedOps = pGC->ops;
     DBGPRINT((stderr,"vncHooksValidateGC: wrapped GC ops\n"));
   }    
@@ -750,7 +965,7 @@ public:
   DBGPRINT((stderr,"vncHooks" #name " called\n"));
 
 
-// FillSpans - changed region is the whole of borderClip.  This is pessimistic,
+// FillSpans - assume the entire clip region is damaged. This is pessimistic,
 // but I believe this function is rarely used so it doesn't matter.
 
 static void vncHooksFillSpans(DrawablePtr pDrawable, GCPtr pGC, int nInit,
@@ -759,14 +974,18 @@ static void vncHooksFillSpans(DrawablePtr pDrawable, GCPtr pGC, int nInit,
 {
   GC_OP_UNWRAPPER(pDrawable, pGC, FillSpans);
 
-  RegionHelper changed(pScreen, &((WindowPtr)pDrawable)->borderClip);
+  RegionHelper changed(pScreen, pGC->pCompositeClip);
+
+  if (pDrawable->type == DRAWABLE_WINDOW)
+    REGION_INTERSECT(pScreen, changed.reg, changed.reg,
+                     &((WindowPtr)pDrawable)->borderClip);
 
   (*pGC->ops->FillSpans) (pDrawable, pGC, nInit, pptInit, pwidthInit, fSorted);
 
   vncHooksScreen->desktop->add_changed(changed.reg);
 }
 
-// SetSpans - changed region is the whole of borderClip.  This is pessimistic,
+// SetSpans - assume the entire clip region is damaged.  This is pessimistic,
 // but I believe this function is rarely used so it doesn't matter.
 
 static void vncHooksSetSpans(DrawablePtr pDrawable, GCPtr pGC, char *psrc,
@@ -775,7 +994,11 @@ static void vncHooksSetSpans(DrawablePtr pDrawable, GCPtr pGC, char *psrc,
 {
   GC_OP_UNWRAPPER(pDrawable, pGC, SetSpans);
 
-  RegionHelper changed(pScreen, &((WindowPtr)pDrawable)->borderClip);
+  RegionHelper changed(pScreen, pGC->pCompositeClip);
+
+  if (pDrawable->type == DRAWABLE_WINDOW)
+    REGION_INTERSECT(pScreen, changed.reg, changed.reg,
+                     &((WindowPtr)pDrawable)->borderClip);
 
   (*pGC->ops->SetSpans) (pDrawable, pGC, psrc, ppt, pwidth, nspans, fSorted);
 
@@ -827,16 +1050,23 @@ static RegionPtr vncHooksCopyArea(DrawablePtr pSrc, DrawablePtr pDst,
 
   RegionHelper src(pScreen);
 
-  if ((pSrc->type == DRAWABLE_WINDOW) && (pSrc->pScreen == pScreen)) {
+  // The source of the data has to be something that's on screen.
+  // This means either a window, or the screen pixmap.
+  if ((pSrc->pScreen == pScreen) &&
+      ((pSrc->type == DRAWABLE_WINDOW) ||
+       (pSrc == &pScreen->GetScreenPixmap(pScreen)->drawable))) {
     box.x1 = srcx + pSrc->x;
     box.y1 = srcy + pSrc->y;
     box.x2 = box.x1 + w;
     box.y2 = box.y1 + h;
 
     src.init(&box, 0);
-    if (REGION_NOTEMPTY(pScreen, &((WindowPtr)pSrc)->clipList)) {
-	REGION_INTERSECT(pScreen, src.reg, src.reg, &((WindowPtr)pSrc)->clipList);
+
+    if ((pSrc->type == DRAWABLE_WINDOW) &&
+        REGION_NOTEMPTY(pScreen, &((WindowPtr)pSrc)->clipList)) {
+      REGION_INTERSECT(pScreen, src.reg, src.reg, &((WindowPtr)pSrc)->clipList);
     }
+
     REGION_TRANSLATE(pScreen, src.reg,
                      dstx + pDst->x - srcx - pSrc->x,
                      dsty + pDst->y - srcy - pSrc->y);

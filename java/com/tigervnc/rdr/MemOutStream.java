@@ -12,7 +12,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
  * USA.
  */
 
@@ -34,6 +34,10 @@ public class MemOutStream extends OutStream {
   public int length() { return ptr; }
   public void clear() { ptr = 0; };
   public void reposition(int pos) { ptr = pos; }
+
+  // data() returns a pointer to the buffer.
+
+  public final byte[] data() { return b; }
 
   // overrun() either doubles the buffer or adds enough space for nItems of
   // size itemSize bytes.

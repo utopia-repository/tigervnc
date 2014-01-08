@@ -24,6 +24,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <signal.h>
@@ -43,11 +44,13 @@
 #endif
 #include <rfb/LogWriter.h>
 #include <rfb/Timer.h>
+#include <rfb/Exception.h>
 #include <network/TcpSocket.h>
 #include <os/os.h>
 
 #include <FL/Fl.H>
 #include <FL/Fl_Widget.H>
+#include <FL/Fl_PNG_Image.H>
 #include <FL/fl_ask.H>
 #include <FL/x.H>
 
@@ -56,8 +59,10 @@
 #include "CConn.h"
 #include "ServerDialog.h"
 #include "UserDialog.h"
+#include "vncviewer.h"
 
 #ifdef WIN32
+#include "resource.h"
 #include "win32.h"
 #endif
 
@@ -67,8 +72,13 @@ using namespace network;
 using namespace rfb;
 using namespace std;
 
-static char aboutText[1024];
+static const char aboutText[] = N_("TigerVNC Viewer %d-bit v%s (%s)\n"
+                                   "%s\n"
+                                   "Copyright (C) 1999-2011 TigerVNC Team and many others (see README.txt)\n"
+                                   "See http://www.tigervnc.org for information on TigerVNC.");
 extern const char* buildTime;
+
+char vncServerName[VNCSERVERNAMELEN] = { '\0' };
 
 static bool exitMainloop = false;
 static const char *exitError = NULL;
@@ -86,7 +96,8 @@ void exit_vncviewer(const char *error)
 void about_vncviewer()
 {
   fl_message_title(_("About TigerVNC Viewer"));
-  fl_message(aboutText);
+  fl_message(gettext(aboutText), (int)sizeof(size_t)*8,
+             PACKAGE_VERSION, __BUILD__, buildTime);
 }
 
 static void about_callback(Fl_Widget *widget, void *data)
@@ -120,6 +131,69 @@ static void init_fltk()
   // Proper Gnome Shell integration requires that we set a sensible
   // WM_CLASS for the window.
   Fl_Window::default_xclass("vncviewer");
+
+  // Set the default icon for all windows.
+#ifdef HAVE_FLTK_ICONS
+#ifdef WIN32
+  HICON lg, sm;
+
+  lg = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON),
+                        IMAGE_ICON, GetSystemMetrics(SM_CXICON),
+                        GetSystemMetrics(SM_CYICON),
+                        LR_DEFAULTCOLOR | LR_SHARED);
+  sm = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON),
+                        IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
+                        GetSystemMetrics(SM_CYSMICON),
+                        LR_DEFAULTCOLOR | LR_SHARED);
+
+  Fl_Window::default_icons(lg, sm);
+#elif ! defined(__APPLE__)
+  const int icon_sizes[] = {48, 32, 24, 16};
+
+  Fl_PNG_Image *icons[4];
+  int count;
+
+  count = 0;
+
+  // FIXME: Follow icon theme specification
+  for (size_t i = 0;i < sizeof(icon_sizes)/sizeof(icon_sizes[0]);i++) {
+      char icon_path[PATH_MAX];
+      bool exists;
+
+      sprintf(icon_path, "%s/icons/hicolor/%dx%d/apps/tigervnc.png",
+              DATA_DIR, icon_sizes[i], icon_sizes[i]);
+
+#ifndef WIN32
+      struct stat st;
+      if (stat(icon_path, &st) != 0)
+#else
+      struct _stat st;
+      if (_stat(icon_path, &st) != 0)
+          return(false);
+#endif
+        exists = false;
+      else
+        exists = true;
+
+      if (exists) {
+          icons[count] = new Fl_PNG_Image(icon_path);
+          if (icons[count]->w() == 0 ||
+              icons[count]->h() == 0 ||
+              icons[count]->d() != 4) {
+              delete icons[count];
+              continue;
+          }
+
+          count++;
+      }
+  }
+
+  Fl_Window::default_icons((const Fl_RGB_Image**)icons, count);
+
+  for (int i = 0;i < count;i++)
+      delete icons[i];
+#endif
+#endif // FLTK_HAVE_ICONS
 
   // This makes the "icon" in dialogs rounded, which fits better
   // with the above schemes.
@@ -197,27 +271,96 @@ static void usage(const char *programName)
   exit(1);
 }
 
+#ifndef WIN32
+static int
+interpretViaParam(char *remoteHost, int *remotePort, int localPort)
+{
+  const int SERVER_PORT_OFFSET = 5900;
+  char *pos = strchr(vncServerName, ':');
+  if (pos == NULL)
+    *remotePort = SERVER_PORT_OFFSET;
+  else {
+    int portOffset = SERVER_PORT_OFFSET;
+    size_t len;
+    *pos++ = '\0';
+    len = strlen(pos);
+    if (*pos == ':') {
+      /* Two colons is an absolute port number, not an offset. */
+      pos++;
+      len--;
+      portOffset = 0;
+    }
+    if (!len || strspn (pos, "-0123456789") != len )
+      return 1;
+    *remotePort = atoi(pos) + portOffset;
+  }
+
+  if (*vncServerName != '\0')
+    strncpy(remoteHost, vncServerName, VNCSERVERNAMELEN);
+  else
+    strncpy(remoteHost, "localhost", VNCSERVERNAMELEN);
+
+  remoteHost[VNCSERVERNAMELEN - 1] = '\0';
+
+  snprintf(vncServerName, VNCSERVERNAMELEN, "localhost::%d", localPort);
+  vncServerName[VNCSERVERNAMELEN - 1] = '\0';
+  vlog.error(vncServerName);
+
+  return 0;
+}
+
+static void
+createTunnel(const char *gatewayHost, const char *remoteHost,
+             int remotePort, int localPort)
+{
+  char *cmd = getenv("VNC_VIA_CMD");
+  char *percent;
+  char lport[10], rport[10];
+  sprintf(lport, "%d", localPort);
+  sprintf(rport, "%d", remotePort);
+  setenv("G", gatewayHost, 1);
+  setenv("H", remoteHost, 1);
+  setenv("R", rport, 1);
+  setenv("L", lport, 1);
+  if (!cmd)
+    cmd = "/usr/bin/ssh -f -L \"$L\":\"$H\":\"$R\" \"$G\" sleep 20";
+  /* Compatibility with TigerVNC's method. */
+  while ((percent = strchr(cmd, '%')) != NULL)
+    *percent = '$';
+  system(cmd);
+}
+
+static int mktunnel()
+{
+  const char *gatewayHost;
+  char remoteHost[VNCSERVERNAMELEN];
+  int localPort = findFreeTcpPort();
+  int remotePort;
+
+  gatewayHost = strDup(via.getValueStr());
+  if (interpretViaParam(remoteHost, &remotePort, localPort) != 0)
+    return 1;
+  createTunnel(gatewayHost, remoteHost, remotePort, localPort);
+
+  return 0;
+}
+#endif /* !WIN32 */
+
 int main(int argc, char** argv)
 {
-  const char* vncServerName = NULL;
   UserDialog dlg;
 
-  const char englishAbout[] = N_("TigerVNC Viewer %d-bit v%s (%s)\n"
-                                 "%s\n"
-                                 "Copyright (C) 1999-2011 TigerVNC Team and many others (see README.txt)\n"
-                                 "See http://www.tigervnc.org for information on TigerVNC.");
-
   setlocale(LC_ALL, "");
-  bindtextdomain(PACKAGE_NAME, LOCALEDIR);
+  bindtextdomain(PACKAGE_NAME, LOCALE_DIR);
   textdomain(PACKAGE_NAME);
 
   rfb::SecurityClient::setDefaults();
 
   // Write about text to console, still using normal locale codeset
-  snprintf(aboutText, sizeof(aboutText),
-           gettext(englishAbout), (int)sizeof(size_t)*8, PACKAGE_VERSION,
-           __BUILD__, buildTime);
-  fprintf(stderr,"\n%s\n", aboutText);
+  fprintf(stderr,"\n");
+  fprintf(stderr, gettext(aboutText), (int)sizeof(size_t)*8,
+          PACKAGE_VERSION, __BUILD__, buildTime);
+  fprintf(stderr,"\n");
 
   // Set gettext codeset to what our GUI toolkit uses. Since we are
   // passing strings from strerror/gai_strerror to the GUI, these must
@@ -225,12 +368,12 @@ int main(int argc, char** argv)
   bind_textdomain_codeset(PACKAGE_NAME, "UTF-8");
   bind_textdomain_codeset("libc", "UTF-8");
 
-  // Re-create the aboutText for the GUI, now using GUI codeset
-  snprintf(aboutText, sizeof(aboutText),
-           gettext(englishAbout), (int)sizeof(size_t)*8, PACKAGE_VERSION,
-           __BUILD__, buildTime);
-
   rfb::initStdIOLoggers();
+#ifdef WIN32
+  rfb::initFileLogger("C:\\temp\\vncviewer.log");
+#else
+  rfb::initFileLogger("/tmp/vncviewer.log");
+#endif
   rfb::LogWriter::setLogParams("*:stderr:30");
 
 #ifdef SIGHUP
@@ -243,6 +386,14 @@ int main(int argc, char** argv)
 
   Configuration::enableViewerParams();
 
+  /* Load the default parameter settings */
+  const char* defaultServerName;
+  try {
+    defaultServerName = loadViewerParameters(NULL);
+  } catch (rfb::Exception& e) {
+    fl_alert("%s", e.str());
+  }
+  
   int i = 1;
   if (!Fl::args(argc, argv, i) || i < argc)
     for (; i < argc; i++) {
@@ -259,14 +410,16 @@ int main(int argc, char** argv)
         usage(argv[0]);
       }
 
-      vncServerName = argv[i];
+      strncpy(vncServerName, argv[i], VNCSERVERNAMELEN);
+      vncServerName[VNCSERVERNAMELEN - 1] = '\0';
     }
 
   if (!::autoSelect.hasBeenSet()) {
     // Default to AutoSelect=0 if -PreferredEncoding or -FullColor is used
-    ::autoSelect.setParam(!::preferredEncoding.hasBeenSet() &&
-                          !::fullColour.hasBeenSet() &&
-                          !::fullColourAlias.hasBeenSet());
+    if (::preferredEncoding.hasBeenSet() || ::fullColour.hasBeenSet() ||
+	::fullColourAlias.hasBeenSet()) {
+      ::autoSelect.setParam(false);
+    }
   }
   if (!::fullColour.hasBeenSet() && !::fullColourAlias.hasBeenSet()) {
     // Default to FullColor=0 if AutoSelect=0 && LowColorLevel is set
@@ -277,7 +430,9 @@ int main(int argc, char** argv)
   }
   if (!::customCompressLevel.hasBeenSet()) {
     // Default to CustomCompressLevel=1 if CompressLevel is used.
-    ::customCompressLevel.setParam(::compressLevel.hasBeenSet());
+    if(::compressLevel.hasBeenSet()) {
+      ::customCompressLevel.setParam(true);
+    }
   }
 
   mkvnchomedir();
@@ -287,13 +442,49 @@ int main(int argc, char** argv)
   CSecurityTLS::msg = &dlg;
 #endif
 
-  if (vncServerName == NULL) {
-    vncServerName = ServerDialog::run();
-    if ((vncServerName == NULL) || (vncServerName[0] == '\0'))
-      return 1;
+  Socket *sock = NULL;
+
+#ifndef WIN32
+  /* Specifying -via and -listen together is nonsense */
+  if (listenMode && strlen(via.getValueStr()) > 0) {
+    vlog.error("Parameters -listen and -via are incompatible");
+    fl_alert("Parameters -listen and -via are incompatible");
+    exit_vncviewer();
+    return 1;
+  }
+#endif
+
+  if (listenMode) {
+    try {
+      int port = 5500;
+      if (isdigit(vncServerName[0]))
+        port = atoi(vncServerName);
+
+      TcpListener listener(NULL, port);
+
+      vlog.info("Listening on port %d\n", port);
+      sock = listener.accept();   
+    } catch (rdr::Exception& e) {
+      vlog.error("%s", e.str());
+      fl_alert("%s", e.str());
+      exit_vncviewer();
+      return 1; 
+    }
+
+  } else {
+    if (vncServerName[0] == '\0') {
+      ServerDialog::run(defaultServerName, vncServerName);
+      if (vncServerName[0] == '\0')
+        return 1;
+    }
+
+#ifndef WIN32
+    if (strlen (via.getValueStr()) > 0 && mktunnel() != 0)
+      usage(argv[0]);
+#endif
   }
 
-  CConn *cc = new CConn(vncServerName);
+  CConn *cc = new CConn(vncServerName, sock);
 
   while (!exitMainloop) {
     int next_timer;
@@ -311,7 +502,7 @@ int main(int argc, char** argv)
   delete cc;
 
   if (exitError != NULL)
-    fl_alert(exitError);
+    fl_alert("%s", exitError);
 
   return 0;
 }

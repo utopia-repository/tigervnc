@@ -57,15 +57,10 @@ namespace rfb {
   class Configuration {
   public:
     // - Create a new Configuration object
-    Configuration(const char* name, Configuration* attachToGroup=0);
+    Configuration(const char* name_) : name(strDup(name_)), head(0), _next(0) {}
 
     // - Return the buffer containing the Configuration's name
     const char* getName() const { return name.buf; }
-
-    // - Assignment operator.  For every Parameter in this Configuration's
-    //   group, get()s the corresponding source parameter and copies its
-    //   content.
-    Configuration& operator=(const Configuration& src);
 
     // - Set named parameter to value
     bool set(const char* param, const char* value, bool immutable=false);
@@ -273,12 +268,12 @@ namespace rfb {
   };
 
   // -=- ParameterIterator
-  //     Iterates over all the Parameters in a Configuration group.  The
-  //     current Parameter is accessed via param, the current Configuration
-  //     via config.  The next() method moves on to the next Parameter.
+  //     Iterates over all enabled parameters (global + server/viewer).
+  //     Current Parameter is accessed via param, the current Configuration
+  //     via config. The next() method moves on to the next Parameter.
 
   struct ParameterIterator {
-    ParameterIterator(Configuration* c) : config(c), param(c ? c->head : 0) {}
+    ParameterIterator() : config(Configuration::global()), param(config->head) {}
     void next() {
       param = param->_next;
       while (!param) {

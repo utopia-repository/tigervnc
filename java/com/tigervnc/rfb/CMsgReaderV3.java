@@ -1,4 +1,6 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
+ * Copyright 2009-2011 Pierre Ossman for Cendio AB
+ * Copyright (C) 2011 Brian P. Hinz
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,7 +14,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
  * USA.
  */
 
@@ -51,6 +53,8 @@ public class CMsgReaderV3 extends CMsgReader {
       case MsgTypes.msgTypeSetColourMapEntries: readSetColourMapEntries(); break;
       case MsgTypes.msgTypeBell:                readBell(); break;
       case MsgTypes.msgTypeServerCutText:       readServerCutText(); break;
+      case MsgTypes.msgTypeServerFence:         readFence(); break;
+      case MsgTypes.msgTypeEndOfContinuousUpdates:  readEndOfContinuousUpdates(); break;
       default:
         vlog.error("unknown message type "+type);
         throw new Exception("unknown message type");
@@ -134,6 +138,33 @@ public class CMsgReaderV3 extends CMsgReader {
     }
   
     handler.setExtendedDesktopSize(x, y, w, h, layout);
+  }
+
+  void readFence()
+  {
+    int flags;
+    int len;
+    byte[] data = new byte[64];
+  
+    is.skip(3);
+  
+    flags = is.readU32();
+  
+    len = is.readU8();
+    if (len > data.length) {
+      System.out.println("Ignoring fence with too large payload\n");
+      is.skip(len);
+      return;
+    }
+  
+    is.readBytes(data, 0, len);
+    
+    handler.fence(flags, len, data);
+  }
+  
+  void readEndOfContinuousUpdates()
+  {
+    handler.endOfContinuousUpdates();
   }
 
   void readClientRedirect(int x, int y, int w, int h) 

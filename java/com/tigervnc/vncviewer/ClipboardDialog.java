@@ -1,4 +1,5 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
+ * Copyright (C) 2011 Brian P. Hinz
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,7 +13,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
  * USA.
  */
 
@@ -23,6 +24,7 @@ import java.awt.event.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import javax.swing.*;
+import javax.swing.border.*;
 import com.tigervnc.rfb.LogWriter;
 
 class ClipboardDialog extends Dialog implements ActionListener {
@@ -31,8 +33,14 @@ class ClipboardDialog extends Dialog implements ActionListener {
     super(false);
     cc = cc_;
     setTitle("VNC clipboard");
+    JPanel pt = new JPanel();
     textArea = new JTextArea(5,50);
-    getContentPane().add("Center", textArea);
+    textArea.setBorder(BorderFactory.createLineBorder(Color.gray));
+    textArea.setLineWrap(true);
+    textArea.setWrapStyleWord(true);
+    JScrollPane sp = new JScrollPane(textArea);
+    pt.add(sp, BorderLayout.CENTER);
+    getContentPane().add("North", pt);
 
     JPanel pb = new JPanel();
     clearButton = new JButton("Clear");
@@ -89,12 +97,10 @@ class ClipboardDialog extends Dialog implements ActionListener {
       current = "";
       textArea.setText(current);
     } else if (s instanceof JButton && (JButton)s == sendButton) {
-      ok = true;
       current = textArea.getText();
       cc.writeClientCutText(current, current.length());
       endDialog();
     } else if (s instanceof JButton && (JButton)s == cancelButton) {
-      ok = false;
       endDialog();
     }
   }

@@ -25,6 +25,10 @@
 #include <rfb/Configuration.h>
 #include <rfb/Logger_stdio.h>
 #include <rfb/LogWriter.h>
+#include <rfb/ScreenSet.h>
+#include <rfb/screenTypes.h>
+
+#include "xorg-version.h"
 
 extern "C" {
 #define class c_class
@@ -33,6 +37,9 @@ extern "C" {
 #define new c_new
 #include "xf86.h"
 #include "xf86Module.h"
+#ifdef RANDR
+#include "randrstr.h"
+#endif /* RANDR */
 #undef class
 #undef private
 #undef bool
@@ -51,8 +58,10 @@ ExtensionModule vncExt =
 {
     vncExtensionInitWithParams,
     "VNC",
+#if XORG < 112
     NULL,
     NULL,
+#endif
     NULL
 };
 
@@ -81,20 +90,40 @@ vncSetup(pointer module, pointer opts, int *errmaj, int *errmin) {
 
 static void vncExtensionInitWithParams(INITARGS)
 {
-  rfb::initStdIOLoggers();
-  rfb::LogWriter::setLogParams("*:stderr:30");
-  rfb::Configuration::enableServerParams();
+  static char once = 0;
 
-  for (int scr = 0; scr < screenInfo.numScreens; scr++) {
-    ScrnInfoPtr pScrn = xf86Screens[scr];
+  if (!once) {
+    once++;
+    rfb::initStdIOLoggers();
+    rfb::LogWriter::setLogParams("*:stderr:30");
+    rfb::Configuration::enableServerParams();
 
-    for (ParameterIterator i(Configuration::global()); i.param; i.next()) {
-      char* val = xf86FindOptionValue(pScrn->options, i.param->getName());
-      if (val)
-        i.param->setParam(val);
+    for (int scr = 0; scr < screenInfo.numScreens; scr++) {
+      ScrnInfoPtr pScrn = xf86Screens[scr];
+
+      for (ParameterIterator i; i.param; i.next()) {
+        const char *val;
+#if XORG < 112
+        val = xf86FindOptionValue(pScrn->options, i.param->getName());
+#else
+        val = xf86FindOptionValue((XF86OptionPtr)pScrn->options, i.param->getName());
+#endif
+        if (val)
+          i.param->setParam(val);
+      }
     }
-  }
 
-  vncExtensionInit();
+    vncExtensionInit();
+  }
 }
+}
+
+RRModePtr vncRandRModeGet(int width, int height)
+{
+    return NULL;
+}
+
+RROutputPtr vncRandROutputCreate(ScreenPtr pScreen)
+{
+    return NULL;
 }

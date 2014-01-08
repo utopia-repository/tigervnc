@@ -50,6 +50,7 @@ protected:
   void createCompressionPage(int tx, int ty, int tw, int th);
   void createSecurityPage(int tx, int ty, int tw, int th);
   void createInputPage(int tx, int ty, int tw, int th);
+  void createScreenPage(int tx, int ty, int tw, int th);
   void createMiscPage(int tx, int ty, int tw, int th);
 
   static void handleAutoselect(Fl_Widget *widget, void *data);
@@ -57,6 +58,8 @@ protected:
   static void handleJpeg(Fl_Widget *widget, void *data);
 
   static void handleX509(Fl_Widget *widget, void *data);
+
+  static void handleDesktopSize(Fl_Widget *widget, void *data);
 
   static void handleCancel(Fl_Widget *widget, void *data);
   static void handleOK(Fl_Widget *widget, void *data);
@@ -105,9 +108,16 @@ protected:
   Fl_Check_Button *systemKeysCheckbox;
   Fl_Choice *menuKeyChoice;
 
+  /* Screen */
+  Fl_Check_Button *desktopSizeCheckbox;
+  Fl_Int_Input *desktopWidthInput;
+  Fl_Int_Input *desktopHeightInput;
+  Fl_Check_Button *remoteResizeCheckbox;
+  Fl_Check_Button *fullScreenCheckbox;
+  Fl_Check_Button *fullScreenAllMonitorsCheckbox;
+
   /* Misc. */
   Fl_Check_Button *sharedCheckbox;
-  Fl_Check_Button *fullScreenCheckbox;
   Fl_Check_Button *dotCursorCheckbox;
 };
 

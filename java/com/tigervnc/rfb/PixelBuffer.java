@@ -12,7 +12,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
  * USA.
  */
 
@@ -36,19 +36,30 @@ public class PixelBuffer {
       throw new Exception("Internal error: bpp must be 8, 16, or 32 in PixelBuffer ("+pf.bpp+")");
     format = pf;
     switch (pf.depth) {
+    case  3: 
+      // Fall-through to depth 8
+    case  6: 
+      // Fall-through to depth 8
     case  8: 
-      //cm = new IndexColorModel(8, 256, new byte[256], new byte[256], new byte[256]);
-      cm = new DirectColorModel(8, 7, (7 << 3), (3 << 6));
+      if (!pf.trueColour) {
+        if (cm == null)
+          cm = new IndexColorModel(8, 256, new byte[256], new byte[256], new byte[256]);
+        break;
+      }
+      int rmask = pf.redMax << pf.redShift;
+      int gmask = pf.greenMax << pf.greenShift;
+      int bmask = pf.blueMax << pf.blueShift;
+      cm = new DirectColorModel(8, rmask, gmask, bmask);
       break;
     case 16: 
-      cm = new DirectColorModel(32, 0xF800, 0x07C0, 0x003E, (0xff << 24));
+      cm = new DirectColorModel(32, 0xF800, 0x07C0, 0x003E);
       break;
     case 24: 
-      cm = new DirectColorModel(32, (0xff << 16), (0xff << 8), 0xff, (0xff << 24));
+      cm = new DirectColorModel(32, (0xff << 16), (0xff << 8), 0xff);
       break;
     case 32: 
       cm = new DirectColorModel(32, (0xff << pf.redShift), 
-        (0xff << pf.greenShift), (0xff << pf.blueShift), (0xff << 24));
+        (0xff << pf.greenShift), (0xff << pf.blueShift));
       break;
     default:
       throw new Exception("Unsupported color depth ("+pf.depth+")");

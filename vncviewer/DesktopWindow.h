@@ -30,6 +30,7 @@
 #include <FL/Fl_Window.H>
 
 class CConn;
+class Fl_Scroll;
 
 class DesktopWindow : public Fl_Window {
 public:
@@ -78,6 +79,8 @@ public:
 
   int handle(int event);
 
+  void fullscreen_on();
+
 private:
   static int fltkHandle(int event, Fl_Window *win);
 
@@ -86,14 +89,30 @@ private:
 
   static void handleGrab(void *data);
 
+  void maximizeWindow();
+
+  void handleDesktopSize();
+  static void handleResizeTimeout(void *data);
+  void remoteResize(int width, int height);
+
   void repositionViewport();
 
   static void handleClose(Fl_Widget *wnd, void *data);
 
   static void handleOptions(void *data);
 
+  static void handleFullscreenTimeout(void *data);
+
+  static void handleEdgeScroll(void *data);
+
 private:
+  CConn* cc;
+  Fl_Scroll *scroll;
   Viewport *viewport;
+
+  bool firstUpdate;
+  bool delayedFullscreen;
+  bool delayedDesktopSize;
 };
 
 #endif

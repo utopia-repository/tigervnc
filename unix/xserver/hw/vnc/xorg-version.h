@@ -36,8 +36,16 @@
 #define XORG 19
 #elif XORG_VERSION_CURRENT < ((1 * 10000000) + (10 * 100000) + (99 * 1000))
 #define XORG 110
+#elif XORG_VERSION_CURRENT < ((1 * 10000000) + (11 * 100000) + (99 * 1000))
+#define XORG 111
+#elif XORG_VERSION_CURRENT < ((1 * 10000000) + (12 * 100000) + (99 * 1000))
+#define XORG 112
+#elif XORG_VERSION_CURRENT < ((1 * 10000000) + (13 * 100000) + (99 * 1000))
+#define XORG 113
+#elif XORG_VERSION_CURRENT < ((1 * 10000000) + (14 * 100000) + (99 * 1000))
+#define XORG 114
 #else
-#error "X.Org newer than 1.10 is not supported"
+#error "X.Org newer than 1.14 is not supported"
 #endif
 
 #endif

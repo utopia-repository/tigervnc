@@ -1,5 +1,7 @@
 /* Copyright (C) 2000-2003 Constantin Kaplinsky.  All Rights Reserved.
  * Copyright 2004-2005 Cendio AB.
+ * Copyright (C) 2011 D. R. Commander.  All Rights Reserved.
+ * Copyright (C) 2011-2012 Brian P. Hinz
  *    
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +15,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
  * USA.
  */
 
@@ -23,7 +25,7 @@ import com.tigervnc.rdr.InStream;
 import com.tigervnc.rdr.ZlibInStream;
 import java.util.ArrayList;
 import java.io.InputStream;
-import java.awt.image.PixelGrabber;
+import java.awt.image.*;
 import java.awt.*;
 
 public class TightDecoder extends Decoder {
@@ -249,20 +251,9 @@ public class TightDecoder extends Decoder {
 
     // Create an Image object from the JPEG data.
     Image jpeg = tk.createImage(netbuf);
-        
-    int w = r.width();
-    int h = r.height();
-
-    int[] buf = reader.getImageBuf(w*h);
-    PixelGrabber pg = new PixelGrabber(jpeg, 0, 0, w, h, buf, 0, w);
-	  try {
-	    pg.grabPixels(0);
-	  } catch (InterruptedException e) {
-	    System.out.println("Tight Decoding: Wrong JPEG data received.");
-	  }
-
+    jpeg.setAccelerationPriority(1);
+    handler.imageRect(r, jpeg);
     jpeg.flush();
-    handler.imageRect(r, buf);
   }
 
   final private void FilterGradient24(byte[] netbuf, int[] buf, int stride, 

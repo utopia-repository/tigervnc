@@ -1,4 +1,5 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
+ * Copyright (C) 2011-2013 Brian P. Hinz
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,7 +13,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
  * USA.
  */
 
@@ -28,22 +29,21 @@
 package com.tigervnc.vncviewer;
 
 import java.awt.*;
+import java.awt.Dialog.*;
 import javax.swing.*;
 
-//class Dialog extends JFrame implements WindowListener {
-class Dialog extends JFrame {
+class Dialog extends JDialog {
 
-  protected boolean ok, done;
-  boolean modal;
-
-  public Dialog(boolean modal_) {
-    modal = modal_;
-    //addWindowListener(this);
+  public Dialog(boolean modal) {
+    setIconImage(VncViewer.frameIcon);
+    if (modal) {
+      setModalityType(ModalityType.APPLICATION_MODAL);
+    } else {
+      setModalityType(ModalityType.MODELESS);
+    }
   }
 
   public boolean showDialog(Component c) {
-    ok = false;
-    done = false;
     initDialog();
     if (c != null) {
       setLocationRelativeTo(c);
@@ -54,23 +54,14 @@ class Dialog extends JFrame {
       int y = (dpySize.height - mySize.height) / 2;
       setLocation(x, y);
     }
-    ClassLoader cl = this.getClass().getClassLoader();
-    ImageIcon icon = new ImageIcon(cl.getResource("com/tigervnc/vncviewer/tigervnc.ico"));
-    setIconImage(icon.getImage());
-    //setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
-    //setFont(new Font("SansSerif", Font.PLAIN, 11));
+    fullScreenWindow = Viewport.getFullScreenWindow();
+    if (fullScreenWindow != null)
+      Viewport.setFullScreenWindow(null);
 
     setVisible(true);
     setFocusable(true);
-    if (!modal) return true;
-    synchronized(this) {
-      try {
-        while (!done)
-          wait();
-      } catch (InterruptedException e) {
-      }
-    }
-    return ok;
+    setAlwaysOnTop(true);
+    return ret;
   }
 
   public boolean showDialog() {
@@ -78,37 +69,18 @@ class Dialog extends JFrame {
   }
 
   public void endDialog() {
-    done = true;
     setVisible(false);
     setFocusable(false);
-    if (modal) {
-      synchronized (this) {
-        notify();
-      }
-    }
+    setAlwaysOnTop(false);
+    fullScreenWindow = Viewport.getFullScreenWindow();
+    if (fullScreenWindow != null)
+      Viewport.setFullScreenWindow(fullScreenWindow);
   }
 
   // initDialog() can be overridden in a derived class.  Typically it is used
   // to make sure that checkboxes have the right state, etc.
   public void initDialog() {
   }
-
-  //------------------------------------------------------------------ 
-  //   implemented blank methods
-  //public void windowClosed(WindowEvent event){}
-  //public void windowDeiconified(WindowEvent event){}
-  //public void windowIconified(WindowEvent event){}
-  //public void windowActivated(WindowEvent event){}
-  //public void windowDeactivated(WindowEvent event){}
-  //public void windowOpened(WindowEvent event){}
-
-  //------------------------------------------------------------------
-
-  // method to check which window was closing
-  //public void windowClosing(WindowEvent event) {
-  //  ok = false;
-  //  endDialog();
-  //}
 
   public void addGBComponent(JComponent c, JComponent cp,
                              int gx, int gy, 
@@ -133,14 +105,7 @@ class Dialog extends JFrame {
       cp.add(c, gbc);
   }
 
-  final public String getFileSeperator() {
-    String seperator = System.getProperties().get("file.separator").toString();
-    return seperator;
-  }
-
-  final public String getUserName() {
-    String userName = (String)System.getProperties().get("user.name");
-    return userName;
-  }
+  private Window fullScreenWindow;
+  protected boolean ret = true;
 
 }

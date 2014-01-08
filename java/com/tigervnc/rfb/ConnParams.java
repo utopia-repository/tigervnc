@@ -1,4 +1,6 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
+ * Copyright (C) 2011 D. R. Commander.  All Rights Reserved.
+ * Copyright (C) 2012 Brian P. Hinz
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,7 +14,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
  * USA.
  */
 
@@ -29,9 +31,12 @@ public class ConnParams {
     supportsLocalCursor = false; supportsLocalXCursor = false;
     supportsDesktopResize = false; supportsExtendedDesktopSize = false;
     supportsDesktopRename = false; supportsLastRect = false;
-    supportsSetDesktopSize = false; supportsClientRedirect = false;
+    supportsSetDesktopSize = false; supportsFence = false;
+    supportsContinuousUpdates = false;
+    supportsClientRedirect = false;
     customCompressLevel = false; compressLevel = 6;
-    noJpeg = false; qualityLevel = -1; 
+    noJpeg = false; qualityLevel = -1; fineQualityLevel = -1;
+    subsampling = "SUBSAMP_UNDEFINED";
     name_ = null; nEncodings_ = 0; encodings_ = null;
     currentEncoding_ = Encodings.encodingRaw; verStrPos = 0;
     screenLayout = new ScreenSet();
@@ -39,19 +44,20 @@ public class ConnParams {
     setName("");
   }
 
-  public boolean readVersion(InStream is, Boolean done) 
+  public boolean readVersion(InStream is) 
   {
+    done = false;
     if (verStrPos >= 12) return false;
     verStr = new StringBuilder(13);
-    while (verStrPos < 12 && is.checkNoWait(1)) {
+    while (is.checkNoWait(1) && verStrPos < 12) {
       verStr.insert(verStrPos++,(char)is.readU8());
     }
 
     if (verStrPos < 12) {
-      done = Boolean.valueOf(false);
+      done = false;
       return true;
     }
-    done = Boolean.valueOf(true);
+    done = true;
     verStr.insert(12,'0');
     verStrPos = 0;
     if (verStr.toString().matches("RFB \\d{3}\\.\\d{3}\\n0")) {
@@ -115,20 +121,38 @@ public class ConnParams {
     useCopyRect = false;
     supportsLocalCursor = false;
     supportsDesktopResize = false;
+    supportsExtendedDesktopSize = false;
+    supportsLocalXCursor = false;
+    supportsLastRect = false;
     customCompressLevel = false;
     compressLevel = -1;
     noJpeg = true;
     qualityLevel = -1;
+    fineQualityLevel = -1;
+    subsampling = "SUBSAMP_UNDEFINED";
     currentEncoding_ = Encodings.encodingRaw;
 
     for (int i = nEncodings-1; i >= 0; i--) {
       encodings_[i] = encodings[i];
+
       if (encodings[i] == Encodings.encodingCopyRect)
         useCopyRect = true;
       else if (encodings[i] == Encodings.pseudoEncodingCursor)
         supportsLocalCursor = true;
+      else if (encodings[i] == Encodings.pseudoEncodingXCursor)
+        supportsLocalXCursor = true;
       else if (encodings[i] == Encodings.pseudoEncodingDesktopSize)
         supportsDesktopResize = true;
+      else if (encodings[i] == Encodings.pseudoEncodingExtendedDesktopSize)
+        supportsExtendedDesktopSize = true;
+      else if (encodings[i] == Encodings.pseudoEncodingDesktopName)
+        supportsDesktopRename = true;
+      else if (encodings[i] == Encodings.pseudoEncodingLastRect)
+        supportsLastRect = true;
+      else if (encodings[i] == Encodings.pseudoEncodingFence)
+        supportsFence = true;
+      else if (encodings[i] == Encodings.pseudoEncodingContinuousUpdates)
+        supportsContinuousUpdates = true;
       else if (encodings[i] == Encodings.pseudoEncodingClientRedirect)
         supportsClientRedirect = true;
       else if (encodings[i] >= Encodings.pseudoEncodingCompressLevel0 &&
@@ -143,7 +167,22 @@ public class ConnParams {
                Encoder.supported(encodings[i]))
         currentEncoding_ = encodings[i];
     }
+
+    // If the TurboVNC fine quality/subsampling encodings exist, let them
+    // override the coarse TightVNC quality level
+    for (int i = nEncodings-1; i >= 0; i--) {
+      if (encodings[i] >= Encodings.pseudoEncodingFineQualityLevel0 + 1 &&
+          encodings[i] <= Encodings.pseudoEncodingFineQualityLevel100) {
+        noJpeg = false;
+        fineQualityLevel = encodings[i] - Encodings.pseudoEncodingFineQualityLevel0;
+      } else if (encodings[i] >= Encodings.pseudoEncodingSubsamp1X &&
+                 encodings[i] <= Encodings.pseudoEncodingSubsampGray) {
+        noJpeg = false;
+        subsampling = JpegCompressor.subsamplingName(encodings[i] - Encodings.pseudoEncodingSubsamp1X);
+      }
+    }
   }
+  public boolean done;
   public boolean useCopyRect;
 
   public boolean supportsLocalCursor;
@@ -152,6 +191,8 @@ public class ConnParams {
   public boolean supportsExtendedDesktopSize;
   public boolean supportsDesktopRename;
   public boolean supportsClientRedirect;
+  public boolean supportsFence;
+  public boolean supportsContinuousUpdates;
   public boolean supportsLastRect;
 
   public boolean supportsSetDesktopSize;
@@ -160,6 +201,8 @@ public class ConnParams {
   public int compressLevel;
   public boolean noJpeg;
   public int qualityLevel;
+  public int fineQualityLevel;
+  public String subsampling;
 
   private PixelFormat pf_;
   private String name_;

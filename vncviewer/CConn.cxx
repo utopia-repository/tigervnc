@@ -67,8 +67,8 @@ static const PixelFormat lowColourPF(8, 6, false, true,
 // 256 colours (palette)
 static const PixelFormat mediumColourPF(8, 8, false, false);
 
-CConn::CConn(const char* vncServerName)
-  : serverHost(0), serverPort(0), sock(NULL), desktop(NULL),
+CConn::CConn(const char* vncServerName, network::Socket* socket=NULL)
+  : serverHost(0), serverPort(0), desktop(NULL),
     pendingPFChange(false),
     currentEncoding(encodingTight), lastServerEncoding((unsigned int)-1),
     formatChange(false), encodingChange(false),
@@ -76,6 +76,7 @@ CConn::CConn(const char* vncServerName)
     forceNonincremental(true), supportsSyncFence(false)
 {
   setShared(::shared);
+  sock = socket;
 
   int encNum = encodingNum(preferredEncoding);
   if (encNum != -1)
@@ -93,16 +94,18 @@ CConn::CConn(const char* vncServerName)
   cp.noJpeg = noJpeg;
   cp.qualityLevel = qualityLevel;
 
-  try {
-    getHostAndPort(vncServerName, &serverHost, &serverPort);
+  if(sock == NULL) {
+    try {
+      getHostAndPort(vncServerName, &serverHost, &serverPort);
 
-    sock = new network::TcpSocket(serverHost, serverPort);
-    vlog.info(_("connected to host %s port %d"), serverHost, serverPort);
-  } catch (rdr::Exception& e) {
-    vlog.error(e.str());
-    fl_alert(e.str());
-    exit_vncviewer();
-    return;
+      sock = new network::TcpSocket(serverHost, serverPort);
+      vlog.info(_("connected to host %s port %d"), serverHost, serverPort);
+    } catch (rdr::Exception& e) {
+      vlog.error("%s", e.str());
+      fl_alert("%s", e.str());
+      exit_vncviewer();
+      return;
+    }
   }
 
   Fl::add_fd(sock->getFd(), FL_READ | FL_EXCEPT, socketEvent, this);
@@ -189,7 +192,7 @@ void CConn::blockCallback()
   Fl::wait((double)next_timer / 1000.0);
 }
 
-void CConn::socketEvent(int fd, void *data)
+void CConn::socketEvent(FL_SOCKET fd, void *data)
 {
   CConn *cc;
   static bool recursing = false;
@@ -210,10 +213,10 @@ void CConn::socketEvent(int fd, void *data)
       cc->processMsg();
     } while (cc->sock->inStream().checkNoWait(1));
   } catch (rdr::EndOfStream& e) {
-    vlog.info(e.str());
+    vlog.info("%s", e.str());
     exit_vncviewer();
   } catch (rdr::Exception& e) {
-    vlog.error(e.str());
+    vlog.error("%s", e.str());
     exit_vncviewer(e.str());
   }
 
@@ -304,42 +307,10 @@ void CConn::framebufferUpdateEnd()
   desktop->updateWindow();
 
   if (firstUpdate) {
-    int width, height;
-
     // We need fences to make extra update requests and continuous
     // updates "safe". See fence() for the next step.
     if (cp.supportsFence)
       writer()->writeFence(fenceFlagRequest | fenceFlagSyncNext, 0, NULL);
-
-    if (cp.supportsSetDesktopSize &&
-        sscanf(desktopSize.getValueStr(), "%dx%d", &width, &height) == 2) {
-      ScreenSet layout;
-
-      layout = cp.screenLayout;
-
-      if (layout.num_screens() == 0)
-        layout.add_screen(rfb::Screen());
-      else if (layout.num_screens() != 1) {
-        ScreenSet::iterator iter;
-
-        while (true) {
-          iter = layout.begin();
-          ++iter;
-
-          if (iter == layout.end())
-            break;
-
-          layout.remove_screen(iter->id);
-        }
-      }
-
-      layout.begin()->dimensions.tl.x = 0;
-      layout.begin()->dimensions.tl.y = 0;
-      layout.begin()->dimensions.br.x = width;
-      layout.begin()->dimensions.br.y = height;
-
-      writer()->writeSetDesktopSize(width, height, layout);
-    }
 
     firstUpdate = false;
   }
@@ -378,6 +349,9 @@ void CConn::serverCutText(const char* str, rdr::U32 len)
 {
   char *buffer;
   int size, ret;
+
+  if (!acceptClipboard)
+    return;
 
   size = fl_utf8froma(NULL, 0, str, len);
   if (size <= 0)

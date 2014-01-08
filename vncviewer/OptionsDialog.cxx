@@ -67,6 +67,7 @@ OptionsDialog::OptionsDialog()
     createCompressionPage(tx, ty, tw, th);
     createSecurityPage(tx, ty, tw, th);
     createInputPage(tx, ty, tw, th);
+    createScreenPage(tx, ty, tw, th);
     createMiscPage(tx, ty, tw, th);
   }
 
@@ -269,9 +270,33 @@ void OptionsDialog::loadOptions(void)
     if (!strcmp(getMenuKeySymbols()[i].name, menuKeyBuf))
       menuKeyChoice->value(i + 1);
 
+  /* Screen */
+  int width, height;
+
+  if (sscanf(desktopSize.getValueStr(), "%dx%d", &width, &height) != 2) {
+    desktopSizeCheckbox->value(false);
+    desktopWidthInput->value("1024");
+    desktopHeightInput->value("768");
+  } else {
+    char buf[32];
+    desktopSizeCheckbox->value(true);
+    snprintf(buf, sizeof(buf), "%d", width);
+    desktopWidthInput->value(buf);
+    snprintf(buf, sizeof(buf), "%d", height);
+    desktopHeightInput->value(buf);
+  }
+  remoteResizeCheckbox->value(remoteResize);
+#ifdef HAVE_FLTK_FULLSCREEN
+  fullScreenCheckbox->value(fullScreen);
+#ifdef HAVE_FLTK_FULLSCREEN_SCREENS
+  fullScreenAllMonitorsCheckbox->value(fullScreenAllMonitors);
+#endif // HAVE_FLTK_FULLSCREEN_SCREENS
+#endif // HAVE_FLTK_FULLSCREEN
+
+  handleDesktopSize(desktopSizeCheckbox, this);
+
   /* Misc. */
   sharedCheckbox->value(shared);
-  fullScreenCheckbox->value(fullScreen);
   dotCursorCheckbox->value(dotWhenNoCursor);
 }
 
@@ -356,9 +381,28 @@ void OptionsDialog::storeOptions(void)
     menuKey.setParam(menuKeyChoice->text());
   }
 
+  /* Screen */
+  int width, height;
+
+  if (desktopSizeCheckbox->value() &&
+      (sscanf(desktopWidthInput->value(), "%d", &width) == 1) &&
+      (sscanf(desktopHeightInput->value(), "%d", &height) == 1)) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%dx%d", width, height);
+    desktopSize.setParam(buf);
+  } else {
+    desktopSize.setParam("");
+  }
+  remoteResize.setParam(remoteResizeCheckbox->value());
+#ifdef HAVE_FLTK_FULLSCREEN
+  fullScreen.setParam(fullScreenCheckbox->value());
+#ifdef HAVE_FLTK_FULLSCREEN_SCREENS
+  fullScreenAllMonitors.setParam(fullScreenAllMonitorsCheckbox->value());
+#endif // HAVE_FLTK_FULLSCREEN_SCREENS
+#endif // HAVE_FLTK_FULLSCREEN
+
   /* Misc. */
   shared.setParam(sharedCheckbox->value());
-  fullScreen.setParam(fullScreenCheckbox->value());
   dotWhenNoCursor.setParam(dotCursorCheckbox->value());
 
   std::map<OptionsCallback*, void*>::const_iterator iter;
@@ -686,6 +730,58 @@ void OptionsDialog::createInputPage(int tx, int ty, int tw, int th)
 }
 
 
+void OptionsDialog::createScreenPage(int tx, int ty, int tw, int th)
+{
+  int x;
+
+  Fl_Group *group = new Fl_Group(tx, ty, tw, th, _("Screen"));
+
+  tx += OUTER_MARGIN;
+  ty += OUTER_MARGIN;
+
+  desktopSizeCheckbox = new Fl_Check_Button(LBLRIGHT(tx, ty,
+                                                     CHECK_MIN_WIDTH,
+                                                     CHECK_HEIGHT,
+                                                     _("Resize remote session on connect")));
+  desktopSizeCheckbox->callback(handleDesktopSize, this);
+  ty += CHECK_HEIGHT + TIGHT_MARGIN;
+
+  desktopWidthInput = new Fl_Int_Input(tx + INDENT, ty, 50, INPUT_HEIGHT);
+  x = desktopWidthInput->x() + desktopWidthInput->w() + \
+      gui_str_len("x") + 3 * 2;
+  desktopHeightInput = new Fl_Int_Input(x, ty, 50, INPUT_HEIGHT, "x");
+  ty += INPUT_HEIGHT + TIGHT_MARGIN;
+
+  remoteResizeCheckbox = new Fl_Check_Button(LBLRIGHT(tx, ty,
+                                                      CHECK_MIN_WIDTH,
+                                                      CHECK_HEIGHT,
+                                                      _("Resize remote session to the local window")));
+  ty += CHECK_HEIGHT + TIGHT_MARGIN;
+
+#ifdef HAVE_FLTK_FULLSCREEN
+
+  fullScreenCheckbox = new Fl_Check_Button(LBLRIGHT(tx, ty,
+                                                  CHECK_MIN_WIDTH,
+                                                  CHECK_HEIGHT,
+                                                  _("Full-screen mode")));
+  ty += CHECK_HEIGHT + TIGHT_MARGIN;
+
+#ifdef HAVE_FLTK_FULLSCREEN_SCREENS
+
+  fullScreenAllMonitorsCheckbox = new Fl_Check_Button(LBLRIGHT(tx + INDENT, ty,
+                                                      CHECK_MIN_WIDTH,
+                                                      CHECK_HEIGHT,
+                                                      _("Enable full-screen mode over all monitors")));
+  ty += CHECK_HEIGHT + TIGHT_MARGIN;
+
+#endif // HAVE_FLTK_FULLSCREEN_SCREENS
+
+#endif // HAVE_FLTK_FULLSCREEN
+
+  group->end();
+}
+
+
 void OptionsDialog::createMiscPage(int tx, int ty, int tw, int th)
 {
   Fl_Group *group = new Fl_Group(tx, ty, tw, th, _("Misc."));
@@ -697,12 +793,6 @@ void OptionsDialog::createMiscPage(int tx, int ty, int tw, int th)
                                                   CHECK_MIN_WIDTH,
                                                   CHECK_HEIGHT,
                                                   _("Shared (don't disconnect other viewers)")));
-  ty += CHECK_HEIGHT + TIGHT_MARGIN;
-
-  fullScreenCheckbox = new Fl_Check_Button(LBLRIGHT(tx, ty,
-                                                  CHECK_MIN_WIDTH,
-                                                  CHECK_HEIGHT,
-                                                  _("Full-screen mode")));
   ty += CHECK_HEIGHT + TIGHT_MARGIN;
 
   dotCursorCheckbox = new Fl_Check_Button(LBLRIGHT(tx, ty,
@@ -768,6 +858,19 @@ void OptionsDialog::handleX509(Fl_Widget *widget, void *data)
   }
 }
 
+
+void OptionsDialog::handleDesktopSize(Fl_Widget *widget, void *data)
+{
+  OptionsDialog *dialog = (OptionsDialog*)data;
+
+  if (dialog->desktopSizeCheckbox->value()) {
+    dialog->desktopWidthInput->activate();
+    dialog->desktopHeightInput->activate();
+  } else {
+    dialog->desktopWidthInput->deactivate();
+    dialog->desktopHeightInput->deactivate();
+  }
+}
 
 void OptionsDialog::handleCancel(Fl_Widget *widget, void *data)
 {

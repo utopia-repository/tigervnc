@@ -16,6 +16,10 @@
  * USA.
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H>
 #include <FL/x.H>
@@ -24,15 +28,36 @@
 
 static bool captured = false;
 
-int cocoa_capture_display(Fl_Window *win)
+int cocoa_capture_display(Fl_Window *win, bool all_displays)
 {
   NSWindow *nsw;
 
   nsw = (NSWindow*)fl_xid(win);
 
   if (!captured) {
-    if (CGDisplayCapture(kCGDirectMainDisplay) != kCGErrorSuccess)
-      return 1;
+    if (all_displays) {
+      if (CGCaptureAllDisplays() != kCGErrorSuccess)
+        return 1;
+    } else {
+      CGDirectDisplayID displays[16];
+      CGDisplayCount count;
+      int index;
+
+      if (CGGetActiveDisplayList(16, displays, &count) != kCGErrorSuccess)
+        return 1;
+
+      if (count != Fl::screen_count())
+        return 1;
+
+#ifdef HAVE_FLTK_FULLSCREEN_SCREENS
+      index = Fl::screen_num(win->x(), win->y(), win->w(), win->h());
+#else
+      index = 0;
+#endif
+
+      if (CGDisplayCapture(displays[index]) != kCGErrorSuccess)
+        return 1;
+    }
 
     captured = true;
   }
@@ -51,7 +76,7 @@ void cocoa_release_display(Fl_Window *win)
   int newlevel;
 
   if (captured)
-    CGDisplayRelease(kCGDirectMainDisplay);
+    CGReleaseAllDisplays();
 
   captured = false;
 

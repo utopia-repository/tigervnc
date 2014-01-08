@@ -54,7 +54,9 @@ extern "C" {
 #include "servermd.h"
 #include "fb.h"
 #include "mi.h"
+#if XORG < 114
 #include "mibstore.h"
+#endif
 #include "colormapst.h"
 #include "gcstruct.h"
 #include "input.h"
@@ -85,8 +87,8 @@ extern "C" {
 #undef VENDOR_RELEASE
 #undef VENDOR_STRING
 #include "version-config.h"
-#include "site.h"
 #endif
+#include "site.h"
 #undef class
 #undef public
 }
@@ -96,7 +98,7 @@ extern "C" {
 #define Xfree free
 #endif
 
-#define XVNCVERSION "TigerVNC 1.2.0"
+#define XVNCVERSION "TigerVNC 1.3.0"
 #define XVNCCOPYRIGHT ("Copyright (C) 1999-2011 TigerVNC Team and many others (see README.txt)\n" \
                        "See http://www.tigervnc.org for information on TigerVNC.\n")
 
@@ -168,6 +170,8 @@ static char displayNumStr[16];
 
 char *listenaddr = NULL;
 
+static int vncVerbose = DEFAULT_LOG_VERBOSITY;
+
 
 static void
 vfbInitializePixmapDepths(void)
@@ -229,7 +233,11 @@ Bool DPMSSupported()
 }
 #endif
 
+#if XORG < 111
 void ddxGiveUp()
+#else
+void ddxGiveUp(enum ExitCode error)
+#endif
 {
     int i;
 
@@ -239,9 +247,17 @@ void ddxGiveUp()
 }
 
 void
+#if XORG < 111
 AbortDDX()
+#else
+AbortDDX(enum ExitCode error)
+#endif
 {
+#if XORG < 111
     ddxGiveUp();
+#else
+    ddxGiveUp(error);
+#endif
 }
 
 #ifdef __DARWIN__
@@ -273,7 +289,11 @@ OsVendorInit()
 }
 
 void
+#if XORG < 113
 OsVendorFatalError()
+#else
+OsVendorFatalError(const char *f, va_list args)
+#endif
 {
 }
 
@@ -308,6 +328,8 @@ ddxUseMsg()
     ErrorF("-inetd                 has been launched from inetd\n");
     ErrorF("-interface IP_address  listen on specified interface\n");
     ErrorF("-noclipboard           disable clipboard settings modification via vncconfig utility\n");
+    ErrorF("-verbose [n]           verbose startup messages\n");
+    ErrorF("-quiet                 minimal startup messages\n");
     ErrorF("\nVNC parameters:\n");
 
     fprintf(stderr,"\n"
@@ -591,7 +613,30 @@ ddxProcessArgument(int argc, char *argv[], int i)
 	noclipboard = true;
 	return 1;
     }
-    
+
+    if (!strcmp(argv[i], "-verbose")) {
+        if (++i < argc && argv[i]) {
+            char *end;
+            long val;
+
+            val = strtol(argv[i], &end, 0);
+            if (*end == '\0') {
+                vncVerbose = val;
+                LogSetParameter(XLOG_VERBOSITY, vncVerbose);
+                return 2;
+            }
+        }
+        vncVerbose++;
+        LogSetParameter(XLOG_VERBOSITY, vncVerbose);
+        return 1;
+    }
+
+    if (!strcmp(argv[i], "-quiet")) {
+        vncVerbose = -1;
+        LogSetParameter(XLOG_VERBOSITY, vncVerbose);
+        return 1;
+    }
+
     if (rfb::Configuration::setParam(argv[i]))
 	return 1;
     
@@ -614,14 +659,25 @@ GetTimeInMillis()
 }
 #endif
 
+#if XORG < 113
 static ColormapPtr InstalledMaps[MAXSCREENS];
+#else
+static DevPrivateKeyRec cmapScrPrivateKeyRec;
+#define cmapScrPrivateKey (&cmapScrPrivateKeyRec)
+#define GetInstalledColormap(s) ((ColormapPtr) dixLookupPrivate(&(s)->devPrivates, cmapScrPrivateKey))
+#define SetInstalledColormap(s,c) (dixSetPrivate(&(s)->devPrivates, cmapScrPrivateKey, c))
+#endif
 
 static int 
 vfbListInstalledColormaps(ScreenPtr pScreen, Colormap *pmaps)
 {
     /* By the time we are processing requests, we can guarantee that there
      * is always a colormap installed */
+#if XORG < 113
     *pmaps = InstalledMaps[pScreen->myNum]->mid;
+#else
+    *pmaps = GetInstalledColormap(pScreen)->mid;
+#endif
     return (1);
 }
 
@@ -629,8 +685,16 @@ vfbListInstalledColormaps(ScreenPtr pScreen, Colormap *pmaps)
 static void 
 vfbInstallColormap(ColormapPtr pmap)
 {
+#if XORG < 113
     int index = pmap->pScreen->myNum;
-    ColormapPtr oldpmap = InstalledMaps[index];
+#endif
+    ColormapPtr oldpmap;
+
+#if XORG < 113
+    oldpmap = InstalledMaps[index];
+#else
+    oldpmap = GetInstalledColormap(pmap->pScreen);
+#endif
 
     if (pmap != oldpmap)
     {
@@ -644,7 +708,11 @@ vfbInstallColormap(ColormapPtr pmap)
 	if(oldpmap != (ColormapPtr)None)
 	    WalkTree(pmap->pScreen, TellLostMap, (char *)&oldpmap->mid);
 	/* Install pmap */
+#if XORG < 113
 	InstalledMaps[index] = pmap;
+#else
+	SetInstalledColormap(pmap->pScreen, pmap);
+#endif
 	WalkTree(pmap->pScreen, TellGainedMap, (char *)&pmap->mid);
 
 	entries = pmap->pVisual->ColormapEntries;
@@ -680,14 +748,23 @@ vfbInstallColormap(ColormapPtr pmap)
 static void
 vfbUninstallColormap(ColormapPtr pmap)
 {
+#if XORG < 113
     ColormapPtr curpmap = InstalledMaps[pmap->pScreen->myNum];
+#else
+    ColormapPtr curpmap = GetInstalledColormap(pmap->pScreen);
+#endif
 
     if(pmap == curpmap)
     {
 	if (pmap->mid != pmap->pScreen->defColormap)
 	{
+#if XORG < 111
 	    curpmap = (ColormapPtr) LookupIDByType(pmap->pScreen->defColormap,
 						   RT_COLORMAP);
+#else
+	    dixLookupResourceByType((pointer *) &curpmap, pmap->pScreen->defColormap,
+				    RT_COLORMAP, serverClient, DixUnknownAccess);
+#endif
 	    (*pmap->pScreen->InstallColormap)(curpmap);
 	}
     }
@@ -859,45 +936,8 @@ static miPointerScreenFuncRec vfbPointerCursorFuncs = {
 
 static Bool vncRandRGetInfo (ScreenPtr pScreen, Rotation *rotations)
 {
-  Bool ret, gotCurrent = FALSE;
-  int i;
-
-  const int widths[] =  { 1920, 1920, 1600, 1680, 1400, 1360, 1280, 1280, 1280, 1280, 1024, 800, 640 };
-  const int heights[] = { 1200, 1080, 1200, 1050, 1050,  768, 1024,  960,  800,  720,  768, 600, 480 };
-
-  for (i = 0;i < sizeof(widths)/sizeof(*widths);i++) {
-    RRScreenSizePtr pSize;
-
-    pSize = RRRegisterSize(pScreen, widths[i], heights[i],
-                           pScreen->mmWidth, pScreen->mmHeight);
-    if (!pSize)
-      return FALSE;
-
-    ret = RRRegisterRate(pScreen, pSize, 60);
-    if (!ret)
-      return FALSE;
-
-    if ((widths[i] == pScreen->width) && (heights[i] == pScreen->height)) {
-      RRSetCurrentConfig(pScreen, RR_Rotate_0, 60, pSize);
-      gotCurrent = TRUE;
-    }
-  }
-
-  if (!gotCurrent) {
-    RRScreenSizePtr pSize;
-
-    pSize = RRRegisterSize(pScreen, pScreen->width, pScreen->height,
-                           pScreen->mmWidth, pScreen->mmHeight);
-    if (!pSize)
-      return FALSE;
-
-    RRRegisterRate(pScreen, pSize, 60);
-
-    RRSetCurrentConfig(pScreen, RR_Rotate_0, 60, pSize);
-  }
-
-  *rotations = RR_Rotate_0;
-
+  // We update all information right away, so there is nothing to
+  // do here.
   return TRUE;
 }
 
@@ -1050,16 +1090,22 @@ xf86SetRootClip (ScreenPtr pScreen, Bool enable)
     FlushAllOutput ();
 }
 
-static Bool vncRandRSetConfig (ScreenPtr pScreen, Rotation rotation,
-		    int	rate, RRScreenSizePtr pSize)
+RRModePtr vncRandRModeGet(int width, int height);
+static Bool vncRandRCrtcSet(ScreenPtr pScreen, RRCrtcPtr crtc, RRModePtr mode,
+                            int x, int y, Rotation rotation, int num_outputs,
+                            RROutputPtr *outputs);
+
+static Bool vncRandRScreenSetSize(ScreenPtr pScreen,
+                                  CARD16 width, CARD16 height,
+                                  CARD32 mmWidth, CARD32 mmHeight)
 {
     vfbScreenInfoPtr pvfb = &vfbScreens[pScreen->myNum];
     vfbFramebufferInfo fb;
+    rrScrPrivPtr rp = rrGetScrPriv(pScreen);
     PixmapPtr rootPixmap = pScreen->GetScreenPixmap(pScreen);
     void *pbits;
     Bool ret;
     int oldwidth, oldheight, oldmmWidth, oldmmHeight;
-    int dpix, dpiy;
 
     /* Prevent updates while we fiddle */
     xf86SetRootClip(pScreen, FALSE);
@@ -1070,17 +1116,11 @@ static Bool vncRandRSetConfig (ScreenPtr pScreen, Rotation rotation,
     oldmmWidth = pScreen->mmWidth;
     oldmmHeight = pScreen->mmHeight;
 
-    /* Compute the current DPI (for use later) */
-    dpix = (pScreen->width * 254 + pScreen->mmWidth * 5) / (pScreen->mmWidth * 10);
-    dpiy = (pScreen->height * 254 + pScreen->mmHeight * 5) / (pScreen->mmHeight * 10);
-
     /* Then set the new dimensions */
-    pScreen->width = pSize->width;
-    pScreen->height = pSize->height;
-
-    /* Try to keep the same DPI as we do not have a physical screen */
-    pScreen->mmWidth = (pScreen->width * 254 + dpix * 5) / (dpix * 10);
-    pScreen->mmHeight = (pScreen->height * 254 + dpiy * 5) / (dpiy * 10);
+    pScreen->width = width;
+    pScreen->height = height;
+    pScreen->mmWidth = mmWidth;
+    pScreen->mmHeight = mmHeight;
 
     /* Allocate a new framebuffer */
     memset(&fb, 0, sizeof(vfbFramebufferInfo));
@@ -1130,36 +1170,279 @@ static Bool vncRandRSetConfig (ScreenPtr pScreen, Rotation rotation,
     /* Restore ability to update screen, now with new dimensions */
     xf86SetRootClip(pScreen, TRUE);
 
+    /*
+     * Let RandR know we changed something (it doesn't assume that
+     * TRUE means something changed for some reason...).
+     */
+    RRScreenSizeNotify(pScreen);
+
+    /* Crop all CRTCs to the new screen */
+    for (int i = 0;i < rp->numCrtcs;i++) {
+        RRCrtcPtr crtc;
+        RRModePtr mode;
+
+        crtc = rp->crtcs[i];
+
+        /* Disabled? */
+        if (crtc->mode == NULL)
+            continue;
+
+        /* Fully inside? */
+        if ((crtc->x + crtc->mode->mode.width <= width) &&
+            (crtc->y + crtc->mode->mode.height <= height))
+            continue;
+
+        /* Fully outside? */
+        if ((crtc->x >= width) || (crtc->y >= height)) {
+            /* Disable it */
+            ret = vncRandRCrtcSet(pScreen, crtc, NULL,
+                                  crtc->x, crtc->y, crtc->rotation, 0, NULL);
+            if (!ret)
+                ErrorF("Warning: Unable to disable CRTC that is outside of new screen dimensions");
+            continue;
+        }
+
+        /* Just needs to be resized */
+        mode = vncRandRModeGet(width - crtc->x, height - crtc->y);
+        if (mode == NULL) {
+            ErrorF("Warning: Unable to create custom mode for %dx%d",
+                   width - crtc->x, height - crtc->y);
+            continue;
+        }
+
+        ret = vncRandRCrtcSet(pScreen, crtc, mode,
+                              crtc->x, crtc->y, crtc->rotation,
+                              crtc->numOutputs, crtc->outputs);
+        RRModeDestroy(mode);
+        if (!ret)
+            ErrorF("Warning: Unable to crop CRTC to new screen dimensions");
+    }
+
+    return TRUE;
+}
+
+static Bool vncRandRCrtcSet(ScreenPtr pScreen, RRCrtcPtr crtc, RRModePtr mode,
+                            int x, int y, Rotation rotation, int num_outputs,
+                            RROutputPtr *outputs)
+{
+    Bool ret;
+    int i;
+
+    /*
+     * Some applications get confused by a connected output without a
+     * mode or CRTC, so we need to fiddle with the connection state as well.
+     */
+    for (i = 0;i < crtc->numOutputs;i++)
+        RROutputSetConnection(crtc->outputs[i], RR_Disconnected);
+
+    for (i = 0;i < num_outputs;i++) {
+        if (mode != NULL)
+            RROutputSetConnection(outputs[i], RR_Connected);
+        else
+            RROutputSetConnection(outputs[i], RR_Disconnected);
+    }
+
+    /* Let RandR know we approve, and let it update its internal state */
+    ret = RRCrtcNotify(crtc, mode, x, y, rotation,
+#if XORG >= 16
+                       NULL,
+#endif
+                       num_outputs, outputs);
+    if (!ret)
+        return FALSE;
+
+    return TRUE;
+}
+
+static Bool vncRandROutputValidateMode(ScreenPtr pScreen,
+                                       RROutputPtr output, RRModePtr mode)
+{
+    /* We have no hardware so any mode works */
+    return TRUE;
+}
+
+static void vncRandRModeDestroy(ScreenPtr pScreen, RRModePtr mode)
+{
+    /* We haven't allocated anything so nothing to destroy */
+}
+
+static const int vncRandRWidths[] =  { 1920, 1920, 1600, 1680, 1400, 1360, 1280, 1280, 1280, 1280, 1024, 800, 640 };
+static const int vncRandRHeights[] = { 1200, 1080, 1200, 1050, 1050,  768, 1024,  960,  800,  720,  768, 600, 480 };
+
+static int vncRandRIndex = 0;
+
+/* This is a global symbol since XserverDesktop also uses it */
+RRModePtr vncRandRModeGet(int width, int height)
+{
+    xRRModeInfo	modeInfo;
+    char name[100];
+    RRModePtr mode;
+
+    memset(&modeInfo, 0, sizeof(modeInfo));
+    sprintf(name, "%dx%d", width, height);
+    
+    modeInfo.width = width;
+    modeInfo.height = height;
+    modeInfo.hTotal = width;
+    modeInfo.vTotal = height;
+    modeInfo.dotClock = ((CARD32)width * (CARD32)height * 60);
+    modeInfo.nameLength = strlen(name);
+    mode = RRModeGet(&modeInfo, name);
+    if (mode == NULL)
+        return NULL;
+
+    return mode;
+}
+
+static RRCrtcPtr vncRandRCrtcCreate(ScreenPtr pScreen)
+{
+    RRCrtcPtr crtc;
+    RROutputPtr output;
+    RRModePtr mode;
+    char name[100];
+
+    /* First we create the CRTC... */
+    crtc = RRCrtcCreate(pScreen, NULL);
+
+    /* We don't actually support gamma, but xrandr complains when it is missing */
+    RRCrtcGammaSetSize (crtc, 256);
+
+    /* Then we create a dummy output for it... */
+    sprintf(name, "VNC-%d", vncRandRIndex);
+    vncRandRIndex++;
+
+    output = RROutputCreate(pScreen, name, strlen(name), NULL);
+
+    RROutputSetCrtcs(output, &crtc, 1);
+    RROutputSetConnection(output, RR_Disconnected);
+
+    /* Make sure the CRTC has this output set */
+    vncRandRCrtcSet(pScreen, crtc, NULL, 0, 0, RR_Rotate_0, 1, &output);
+
+    /* Populate a list of default modes */
+    RRModePtr modes[sizeof(vncRandRWidths)/sizeof(*vncRandRWidths)];
+    int num_modes;
+
+    num_modes = 0;
+    for (int i = 0;i < sizeof(vncRandRWidths)/sizeof(*vncRandRWidths);i++) {
+        mode = vncRandRModeGet(vncRandRWidths[i], vncRandRHeights[i]);
+        if (mode != NULL) {
+            modes[num_modes] = mode;
+            num_modes++;
+        }
+    }
+
+    RROutputSetModes(output, modes, num_modes, 0);
+
+    return crtc;
+}
+
+/* Used from XserverDesktop when it needs more outputs... */
+RROutputPtr vncRandROutputCreate(ScreenPtr pScreen)
+{
+    RRCrtcPtr crtc;
+
+    crtc = vncRandRCrtcCreate(pScreen);
+    if (crtc == NULL)
+        return NULL;
+
+    return crtc->outputs[0];
+}
+
+static Bool vncRandRInit(ScreenPtr pScreen)
+{
+    RRCrtcPtr crtc;
+    RRModePtr mode;
+    Bool ret;
+
+    if (!RRInit())
+        return FALSE;
+
+    /* These are completely arbitrary */
+    RRScreenSetSizeRange(pScreen, 32, 32, 32768, 32768);
+
+    /*
+     * Start with a single CRTC with a single output. More will be
+     * allocated as needed...
+     */
+    crtc = vncRandRCrtcCreate(pScreen);
+
+    /* Make sure the current screen size is the active mode */
+    mode = vncRandRModeGet(pScreen->width, pScreen->height);
+    if (mode == NULL)
+        return FALSE;
+
+    ret = vncRandRCrtcSet(pScreen, crtc, mode, 0, 0, RR_Rotate_0,
+                          crtc->numOutputs, crtc->outputs);
+    RRModeDestroy(mode);
+    if (!ret)
+        return FALSE;
+
     return TRUE;
 }
 
 #endif
 
 static Bool
+#if XORG < 113
 vfbCloseScreen(int index, ScreenPtr pScreen)
+#else
+vfbCloseScreen(ScreenPtr pScreen)
+#endif
 {
+#if XORG < 113
     vfbScreenInfoPtr pvfb = &vfbScreens[index];
+#else
+    vfbScreenInfoPtr pvfb = &vfbScreens[pScreen->myNum];
+#endif
     int i;
  
     pScreen->CloseScreen = pvfb->closeScreen;
 
     /*
      * XXX probably lots of stuff to clean.  For now,
-     * clear InstalledMaps[] so that server reset works correctly.
+     * clear installed colormaps so that server reset works correctly.
      */
+#if XORG < 113
     for (i = 0; i < MAXSCREENS; i++)
 	InstalledMaps[i] = NULL;
 
     return pScreen->CloseScreen(index, pScreen);
+#else
+    for (i = 0; i < screenInfo.numScreens; i++)
+	SetInstalledColormap(screenInfo.screens[i], NULL);
+
+    /*
+     * fb overwrites miCloseScreen, so do this here
+     */
+    if (pScreen->devPrivate)
+        (*pScreen->DestroyPixmap) ((PixmapPtr) pScreen->devPrivate);
+    pScreen->devPrivate = NULL;
+
+    return pScreen->CloseScreen(pScreen);
+#endif
 }
 
 static Bool
+#if XORG < 113
 vfbScreenInit(int index, ScreenPtr pScreen, int argc, char **argv)
+#else
+vfbScreenInit(ScreenPtr pScreen, int argc, char **argv)
+#endif
 {
+#if XORG < 113
     vfbScreenInfoPtr pvfb = &vfbScreens[index];
+#else
+    vfbScreenInfoPtr pvfb = &vfbScreens[pScreen->myNum];
+#endif
     int dpi;
     int ret;
     void *pbits;
+
+#if XORG >= 113
+    if (!dixRegisterPrivateKey(&cmapScrPrivateKeyRec, PRIVATE_SCREEN, 0))
+	return FALSE;
+#endif
 
     /* 96 is the default used by most other systems */
     dpi = 96;
@@ -1168,8 +1451,13 @@ vfbScreenInit(int index, ScreenPtr pScreen, int argc, char **argv)
 
     pbits = vfbAllocateFramebufferMemory(&pvfb->fb);
     if (!pbits) return FALSE;
+#if XORG < 113
     vncFbptr[index] = pbits;
     vncFbstride[index] = pvfb->fb.paddedWidth;
+#else
+    vncFbptr[pScreen->myNum] = pbits;
+    vncFbstride[pScreen->myNum] = pvfb->fb.paddedWidth;
+#endif
 
     miSetPixmapDepths();
 
@@ -1291,8 +1579,16 @@ vfbScreenInit(int index, ScreenPtr pScreen, int argc, char **argv)
     if (!ret) return FALSE;
 
     rp = rrGetScrPriv(pScreen);
+
     rp->rrGetInfo = vncRandRGetInfo;
-    rp->rrSetConfig = vncRandRSetConfig;
+    rp->rrSetConfig = NULL;
+    rp->rrScreenSetSize = vncRandRScreenSetSize;
+    rp->rrCrtcSet = vncRandRCrtcSet;
+    rp->rrOutputValidateMode = vncRandROutputValidateMode;
+    rp->rrModeDestroy = vncRandRModeDestroy;
+
+    ret = vncRandRInit(pScreen);
+    if (!ret) return FALSE;
 #endif
 
 
@@ -1304,6 +1600,18 @@ vfbScreenInit(int index, ScreenPtr pScreen, int argc, char **argv)
 static void vfbClientStateChange(CallbackListPtr*, pointer, pointer) {
   dispatchException &= ~DE_RESET;
 }
+ 
+#if XORG >= 113
+#ifdef GLXEXT
+extern "C" void GlxExtensionInit(void);
+
+static ExtensionModule glxExt = {
+    GlxExtensionInit,
+    "GLX",
+    &noGlxExtension
+};
+#endif
+#endif
 
 void
 InitOutput(ScreenInfo *screenInfo, int argc, char **argv)
@@ -1313,6 +1621,13 @@ InitOutput(ScreenInfo *screenInfo, int argc, char **argv)
          VENDOR_STRING);
     int i;
     int NumFormats = 0;
+
+#if XORG >= 113
+#ifdef GLXEXT
+    if (serverGeneration == 1)
+        LoadExtension(&glxExt, TRUE);
+#endif
+#endif
 
     /* initialize pixmap formats */
 

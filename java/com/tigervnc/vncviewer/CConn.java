@@ -1,18 +1,21 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
- * 
+ * Copyright 2009-2011 Pierre Ossman <ossman@cendio.se> for Cendio AB
+ * Copyright (C) 2011-2013 D. R. Commander.  All Rights Reserved.
+ * Copyright (C) 2011-2013 Brian P. Hinz
+ *
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This software is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
  * USA.
  */
 
@@ -31,11 +34,8 @@
 
 package com.tigervnc.vncviewer;
 
-import java.awt.Color;
-import java.awt.Graphics;
+import java.awt.*;
 import java.awt.event.*;
-import java.awt.Dimension;
-import java.awt.Event;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,124 +45,54 @@ import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import javax.swing.*;
 import javax.swing.ImageIcon;
-import java.net.URL;
+import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.util.*;
 
 import com.tigervnc.rdr.*;
 import com.tigervnc.rfb.*;
-import com.tigervnc.rfb.Exception;
 import com.tigervnc.rfb.Point;
-import com.tigervnc.rfb.Rect;
-
-class ViewportFrame extends JFrame
-{
-  public ViewportFrame(String name, CConn cc_) {
-    cc = cc_;
-    setTitle(name+" - TigerVNC");
-    setFocusable(false);
-    setFocusTraversalKeysEnabled(false);
-    addWindowFocusListener(new WindowAdapter() {
-      public void windowGainedFocus(WindowEvent e) {
-        sp.getViewport().getView().requestFocusInWindow();
-      }
-    });
-    addWindowListener(new WindowAdapter() {
-      public void windowClosing(WindowEvent e) {
-        cc.close();
-      }
-    });
-    addComponentListener(new ComponentAdapter() {
-      public void componentResized(ComponentEvent e) {
-        if ((getExtendedState() != JFrame.MAXIMIZED_BOTH) &&
-            cc.fullScreen) {
-          cc.toggleFullScreen();
-        }
-        String scaleString = cc.viewer.scalingFactor.getValue();
-        if (scaleString.equals("Auto") || scaleString.equals("FixedRatio")) {
-          if ((sp.getSize().width != cc.desktop.scaledWidth) ||
-              (sp.getSize().height != cc.desktop.scaledHeight)) {
-            int policy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER;
-            sp.setHorizontalScrollBarPolicy(policy);
-            cc.desktop.setScaledSize();
-            sp.setSize(new Dimension(cc.desktop.scaledWidth,
-                                     cc.desktop.scaledHeight));
-            sp.validate();
-            if (getExtendedState() != JFrame.MAXIMIZED_BOTH &&
-                scaleString.equals("FixedRatio")) {
-              int w = cc.desktop.scaledWidth + getInsets().left + getInsets().right;
-              int h = cc.desktop.scaledHeight + getInsets().top + getInsets().bottom;
-              setSize(w, h);
-            }
-            if (cc.desktop.cursor != null) {
-              Cursor cursor = cc.desktop.cursor;
-              cc.setCursor(cursor.width(),cursor.height(),cursor.hotspot, 
-                           cursor.data, cursor.mask);
-            }
-          }
-        } else {
-          int policy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED;
-          sp.setHorizontalScrollBarPolicy(policy);
-          sp.validate();
-        }
-      }
-    });
-  }
-
-  public void addChild(DesktopWindow child) {
-    sp = new JScrollPane(child);
-    sp.setDoubleBuffered(true);
-    child.setBackground(Color.BLACK);
-    child.setOpaque(true);
-    sp.setBorder(BorderFactory.createEmptyBorder(0,0,0,0));
-    getContentPane().add(sp);
-  }
-
-  public void setChild(DesktopWindow child) {
-    getContentPane().removeAll();
-    addChild(child);
-  }
-
-  public void setGeometry(int x, int y, int w, int h, boolean pack) {
-    if (pack) {
-      pack();
-    } else {
-      setSize(w, h);
-    }
-    if (!cc.fullScreen)
-      setLocation(x, y);
-    setBackground(Color.BLACK);
-  }
-
-
-  CConn cc;
-  JScrollPane sp;
-  static LogWriter vlog = new LogWriter("ViewportFrame");
-}
+import com.tigervnc.rfb.Exception;
+import com.tigervnc.network.Socket;
+import com.tigervnc.network.TcpSocket;
 
 public class CConn extends CConnection
-  implements UserPasswdGetter, UserMsgBox, OptionsDialogCallback
+  implements UserPasswdGetter, UserMsgBox, OptionsDialogCallback, FdInStreamBlockCallback
 {
+
+  public final PixelFormat getPreferredPF() { return fullColourPF; }
+  static final PixelFormat verylowColourPF = 
+    new PixelFormat(8, 3, false, true, 1, 1, 1, 2, 1, 0);
+  static final PixelFormat lowColourPF = 
+    new PixelFormat(8, 6, false, true, 3, 3, 3, 4, 2, 0);
+  static final PixelFormat mediumColourPF = 
+    new PixelFormat(8, 8, false, false, 7, 7, 3, 0, 3, 6);
+  static final int KEY_LOC_SHIFT_R = 0;
+  static final int KEY_LOC_SHIFT_L = 16;
+  static final int SUPER_MASK = 1<<15;
+
   ////////////////////////////////////////////////////////////////////
   // The following methods are all called from the RFB thread
 
-  public CConn(VncViewer viewer_, java.net.Socket sock_, 
-               String vncServerName, boolean reverse) 
+  public CConn(VncViewer viewer_, Socket sock_,
+               String vncServerName) 
   {
     serverHost = null; serverPort = 0; sock = sock_; viewer = viewer_; 
+    pendingPFChange = false;
     currentEncoding = Encodings.encodingTight; lastServerEncoding = -1;
     fullColour = viewer.fullColour.getValue();
-    lowColourLevel = 2;
+    lowColourLevel = viewer.lowColourLevel.getValue();
     autoSelect = viewer.autoSelect.getValue();
-    shared = viewer.shared.getValue(); formatChange = false;
-    encodingChange = false; sameMachine = false;
+    formatChange = false; encodingChange = false;
     fullScreen = viewer.fullScreen.getValue();
-    menuKey = Keysyms.F8;
+    menuKeyCode = MenuKey.getMenuKeyCode();
     options = new OptionsDialog(this);
     options.initDialog();
     clipboardDialog = new ClipboardDialog(this);
-    firstUpdate = true; pendingUpdate = false;
+    firstUpdate = true; pendingUpdate = false; continuousUpdates = false;
+    forceNonincremental = true; supportsSyncFence = false;
 
-    setShared(shared);
+    setShared(viewer.shared.getValue());
     upg = this;
     msg = this;
 
@@ -173,6 +103,7 @@ public class CConn extends CConnection
     }
     cp.supportsDesktopResize = true;
     cp.supportsExtendedDesktopSize = true;
+    cp.supportsSetDesktopSize = true;
     cp.supportsClientRedirect = true;
     cp.supportsDesktopRename = true;
     cp.supportsLocalCursor = viewer.useLocalCursor.getValue();
@@ -183,44 +114,46 @@ public class CConn extends CConnection
     initMenu();
 
     if (sock != null) {
-      String name = sock.getRemoteSocketAddress()+"::"+sock.getPort();
-      vlog.info("Accepted connection from "+name);
+      String name = sock.getPeerEndpoint();
+      vlog.info("Accepted connection from " + name);
     } else {
-      if (vncServerName != null) {
+      if (vncServerName != null &&
+          !viewer.alwaysShowServerDialog.getValue()) {
         serverHost = Hostname.getHost(vncServerName);
         serverPort = Hostname.getPort(vncServerName);
       } else {
         ServerDialog dlg = new ServerDialog(options, vncServerName, this);
-        if (!dlg.showDialog() || dlg.server.getSelectedItem().equals("")) {
-          System.exit(1);
+        boolean ret = dlg.showDialog();
+        if (!ret) {
+          close();
+          return;
         }
-        vncServerName = (String)dlg.server.getSelectedItem();
-        serverHost = Hostname.getHost(vncServerName);
-        serverPort = Hostname.getPort(vncServerName);
+        serverHost = viewer.vncServerName.getValueStr();
+        serverPort = viewer.vncServerPort.getValue();
       }
 
       try {
-        sock = new java.net.Socket(serverHost, serverPort);
-      } catch (java.io.IOException e) { 
-        throw new Exception(e.toString());
+        sock = new TcpSocket(serverHost, serverPort);
+      } catch (java.lang.Exception e) {
+        throw new Exception(e.getMessage());
       }
       vlog.info("connected to host "+serverHost+" port "+serverPort);
     }
 
-    sameMachine = (sock.getLocalSocketAddress() == sock.getRemoteSocketAddress());
-    try {
-      sock.setTcpNoDelay(true);
-      sock.setTrafficClass(0x10);
-      setServerName(serverHost);
-      jis = new JavaInStream(sock.getInputStream());
-      jos = new JavaOutStream(sock.getOutputStream());
-    } catch (java.net.SocketException e) {
-      throw new Exception(e.toString());
-    } catch (java.io.IOException e) { 
-      throw new Exception(e.toString());
-    }
-    setStreams(jis, jos);
+    sock.inStream().setBlockCallback(this);
+    setServerName(serverHost);
+    setStreams(sock.inStream(), sock.outStream());
     initialiseProtocol();
+  }
+
+  public void refreshFramebuffer()
+  {
+    forceNonincremental = true;
+
+    // Without fences, we cannot safely trigger an update request directly
+    // but must wait for the next update to arrive.
+    if (supportsSyncFence)
+      requestNewUpdate();
   }
 
   public boolean showMsgBox(int flags, String title, String text)
@@ -235,7 +168,18 @@ public class CConn extends CConnection
     if (viewport != null)
       viewport.dispose();
     viewport = null;
-  } 
+  }
+
+  // blockCallback() is called when reading from the socket would block.
+  public void blockCallback() {
+    try {
+      synchronized(this) {
+        wait(1);
+      }
+    } catch (java.lang.InterruptedException e) {
+      throw new Exception(e.getMessage());
+    }
+  }
 
   // getUserPasswd() is called by the CSecurity object when it needs us to read
   // a password from the user.
@@ -260,8 +204,7 @@ public class CConn extends CConnection
       } catch(IOException e) {
         throw new Exception("Failed to read VncPasswd file");
       }
-      String PlainPasswd =
-        VncAuth.unobfuscatePasswd(obfPwd);
+      String PlainPasswd = VncAuth.unobfuscatePasswd(obfPwd);
       passwd.append(PlainPasswd);
       passwd.setLength(PlainPasswd.length());
       return true;
@@ -286,7 +229,7 @@ public class CConn extends CConnection
       }
     }
     if (passwd != null)
-      passwd.append(dlg.passwdEntry.getText());
+      passwd.append(new String(dlg.passwdEntry.getPassword()));
     return true;
   }
 
@@ -300,26 +243,34 @@ public class CConn extends CConnection
 
     // If using AutoSelect with old servers, start in FullColor
     // mode. See comment in autoSelectFormatAndEncoding. 
-    if (cp.beforeVersion(3, 8) && autoSelect) {
+    if (cp.beforeVersion(3, 8) && autoSelect)
       fullColour = true;
-    }
 
     serverPF = cp.pf();
+
     desktop = new DesktopWindow(cp.width, cp.height, serverPF, this);
-    //desktopEventHandler = desktop.setEventHandler(this);
-    //desktop.addEventMask(KeyPressMask | KeyReleaseMask);
     fullColourPF = desktop.getPreferredPF();
-    if (!serverPF.trueColour)
-      fullColour = true;
-    recreateViewport();
+
+    // Force a switch to the format and encoding we'd like
     formatChange = true; encodingChange = true;
+
+    // And kick off the update cycle
     requestNewUpdate();
+
+    // This initial update request is a bit of a corner case, so we need
+    // to help out setting the correct format here.
+    assert(pendingPFChange);
+    desktop.setServerPF(pendingPF);
+    cp.setPF(pendingPF);
+    pendingPFChange = false;
+
+    recreateViewport();
   }
 
   // setDesktopSize() is called when the desktop size changes (including when
   // it is set initially).
   public void setDesktopSize(int w, int h) {
-    super.setDesktopSize(w,h);
+    super.setDesktopSize(w, h);
     resizeFramebuffer();
   }
 
@@ -330,7 +281,7 @@ public class CConn extends CConnection
 
     if ((reason == screenTypes.reasonClient) &&
         (result != screenTypes.resultSuccess)) {
-      vlog.error("SetDesktopSize failed: "+result);
+      vlog.error("SetDesktopSize failed: " + result);
       return;
     }
 
@@ -338,21 +289,16 @@ public class CConn extends CConnection
   }
 
   // clientRedirect() migrates the client to another host/port
-  public void clientRedirect(int port, String host, 
+  public void clientRedirect(int port, String host,
                              String x509subject) {
     try {
-      getSocket().close();
+      sock.close();
       setServerPort(port);
-      sock = new java.net.Socket(host, port);
-      sock.setTcpNoDelay(true);
-      sock.setTrafficClass(0x10);
-      setSocket(sock);
+      sock = new TcpSocket(host, port);
       vlog.info("Redirected to "+host+":"+port);
-      setStreams(new JavaInStream(sock.getInputStream()),
-                 new JavaOutStream(sock.getOutputStream()));
-      initialiseProtocol();
-    } catch (java.io.IOException e) {
-      e.printStackTrace();
+      VncViewer.newViewer(viewer, sock, true);
+    } catch (java.lang.Exception e) {
+      throw new Exception(e.getMessage());
     }
   }
 
@@ -368,26 +314,32 @@ public class CConn extends CConnection
   // framebufferUpdateStart() is called at the beginning of an update.
   // Here we try to send out a new framebuffer update request so that the
   // next update can be sent out in parallel with us decoding the current
-  // one. We cannot do this if we're in the middle of a format change
-  // though.
-  public void framebufferUpdateStart() {
-    if (!formatChange) {
-      pendingUpdate = true;
-      requestNewUpdate();
-    } else 
-      pendingUpdate = false;
+  // one. 
+  public void framebufferUpdateStart() 
+  {
+    // Note: This might not be true if sync fences are supported
+    pendingUpdate = false;
+
+    requestNewUpdate();
   }
 
   // framebufferUpdateEnd() is called at the end of an update.
   // For each rectangle, the FdInStream will have timed the speed
   // of the connection, allowing us to select format and encoding
   // appropriately, and then request another incremental update.
-  public void framebufferUpdateEnd() {
-    desktop.framebufferUpdateEnd();
+  public void framebufferUpdateEnd() 
+  {
+
+    desktop.updateWindow();
 
     if (firstUpdate) {
       int width, height;
       
+      // We need fences to make extra update requests and continuous
+      // updates "safe". See fence() for the next step.
+      if (cp.supportsFence)
+        writer().writeFence(fenceTypes.fenceFlagRequest | fenceTypes.fenceFlagSyncNext, 0, null);
+
       if (cp.supportsSetDesktopSize &&
           viewer.desktopSize.getValue() != null &&
           viewer.desktopSize.getValue().split("x").length == 2) {
@@ -402,7 +354,7 @@ public class CConn extends CConnection
         else if (layout.num_screens() != 1) {
 
           while (true) {
-            Iterator iter = layout.screens.iterator(); 
+            Iterator<Screen> iter = layout.screens.iterator(); 
             Screen screen = (Screen)iter.next();
         
             if (!iter.hasNext())
@@ -424,10 +376,13 @@ public class CConn extends CConnection
       firstUpdate = false;
     }
 
-    // A format change prevented us from sending this before the update,
-    // so make sure to send it now.
-    if (formatChange && !pendingUpdate)
-      requestNewUpdate();
+    // A format change has been scheduled and we are now past the update
+    // with the old format. Time to active the new one.
+    if (pendingPFChange) {
+      desktop.setServerPF(pendingPF);
+      cp.setPF(pendingPF);
+      pendingPFChange = false;
+    }
 
     // Compute new settings based on updated bandwidth values
     if (autoSelect)
@@ -454,21 +409,21 @@ public class CConn extends CConnection
   // avoid skewing the bandwidth estimation as a result of the server
   // being slow or the network having high latency
   public void beginRect(Rect r, int encoding) {
-    ((JavaInStream)getInStream()).startTiming();
+    sock.inStream().startTiming();
     if (encoding != Encodings.encodingCopyRect) {
       lastServerEncoding = encoding;
     }
   }
 
   public void endRect(Rect r, int encoding) {
-    ((JavaInStream)getInStream()).stopTiming();
+    sock.inStream().stopTiming();
   }
 
   public void fillRect(Rect r, int p) {
     desktop.fillRect(r.tl.x, r.tl.y, r.width(), r.height(), p);
   }
 
-  public void imageRect(Rect r, int[] p) {
+  public void imageRect(Rect r, Object p) {
     desktop.imageRect(r.tl.x, r.tl.y, r.width(), r.height(), p);
   }
 
@@ -476,20 +431,56 @@ public class CConn extends CConnection
     desktop.copyRect(r.tl.x, r.tl.y, r.width(), r.height(), sx, sy);
   }
 
-  public PixelFormat getPreferredPF() {
-    return fullColourPF;
-  }
-
   public void setCursor(int width, int height, Point hotspot,
                         int[] data, byte[] mask) {
     desktop.setCursor(width, height, hotspot, data, mask);
   }
 
+  public void fence(int flags, int len, byte[] data)
+  {
+    // can't call super.super.fence(flags, len, data);
+    cp.supportsFence = true;
+
+    if ((flags & fenceTypes.fenceFlagRequest) != 0) {
+      // We handle everything synchronously so we trivially honor these modes
+      flags = flags & (fenceTypes.fenceFlagBlockBefore | fenceTypes.fenceFlagBlockAfter);
+
+      writer().writeFence(flags, len, data);
+      return;
+    }
+
+    if (len == 0) {
+      // Initial probe
+      if ((flags & fenceTypes.fenceFlagSyncNext) != 0) {
+        supportsSyncFence = true;
+
+        if (cp.supportsContinuousUpdates) {
+          vlog.info("Enabling continuous updates");
+          continuousUpdates = true;
+          writer().writeEnableContinuousUpdates(true, 0, 0, cp.width, cp.height);
+        }
+      }
+    } else {
+      // Pixel format change
+      MemInStream memStream = new MemInStream(data, 0, len);
+      PixelFormat pf = new PixelFormat();
+
+      pf.read(memStream);
+
+      desktop.setServerPF(pf);
+      cp.setPF(pf);
+    }
+  }
+
   private void resizeFramebuffer()
   {
-    if ((cp.width == 0) && (cp.height == 0))
-      return;
     if (desktop == null)
+      return;
+
+    if (continuousUpdates)
+      writer().writeEnableContinuousUpdates(true, 0, 0, cp.width, cp.height);
+
+    if ((cp.width == 0) && (cp.height == 0))
       return;
     if ((desktop.width() == cp.width) && (desktop.height() == cp.height))
       return;
@@ -505,21 +496,12 @@ public class CConn extends CConnection
   private void recreateViewport()
   {
     if (viewport != null) viewport.dispose();
-    viewport = new ViewportFrame(cp.name(), this);
+    viewport = new Viewport(cp.name(), this);
     viewport.setUndecorated(fullScreen);
     desktop.setViewport(viewport);
-    ClassLoader loader = this.getClass().getClassLoader();
-    URL url = loader.getResource("com/tigervnc/vncviewer/tigervnc.ico");
-    ImageIcon icon = null;
-    if (url != null) {
-      icon = new ImageIcon(url);
-      viewport.setIconImage(icon.getImage());
-    }
-    viewport.addChild(desktop);
     reconfigureViewport();
     if ((cp.width > 0) && (cp.height > 0))
       viewport.setVisible(true);
-    desktop.initGraphics();
     desktop.requestFocusInWindow();
   }
 
@@ -531,9 +513,14 @@ public class CConn extends CConnection
     desktop.setScaledSize();
     int w = desktop.scaledWidth;
     int h = desktop.scaledHeight;
+    GraphicsEnvironment ge =
+      GraphicsEnvironment.getLocalGraphicsEnvironment();
+    GraphicsDevice gd = ge.getDefaultScreenDevice();
     if (fullScreen) {
       viewport.setExtendedState(JFrame.MAXIMIZED_BOTH);
       viewport.setGeometry(0, 0, dpySize.width, dpySize.height, false);
+      if (gd.isFullScreenSupported())
+        gd.setFullScreenWindow(viewport);
     } else {
       int wmDecorationWidth = viewport.getInsets().left + viewport.getInsets().right;
       int wmDecorationHeight = viewport.getInsets().top + viewport.getInsets().bottom;
@@ -558,6 +545,8 @@ public class CConn extends CConnection
         viewport.setExtendedState(JFrame.NORMAL);
         viewport.setGeometry(x, y, w, h, pack);
       }
+      if (gd.isFullScreenSupported())
+        gd.setFullScreenWindow(null);
     }
   }
 
@@ -577,8 +566,8 @@ public class CConn extends CConnection
   //         with something more intelligent at the server end.
   //
   private void autoSelectFormatAndEncoding() {
-    long kbitsPerSecond = ((JavaInStream)getInStream()).kbitsPerSecond();
-    long timeWaited = ((JavaInStream)getInStream()).timeWaited();
+    long kbitsPerSecond = sock.inStream().kbitsPerSecond();
+    long timeWaited = sock.inStream().timeWaited();
     boolean newFullColour = fullColour;
     int newQualityLevel = cp.qualityLevel;
 
@@ -589,7 +578,7 @@ public class CConn extends CConnection
     }
 
     // Check that we have a decent bandwidth measurement
-    if ((kbitsPerSecond == 0) || (timeWaited < 10000))
+    if ((kbitsPerSecond == 0) || (timeWaited < 100))
       return;
   
     // Select appropriate quality level
@@ -627,6 +616,7 @@ public class CConn extends CConnection
   	            (newFullColour ? "enabled" : "disabled"));
       fullColour = newFullColour;
       formatChange = true;
+      forceNonincremental = true;
     } 
   }
 
@@ -635,47 +625,72 @@ public class CConn extends CConnection
   private void requestNewUpdate()
   {
     if (formatChange) {
+      PixelFormat pf;
 
       /* Catch incorrect requestNewUpdate calls */
-      assert(pendingUpdate == false);
+      assert(!pendingUpdate || supportsSyncFence);
 
       if (fullColour) {
-        desktop.setPF(fullColourPF);
+        pf = fullColourPF;
       } else {
         if (lowColourLevel == 0) {
-          desktop.setPF(new PixelFormat(8,3,false,true,1,1,1,2,1,0));
+          pf = verylowColourPF;
         } else if (lowColourLevel == 1) {
-          desktop.setPF(new PixelFormat(8,6,false,true,3,3,3,4,2,0));
+          pf = lowColourPF;
         } else {
-          desktop.setPF(new PixelFormat(8,8,false,true,7,7,3,0,3,6));
+          pf = mediumColourPF;
         }
       }
-      String str = desktop.getPF().print();
-      vlog.info("Using pixel format "+str);
-      cp.setPF(desktop.getPF());
-      synchronized (this) {
-        writer().writeSetPixelFormat(cp.pf());
+
+      if (supportsSyncFence) {
+        // We let the fence carry the pixel format and switch once we
+        // get the response back. That way we will be synchronised with
+        // when the server switches.
+        MemOutStream memStream = new MemOutStream();
+
+        pf.write(memStream);
+
+        writer().writeFence(fenceTypes.fenceFlagRequest | fenceTypes.fenceFlagSyncNext,
+                            memStream.length(), (byte[])memStream.data());
+      } else {
+        // New requests are sent out at the start of processing the last
+        // one, so we cannot switch our internal format right now (doing so
+        // would mean misdecoding the current update).
+        pendingPFChange = true;
+        pendingPF = pf;
       }
+
+      String str = pf.print();
+      vlog.info("Using pixel format " + str);
+      writer().writeSetPixelFormat(pf);
+
+      formatChange = false;
     }
+
     checkEncodings();
-    synchronized (this) {
-      writer().writeFramebufferUpdateRequest(new Rect(0,0,cp.width,cp.height),
-                                             !formatChange);
+
+    if (forceNonincremental || !continuousUpdates) {
+      pendingUpdate = true;
+      writer().writeFramebufferUpdateRequest(new Rect(0, 0, cp.width, cp.height),
+                                                 !forceNonincremental);
     }
-    formatChange = false;
+
+    forceNonincremental = false;
   }
 
 
   ////////////////////////////////////////////////////////////////////
   // The following methods are all called from the GUI thread
 
-  // close() closes the socket, thus waking up the RFB thread.
+  // close() shuts down the socket, thus waking up the RFB thread.
   public void close() {
+    deleteWindow();
+    shuttingDown = true;
     try {
-      shuttingDown = true;
-      sock.close();
-    } catch (java.io.IOException e) {
-      e.printStackTrace();
+      if (sock != null)
+        sock.shutdown();
+    } catch (java.lang.Exception e) {
+      throw new Exception(e.getMessage());
     }
   }
 
@@ -694,46 +709,68 @@ public class CConn extends CConnection
   }
 
   void showAbout() {
-    InputStream stream = cl.getResourceAsStream("com/tigervnc/vncviewer/timestamp");
     String pkgDate = "";
     String pkgTime = "";
     try {
-      Manifest manifest = new Manifest(stream);
+      Manifest manifest = new Manifest(VncViewer.timestamp);
       Attributes attributes = manifest.getMainAttributes();
       pkgDate = attributes.getValue("Package-Date");
       pkgTime = attributes.getValue("Package-Time");
     } catch (IOException e) { }
-    JOptionPane.showMessageDialog((viewport != null ? viewport : null),
-      VncViewer.about1+" v"+VncViewer.version+" ("+VncViewer.build+")\n"
-      +"Built on "+pkgDate+" at "+pkgTime+"\n"
-      +VncViewer.about2+"\n"
-      +VncViewer.about3,
-      "About TigerVNC Viewer for Java",
-      JOptionPane.INFORMATION_MESSAGE,
-      logo);
+
+    Window fullScreenWindow = Viewport.getFullScreenWindow();
+    if (fullScreenWindow != null)
+      Viewport.setFullScreenWindow(null);
+    String msg = 
+      String.format(VncViewer.aboutText, VncViewer.version, VncViewer.build,
+                    VncViewer.buildDate, VncViewer.buildTime);
+    JOptionPane op = 
+      new JOptionPane(msg, JOptionPane.INFORMATION_MESSAGE,
+                      JOptionPane.DEFAULT_OPTION, VncViewer.logoIcon);
+    JDialog dlg = op.createDialog("About TigerVNC Viewer for Java");
+    dlg.setIconImage(VncViewer.frameIcon);
+    dlg.setVisible(true);
+    if (fullScreenWindow != null)
+      Viewport.setFullScreenWindow(fullScreenWindow);
   }
 
   void showInfo() {
-    JOptionPane.showMessageDialog(viewport,
-      "Desktop name: "+cp.name()+"\n"
-      +"Host: "+serverHost+":"+sock.getPort()+"\n"
-      +"Size: "+cp.width+"x"+cp.height+"\n"
-      +"Pixel format: "+desktop.getPF().print()+"\n"
-      +"(server default "+serverPF.print()+")\n"
-      +"Requested encoding: "+Encodings.encodingName(currentEncoding)+"\n"
-      +"Last used encoding: "+Encodings.encodingName(lastServerEncoding)+"\n"
-      +"Line speed estimate: "+((JavaInStream)getInStream()).kbitsPerSecond()+" kbit/s"+"\n"
-      +"Protocol version: "+cp.majorVersion+"."+cp.minorVersion+"\n"
-      +"Security method: "+Security.secTypeName(csecurity.getType())
-       +" ["+csecurity.description()+"]",
-      "VNC connection info",
-      JOptionPane.PLAIN_MESSAGE);
+    Window fullScreenWindow = Viewport.getFullScreenWindow();
+    if (fullScreenWindow != null)
+      Viewport.setFullScreenWindow(null);
+    String info = new String("Desktop name: %s%n"+
+                             "Host: %s:%d%n"+
+                             "Size: %dx%d%n"+
+                             "Pixel format: %s%n"+
+                             "  (server default: %s)%n"+
+                             "Requested encoding: %s%n"+
+                             "Last used encoding: %s%n"+
+                             "Line speed estimate: %d kbit/s%n"+
+                             "Protocol version: %d.%d%n"+
+                             "Security method: %s [%s]%n");
+    String msg = 
+      String.format(info, cp.name(),
+                    sock.getPeerName(), sock.getPeerPort(),
+                    cp.width, cp.height,
+                    desktop.getPF().print(),
+                    serverPF.print(),
+                    Encodings.encodingName(currentEncoding),
+                    Encodings.encodingName(lastServerEncoding),
+                    sock.inStream().kbitsPerSecond(),
+                    cp.majorVersion, cp.minorVersion,
+                    Security.secTypeName(csecurity.getType()),
+                    csecurity.description());
+    JOptionPane op = new JOptionPane(msg, JOptionPane.PLAIN_MESSAGE,
+                                     JOptionPane.DEFAULT_OPTION);
+    JDialog dlg = op.createDialog("VNC connection info");
+    dlg.setIconImage(VncViewer.frameIcon);
+    dlg.setVisible(true);
+    if (fullScreenWindow != null)
+      Viewport.setFullScreenWindow(fullScreenWindow);
   }
 
   public void refresh() {
-    synchronized (this) {
-      writer().writeFramebufferUpdateRequest(new Rect(0,0,cp.width,cp.height), false);
-    }
+    writer().writeFramebufferUpdateRequest(new Rect(0,0,cp.width,cp.height), false);
     pendingUpdate = true;
   }
 
@@ -775,7 +812,8 @@ public class CConn extends CConnection
     options.viewOnly.setSelected(viewer.viewOnly.getValue());
     options.acceptClipboard.setSelected(viewer.acceptClipboard.getValue());
     options.sendClipboard.setSelected(viewer.sendClipboard.getValue());
-    options.menuKey.setSelectedIndex(menuKey-0xFFBE);
+    options.menuKey.setSelectedItem(KeyEvent.getKeyText(MenuKey.getMenuKeyCode()));
+    options.sendLocalUsername.setSelected(viewer.sendLocalUsername.getValue());
 
     if (state() == RFBSTATE_NORMAL) {
       options.shared.setEnabled(false);
@@ -790,24 +828,28 @@ public class CConn extends CConnection
       options.secVnc.setEnabled(false);
       options.secPlain.setEnabled(false);
       options.sendLocalUsername.setEnabled(false);
+      options.cfLoadButton.setEnabled(false);
+      options.cfSaveAsButton.setEnabled(true);
     } else {
-      options.shared.setSelected(shared);
+      options.shared.setSelected(viewer.shared.getValue());
+      options.sendLocalUsername.setSelected(viewer.sendLocalUsername.getValue());
+      options.cfSaveAsButton.setEnabled(false);
 
       /* Process non-VeNCrypt sectypes */
       java.util.List<Integer> secTypes = new ArrayList<Integer>();
       secTypes = Security.GetEnabledSecTypes();
-      for (Iterator i = secTypes.iterator(); i.hasNext();) {
+      for (Iterator<Integer> i = secTypes.iterator(); i.hasNext();) {
         switch ((Integer)i.next()) {
         case Security.secTypeVeNCrypt:
-          options.secVeNCrypt.setSelected(true);
+          options.secVeNCrypt.setSelected(UserPreferences.getBool("viewer", "secVeNCrypt", true));
           break;
         case Security.secTypeNone:
           options.encNone.setSelected(true);
-          options.secNone.setSelected(true);
+          options.secNone.setSelected(UserPreferences.getBool("viewer", "secTypeNone", true));
           break;
         case Security.secTypeVncAuth:
           options.encNone.setSelected(true);
-          options.secVnc.setSelected(true);
+          options.secVnc.setSelected(UserPreferences.getBool("viewer", "secTypeVncAuth", true));
           break;
         }
       }
@@ -816,67 +858,69 @@ public class CConn extends CConnection
       if (options.secVeNCrypt.isSelected()) {
         java.util.List<Integer> secTypesExt = new ArrayList<Integer>();
         secTypesExt = Security.GetEnabledExtSecTypes();
-        for (Iterator iext = secTypesExt.iterator(); iext.hasNext();) {
+        for (Iterator<Integer> iext = secTypesExt.iterator(); iext.hasNext();) {
           switch ((Integer)iext.next()) {
           case Security.secTypePlain:
-            options.secPlain.setSelected(true);
-            options.sendLocalUsername.setSelected(true);
+            options.encNone.setSelected(UserPreferences.getBool("viewer", "encNone", true));
+            options.secPlain.setSelected(UserPreferences.getBool("viewer", "secPlain", true));
             break;
           case Security.secTypeIdent:
-            options.secIdent.setSelected(true);
-            options.sendLocalUsername.setSelected(true);
+            options.encNone.setSelected(UserPreferences.getBool("viewer", "encNone", true));
+            options.secIdent.setSelected(UserPreferences.getBool("viewer", "secIdent", true));
             break;
           case Security.secTypeTLSNone:
-            options.encTLS.setSelected(true);
-            options.secNone.setSelected(true);
+            options.encTLS.setSelected(UserPreferences.getBool("viewer", "encTLS", true));
+            options.secNone.setSelected(UserPreferences.getBool("viewer", "secNone", true));
             break;
           case Security.secTypeTLSVnc:
-            options.encTLS.setSelected(true);
-            options.secVnc.setSelected(true);
+            options.encTLS.setSelected(UserPreferences.getBool("viewer", "encTLS", true));
+            options.secVnc.setSelected(UserPreferences.getBool("viewer", "secVnc", true));
             break;
           case Security.secTypeTLSPlain:
-            options.encTLS.setSelected(true);
-            options.secPlain.setSelected(true);
-            options.sendLocalUsername.setSelected(true);
+            options.encTLS.setSelected(UserPreferences.getBool("viewer", "encTLS", true));
+            options.secPlain.setSelected(UserPreferences.getBool("viewer", "secPlain", true));
             break;
           case Security.secTypeTLSIdent:
-            options.encTLS.setSelected(true);
-            options.secIdent.setSelected(true);
-            options.sendLocalUsername.setSelected(true);
+            options.encTLS.setSelected(UserPreferences.getBool("viewer", "encTLS", true));
+            options.secIdent.setSelected(UserPreferences.getBool("viewer", "secIdent", true));
             break;
           case Security.secTypeX509None:
-            options.encX509.setSelected(true);
-            options.secNone.setSelected(true);
+            options.encX509.setSelected(UserPreferences.getBool("viewer", "encX509", true));
+            options.secNone.setSelected(UserPreferences.getBool("viewer", "secNone", true));
             break;
           case Security.secTypeX509Vnc:
-            options.encX509.setSelected(true);
-            options.secVnc.setSelected(true);
+            options.encX509.setSelected(UserPreferences.getBool("viewer", "encX509", true));
+            options.secVnc.setSelected(UserPreferences.getBool("viewer", "secVnc", true));
             break;
           case Security.secTypeX509Plain:
-            options.encX509.setSelected(true);
-            options.secPlain.setSelected(true);
-            options.sendLocalUsername.setSelected(true);
+            options.encX509.setSelected(UserPreferences.getBool("viewer", "encX509", true));
+            options.secPlain.setSelected(UserPreferences.getBool("viewer", "secPlain", true));
             break;
           case Security.secTypeX509Ident:
-            options.encX509.setSelected(true);
-            options.secIdent.setSelected(true);
-            options.sendLocalUsername.setSelected(true);
+            options.encX509.setSelected(UserPreferences.getBool("viewer", "encX509", true));
+            options.secIdent.setSelected(UserPreferences.getBool("viewer", "secIdent", true));
             break;
           }
         }
       }
+      options.encNone.setEnabled(options.secVeNCrypt.isSelected());
+      options.encTLS.setEnabled(options.secVeNCrypt.isSelected());
+      options.encX509.setEnabled(options.secVeNCrypt.isSelected());
+      options.ca.setEnabled(options.secVeNCrypt.isSelected());
+      options.crl.setEnabled(options.secVeNCrypt.isSelected());
+      options.secIdent.setEnabled(options.secVeNCrypt.isSelected());
+      options.secPlain.setEnabled(options.secVeNCrypt.isSelected());
       options.sendLocalUsername.setEnabled(options.secPlain.isSelected()||
         options.secIdent.isSelected());
     }
 
     options.fullScreen.setSelected(fullScreen);
     options.useLocalCursor.setSelected(viewer.useLocalCursor.getValue());
-    options.fastCopyRect.setSelected(viewer.fastCopyRect.getValue());
     options.acceptBell.setSelected(viewer.acceptBell.getValue());
     String scaleString = viewer.scalingFactor.getValue();
-    if (scaleString.equals("Auto")) {
+    if (scaleString.equalsIgnoreCase("Auto")) {
       options.scalingFactor.setSelectedItem("Auto");
-    } else if(scaleString.equals("FixedRatio")) {
+    } else if(scaleString.equalsIgnoreCase("FixedRatio")) {
       options.scalingFactor.setSelectedItem("Fixed Aspect Ratio");
     } else { 
       digit = Integer.parseInt(scaleString);
@@ -895,8 +939,10 @@ public class CConn extends CConnection
 
   public void getOptions() {
     autoSelect = options.autoSelect.isSelected();
-    if (fullColour != options.fullColour.isSelected())
+    if (fullColour != options.fullColour.isSelected()) {
       formatChange = true;
+      forceNonincremental = true;
+    }
     fullColour = options.fullColour.isSelected();
     if (!fullColour) {
       int newLowColourLevel = (options.veryLowColour.isSelected() ? 0 :
@@ -904,6 +950,7 @@ public class CConn extends CConnection
       if (newLowColourLevel != lowColourLevel) {
         lowColourLevel = newLowColourLevel;
         formatChange = true;
+        forceNonincremental = true;
       }
     }
     int newEncoding = (options.zrle.isSelected() ?  Encodings.encodingZRLE :
@@ -945,34 +992,29 @@ public class CConn extends CConnection
     viewer.viewOnly.setParam(options.viewOnly.isSelected());
     viewer.acceptClipboard.setParam(options.acceptClipboard.isSelected());
     viewer.sendClipboard.setParam(options.sendClipboard.isSelected());
-    viewer.fastCopyRect.setParam(options.fastCopyRect.isSelected());
     viewer.acceptBell.setParam(options.acceptBell.isSelected());
     String scaleString =
       options.scalingFactor.getSelectedItem().toString();
-    if (scaleString.equals("Auto")) {
-      viewer.scalingFactor.setParam("Auto");
-      if (desktop != null)
-        reconfigureViewport();
-    } else if(scaleString.equals("Fixed Aspect Ratio")) {
-      viewer.scalingFactor.setParam("FixedRatio");
-      if (desktop != null)
-        reconfigureViewport();
-    } else { 
+    String oldScaleFactor = viewer.scalingFactor.getValue();
+    if (scaleString.equalsIgnoreCase("Fixed Aspect Ratio")) {
+      scaleString = new String("FixedRatio");
+    } else if (scaleString.equalsIgnoreCase("Auto")) {
+      scaleString = new String("Auto");
+    } else {
       scaleString=scaleString.substring(0, scaleString.length()-1);
-      String oldScaleFactor = viewer.scalingFactor.getValue();
+    }
+    if (!oldScaleFactor.equals(scaleString)) {
       viewer.scalingFactor.setParam(scaleString);
-      if ((desktop != null) && (!oldScaleFactor.equals("Auto") ||
-           !oldScaleFactor.equals("FixedRatio"))) {
-        reconfigureViewport();
-      }
+      if ((options.fullScreen.isSelected() == fullScreen) &&
+          (desktop != null))
+        recreateViewport();
     }
 
     clipboardDialog.setSendingEnabled(viewer.sendClipboard.getValue());
-    menuKey = (options.menuKey.getSelectedIndex()+0xFFBE);
-    F8Menu.f8.setText("Send F"+(menuKey-Keysyms.F1+1));
+    viewer.menuKey.setParam(MenuKey.getMenuKeySymbols()[options.menuKey.getSelectedIndex()].name);
+    F8Menu.f8.setText("Send "+KeyEvent.getKeyText(MenuKey.getMenuKeyCode()));
 
-    shared = options.shared.isSelected();
-    setShared(shared);
+    setShared(options.shared.isSelected());
     viewer.useLocalCursor.setParam(options.useLocalCursor.isSelected());
     if (cp.supportsLocalCursor != viewer.useLocalCursor.getValue()) {
       cp.supportsLocalCursor = viewer.useLocalCursor.getValue();
@@ -980,9 +1022,9 @@ public class CConn extends CConnection
       if (desktop != null)
         desktop.resetLocalCursor();
     }
-    
+
     checkEncodings();
-  
+
     if (state() != RFBSTATE_NORMAL) {
       /* Process security types which don't use encryption */
       if (options.encNone.isSelected()) {
@@ -1090,81 +1132,223 @@ public class CConn extends CConnection
         Security.DisableSecType(Security.secTypeTLSIdent);
         Security.DisableSecType(Security.secTypeX509Ident);
       }
-  
-      CSecurityTLS.x509ca.setParam(options.ca.getText());
-      CSecurityTLS.x509crl.setParam(options.crl.getText());
     }
+    if (options.fullScreen.isSelected() ^ fullScreen)
+      toggleFullScreen();
   }
 
   public void toggleFullScreen() {
     fullScreen = !fullScreen;
-    if (!fullScreen) menu.fullScreen.setSelected(false);
-    recreateViewport();
+    menu.fullScreen.setSelected(fullScreen);
+    if (viewport != null)
+      recreateViewport();
   }
 
   // writeClientCutText() is called from the clipboard dialog
-  synchronized public void writeClientCutText(String str, int len) {
-    if (state() != RFBSTATE_NORMAL) return;
-    writer().writeClientCutText(str,len);
+  public void writeClientCutText(String str, int len) {
+    if (state() != RFBSTATE_NORMAL || shuttingDown)
+      return;
+    writer().writeClientCutText(str, len);
   }
 
-  synchronized public void writeKeyEvent(int keysym, boolean down) {
-    if (state() != RFBSTATE_NORMAL) return;
+  public void writeKeyEvent(int keysym, boolean down) {
+    if (state() != RFBSTATE_NORMAL || shuttingDown)
+      return;
     writer().writeKeyEvent(keysym, down);
   }
 
-  synchronized public void writeKeyEvent(KeyEvent ev) {
-    if (ev.getID() != KeyEvent.KEY_PRESSED && !ev.isActionKey())
+  public void writeKeyEvent(KeyEvent ev, int keysym) {
+    if (keysym < 0)
+      return;
+    String fmt = ev.paramString().replaceAll("%","%%");
+    vlog.debug(String.format(fmt.replaceAll(",","%n       ")));
+    // Windows sends an extra CTRL_L + ALT_R when AltGr is down that need to
+    // be suppressed for keyTyped events. In Java 6 KeyEvent.isAltGraphDown()
+    // is broken for keyPressed/keyReleased events.
+    int ALTGR_MASK = ((Event.CTRL_MASK<<KEY_LOC_SHIFT_L) | Event.ALT_MASK);
+    String os = System.getProperty("os.name");
+    if (os.startsWith("Windows") && ((modifiers & ALTGR_MASK) != 0)) {
+      writeKeyEvent(Keysyms.Control_L, false);
+      writeKeyEvent(Keysyms.Alt_R, false);
+      writeKeyEvent(keysym, true);
+      writeKeyEvent(keysym, false);
+      writeKeyEvent(Keysyms.Control_L, true);
+      writeKeyEvent(Keysyms.Alt_R, true);
+    } else {
+      writeKeyEvent(keysym, true);
+      writeKeyEvent(keysym, false);
+    }
+  }
+
+  public void writeKeyEvent(KeyEvent ev) {
+    int keysym = 0, keycode, key, location, locationShift;
+
+    if (shuttingDown)
       return;
 
-    int keysym;
+    boolean down = (ev.getID() == KeyEvent.KEY_PRESSED);
+
+    keycode = ev.getKeyCode();
+    if (keycode == KeyEvent.VK_UNDEFINED)
+      return;
+    key = ev.getKeyChar();
+    location = ev.getKeyLocation();
+    if (location == KeyEvent.KEY_LOCATION_RIGHT)
+      locationShift = KEY_LOC_SHIFT_R;
+    else
+      locationShift = KEY_LOC_SHIFT_L;
 
     if (!ev.isActionKey()) {
-      vlog.debug("key press "+ev.getKeyChar());
-      if (ev.getKeyChar() < 32) {
-        // if the ctrl modifier key is down, send the equivalent ASCII since we
-        // will send the ctrl modifier anyway
+      if (keycode >= KeyEvent.VK_0 && keycode <= KeyEvent.VK_9 &&
+        location == KeyEvent.KEY_LOCATION_NUMPAD)
+        keysym = Keysyms.KP_0 + keycode - KeyEvent.VK_0;
 
-        if ((ev.getModifiers() & KeyEvent.CTRL_MASK) != 0) {
-          if ((ev.getModifiers() & KeyEvent.SHIFT_MASK) != 0) {
-            keysym = ev.getKeyChar() + 64;
-            if (keysym == -1)
-              return;
-          } else { 
-            keysym = ev.getKeyChar() + 96;
-            if (keysym == 127) keysym = 95;
-          }
-        } else {
-          switch (ev.getKeyCode()) {
-          case KeyEvent.VK_BACK_SPACE: keysym = Keysyms.BackSpace; break;
-          case KeyEvent.VK_TAB:        keysym = Keysyms.Tab; break;
-          case KeyEvent.VK_ENTER:      keysym = Keysyms.Return; break;
-          case KeyEvent.VK_ESCAPE:     keysym = Keysyms.Escape; break;
-          default: return;
-          }
+      switch (keycode) {
+      case KeyEvent.VK_BACK_SPACE: keysym = Keysyms.BackSpace; break;
+      case KeyEvent.VK_TAB:        keysym = Keysyms.Tab; break;
+      case KeyEvent.VK_ENTER:
+        if (location == KeyEvent.KEY_LOCATION_NUMPAD)
+          keysym = Keysyms.KP_Enter;
+        else
+          keysym = Keysyms.Return;  break;
+      case KeyEvent.VK_ESCAPE:     keysym = Keysyms.Escape; break;
+      case KeyEvent.VK_NUMPAD0:    keysym = Keysyms.KP_0; break;
+      case KeyEvent.VK_NUMPAD1:    keysym = Keysyms.KP_1; break;
+      case KeyEvent.VK_NUMPAD2:    keysym = Keysyms.KP_2; break;
+      case KeyEvent.VK_NUMPAD3:    keysym = Keysyms.KP_3; break;
+      case KeyEvent.VK_NUMPAD4:    keysym = Keysyms.KP_4; break;
+      case KeyEvent.VK_NUMPAD5:    keysym = Keysyms.KP_5; break;
+      case KeyEvent.VK_NUMPAD6:    keysym = Keysyms.KP_6; break;
+      case KeyEvent.VK_NUMPAD7:    keysym = Keysyms.KP_7; break;
+      case KeyEvent.VK_NUMPAD8:    keysym = Keysyms.KP_8; break;
+      case KeyEvent.VK_NUMPAD9:    keysym = Keysyms.KP_9; break;
+      case KeyEvent.VK_DECIMAL:    keysym = Keysyms.KP_Decimal; break;
+      case KeyEvent.VK_ADD:        keysym = Keysyms.KP_Add; break;
+      case KeyEvent.VK_SUBTRACT:   keysym = Keysyms.KP_Subtract; break;
+      case KeyEvent.VK_MULTIPLY:   keysym = Keysyms.KP_Multiply; break;
+      case KeyEvent.VK_DIVIDE:     keysym = Keysyms.KP_Divide; break;
+      case KeyEvent.VK_DELETE:
+        if (location == KeyEvent.KEY_LOCATION_NUMPAD)
+          keysym = Keysyms.KP_Delete;
+        else
+          keysym = Keysyms.Delete;  break;
+      case KeyEvent.VK_CLEAR:
+        if (location == KeyEvent.KEY_LOCATION_NUMPAD)
+          keysym = Keysyms.KP_Begin;
+        else
+          keysym = Keysyms.Clear;  break;
+      case KeyEvent.VK_CONTROL:
+        if (down)
+          modifiers |= (Event.CTRL_MASK<<locationShift);
+        else
+          modifiers &= ~(Event.CTRL_MASK<<locationShift);
+        if (location == KeyEvent.KEY_LOCATION_RIGHT)
+          keysym = Keysyms.Control_R;
+        else
+          keysym = Keysyms.Control_L;  break;
+      case KeyEvent.VK_ALT:
+        if (down)
+          modifiers |= (Event.ALT_MASK<<locationShift);
+        else
+          modifiers &= ~(Event.ALT_MASK<<locationShift);
+        if (location == KeyEvent.KEY_LOCATION_RIGHT)
+          keysym = Keysyms.Alt_R;
+        else
+          keysym = Keysyms.Alt_L;  break;
+      case KeyEvent.VK_SHIFT:
+        if (down)
+          modifiers |= (Event.SHIFT_MASK<<locationShift);
+        else
+          modifiers &= ~(Event.SHIFT_MASK<<locationShift);
+        if (location == KeyEvent.KEY_LOCATION_RIGHT)
+          keysym = Keysyms.Shift_R;
+        else
+          keysym = Keysyms.Shift_L;  break;
+      case KeyEvent.VK_META:
+        if (down)
+          modifiers |= (Event.META_MASK<<locationShift);
+        else
+          modifiers &= ~(Event.META_MASK<<locationShift);
+        if (location == KeyEvent.KEY_LOCATION_RIGHT)
+          keysym = Keysyms.Meta_R;
+        else
+          keysym = Keysyms.Meta_L;  break;
+      default:
+        if (ev.isControlDown()) {
+          // For CTRL-<letter>, CTRL is sent separately, so just send <letter>.
+          if ((key >= 1 && key <= 26 && !ev.isShiftDown()) ||
+              // CTRL-{, CTRL-|, CTRL-} also map to ASCII 96-127
+              (key >= 27 && key <= 29 && ev.isShiftDown()))
+            key += 96;
+          // For CTRL-SHIFT-<letter>, send capital <letter> to emulate behavior
+          // of Linux.  For CTRL-@, send @.  For CTRL-_, send _.  For CTRL-^,
+          // send ^.
+          else if (key < 32)
+            key += 64;
+          // Windows and Mac sometimes return CHAR_UNDEFINED with CTRL-SHIFT
+          // combinations, so best we can do is send the key code if it is
+          // a valid ASCII symbol.
+          else if (key == KeyEvent.CHAR_UNDEFINED && keycode >= 0 &&
+                   keycode <= 127)
+            key = keycode;
         }
 
-      } else if (ev.getKeyChar() == 127) {
-        keysym = Keysyms.Delete;
-
-      } else {
-        keysym = UnicodeToKeysym.translate(ev.getKeyChar());
+        keysym = UnicodeToKeysym.translate(key);
         if (keysym == -1)
           return;
       }
-
     } else {
       // KEY_ACTION
-      vlog.debug("key action "+ev.getKeyCode());
-      switch (ev.getKeyCode()) {
-      case KeyEvent.VK_HOME:         keysym = Keysyms.Home; break;
-      case KeyEvent.VK_END:          keysym = Keysyms.End; break;
-      case KeyEvent.VK_PAGE_UP:      keysym = Keysyms.Page_Up; break;
-      case KeyEvent.VK_PAGE_DOWN:    keysym = Keysyms.Page_Down; break;
-      case KeyEvent.VK_UP:           keysym = Keysyms.Up; break;
-      case KeyEvent.VK_DOWN:         keysym = Keysyms.Down; break;
-      case KeyEvent.VK_LEFT:         keysym = Keysyms.Left; break;
-      case KeyEvent.VK_RIGHT:        keysym = Keysyms.Right; break;
+      switch (keycode) {
+      case KeyEvent.VK_HOME:
+        if (location == KeyEvent.KEY_LOCATION_NUMPAD)
+          keysym = Keysyms.KP_Home;
+        else
+          keysym = Keysyms.Home;  break;
+      case KeyEvent.VK_END:
+        if (location == KeyEvent.KEY_LOCATION_NUMPAD)
+          keysym = Keysyms.KP_End;
+        else
+          keysym = Keysyms.End;  break;
+      case KeyEvent.VK_PAGE_UP:
+        if (location == KeyEvent.KEY_LOCATION_NUMPAD)
+          keysym = Keysyms.KP_Page_Up;
+        else
+          keysym = Keysyms.Page_Up;  break;
+      case KeyEvent.VK_PAGE_DOWN:
+        if (location == KeyEvent.KEY_LOCATION_NUMPAD)
+          keysym = Keysyms.KP_Page_Down;
+        else
+          keysym = Keysyms.Page_Down;  break;
+      case KeyEvent.VK_UP:
+        if (location == KeyEvent.KEY_LOCATION_NUMPAD)
+          keysym = Keysyms.KP_Up;
+        else
+          keysym = Keysyms.Up;  break;
+      case KeyEvent.VK_DOWN:
+        if (location == KeyEvent.KEY_LOCATION_NUMPAD)
+          keysym = Keysyms.KP_Down;
+        else
+         keysym = Keysyms.Down;  break;
+      case KeyEvent.VK_LEFT:
+        if (location == KeyEvent.KEY_LOCATION_NUMPAD)
+          keysym = Keysyms.KP_Left;
+        else
+         keysym = Keysyms.Left;  break;
+      case KeyEvent.VK_RIGHT:
+        if (location == KeyEvent.KEY_LOCATION_NUMPAD)
+          keysym = Keysyms.KP_Right;
+        else
+          keysym = Keysyms.Right;  break;
+      case KeyEvent.VK_BEGIN:
+        if (location == KeyEvent.KEY_LOCATION_NUMPAD)
+          keysym = Keysyms.KP_Begin;
+        else
+          keysym = Keysyms.Begin;  break;
+      case KeyEvent.VK_KP_LEFT:      keysym = Keysyms.KP_Left; break;
+      case KeyEvent.VK_KP_UP:        keysym = Keysyms.KP_Up; break;
+      case KeyEvent.VK_KP_RIGHT:     keysym = Keysyms.KP_Right; break;
+      case KeyEvent.VK_KP_DOWN:      keysym = Keysyms.KP_Down; break;
       case KeyEvent.VK_F1:           keysym = Keysyms.F1; break;
       case KeyEvent.VK_F2:           keysym = Keysyms.F2; break;
       case KeyEvent.VK_F3:           keysym = Keysyms.F3; break;
@@ -1177,22 +1361,86 @@ public class CConn extends CConnection
       case KeyEvent.VK_F10:          keysym = Keysyms.F10; break;
       case KeyEvent.VK_F11:          keysym = Keysyms.F11; break;
       case KeyEvent.VK_F12:          keysym = Keysyms.F12; break;
+      case KeyEvent.VK_F13:          keysym = Keysyms.F13; break;
+      case KeyEvent.VK_F14:          keysym = Keysyms.F14; break;
+      case KeyEvent.VK_F15:          keysym = Keysyms.F15; break;
+      case KeyEvent.VK_F16:          keysym = Keysyms.F16; break;
+      case KeyEvent.VK_F17:          keysym = Keysyms.F17; break;
+      case KeyEvent.VK_F18:          keysym = Keysyms.F18; break;
+      case KeyEvent.VK_F19:          keysym = Keysyms.F19; break;
+      case KeyEvent.VK_F20:          keysym = Keysyms.F20; break;
+      case KeyEvent.VK_F21:          keysym = Keysyms.F21; break;
+      case KeyEvent.VK_F22:          keysym = Keysyms.F22; break;
+      case KeyEvent.VK_F23:          keysym = Keysyms.F23; break;
+      case KeyEvent.VK_F24:          keysym = Keysyms.F24; break;
       case KeyEvent.VK_PRINTSCREEN:  keysym = Keysyms.Print; break;
-      case KeyEvent.VK_PAUSE:        keysym = Keysyms.Pause; break;
-      case KeyEvent.VK_INSERT:       keysym = Keysyms.Insert; break;
+      case KeyEvent.VK_SCROLL_LOCK:  keysym = Keysyms.Scroll_Lock; break;
+      case KeyEvent.VK_CAPS_LOCK:    keysym = Keysyms.Caps_Lock; break;
+      case KeyEvent.VK_NUM_LOCK:     keysym = Keysyms.Num_Lock; break;
+      case KeyEvent.VK_PAUSE:
+        if (ev.isControlDown())
+          keysym = Keysyms.Break;
+        else
+          keysym = Keysyms.Pause;
+        break;
+      case KeyEvent.VK_INSERT:
+        if (location == KeyEvent.KEY_LOCATION_NUMPAD)
+          keysym = Keysyms.KP_Insert;
+        else
+          keysym = Keysyms.Insert;  break;
+      // case KeyEvent.VK_FINAL:     keysym = Keysyms.?; break;
+      // case KeyEvent.VK_CONVERT:     keysym = Keysyms.?; break;
+      // case KeyEvent.VK_NONCONVERT:     keysym = Keysyms.?; break;
+      // case KeyEvent.VK_ACCEPT:     keysym = Keysyms.?; break;
+      // case KeyEvent.VK_MODECHANGE:     keysym = Keysyms.Mode_switch?; break;
+      // case KeyEvent.VK_KANA:     keysym = Keysyms.Kana_shift?; break;
+      case KeyEvent.VK_KANJI:     keysym = Keysyms.Kanji; break;
+      // case KeyEvent.VK_ALPHANUMERIC:     keysym = Keysyms.Eisu_Shift?; break;
+      case KeyEvent.VK_KATAKANA:     keysym = Keysyms.Katakana; break;
+      case KeyEvent.VK_HIRAGANA:     keysym = Keysyms.Hiragana; break;
+      // case KeyEvent.VK_FULL_WIDTH:     keysym = Keysyms.?; break;
+      // case KeyEvent.VK_HALF_WIDTH:     keysym = Keysyms.?; break;
+      // case KeyEvent.VK_ROMAN_CHARACTERS:     keysym = Keysyms.?; break;
+      // case KeyEvent.VK_ALL_CANDIDATES:     keysym = Keysyms.MultipleCandidate?; break;
+      case KeyEvent.VK_PREVIOUS_CANDIDATE:     keysym = Keysyms.PreviousCandidate; break;
+      case KeyEvent.VK_CODE_INPUT:     keysym = Keysyms.Codeinput; break;
+      // case KeyEvent.VK_JAPANESE_KATAKANA:     keysym = Keysyms.?; break;
+      // case KeyEvent.VK_JAPANESE_HIRAGANA:     keysym = Keysyms.?; break;
+      case KeyEvent.VK_JAPANESE_ROMAN:     keysym = Keysyms.Romaji; break;
+      case KeyEvent.VK_KANA_LOCK:     keysym = Keysyms.Kana_Lock; break;
+      // case KeyEvent.VK_INPUT_METHOD_ON_OFF:     keysym = Keysyms.?; break;
+
+      case KeyEvent.VK_AGAIN:     keysym = Keysyms.Redo; break;
+      case KeyEvent.VK_UNDO:     keysym = Keysyms.Undo; break;
+      // case KeyEvent.VK_COPY:     keysym = Keysyms.?; break;
+      // case KeyEvent.VK_PASTE:     keysym = Keysyms.?; break;
+      // case KeyEvent.VK_CUT:     keysym = Keysyms.?; break;
+      case KeyEvent.VK_FIND:     keysym = Keysyms.Find; break;
+      // case KeyEvent.VK_PROPS:     keysym = Keysyms.?; break;
+      case KeyEvent.VK_STOP:     keysym = Keysyms.Cancel; break;
+      case KeyEvent.VK_HELP:         keysym = Keysyms.Help; break;
+      case KeyEvent.VK_WINDOWS:
+        if (down)
+          modifiers |= SUPER_MASK;
+        else
+          modifiers &= ~SUPER_MASK;
+        keysym = Keysyms.Super_L; break;
+      case KeyEvent.VK_CONTEXT_MENU: keysym = Keysyms.Menu; break;
       default: return;
       }
     }
 
-    writeModifiers(ev.getModifiers());
-    writeKeyEvent(keysym, true);
-    writeKeyEvent(keysym, false);
-    writeModifiers(0);
+    if (keysym > 0) {
+      String fmt = ev.paramString().replaceAll("%","%%");
+      vlog.debug(String.format(fmt.replaceAll(",","%n       ")));
+
+      writeKeyEvent(keysym, down);
+    }
   }
 
-
   public void writePointerEvent(MouseEvent ev) {
-    if (state() != RFBSTATE_NORMAL) return;
+    if (state() != RFBSTATE_NORMAL || shuttingDown)
+      return;
 
     switch (ev.getID()) {
     case MouseEvent.MOUSE_PRESSED:
@@ -1205,29 +1453,21 @@ public class CConn extends CConnection
       break;
     }
 
-    synchronized (this) {
-      writeModifiers(ev.getModifiers() & ~KeyEvent.ALT_MASK & ~KeyEvent.META_MASK);
-    }
-
-    if (cp.width != desktop.scaledWidth || 
+    if (cp.width != desktop.scaledWidth ||
         cp.height != desktop.scaledHeight) {
-      int sx = (desktop.scaleWidthRatio == 1.00) 
-        ? ev.getX() : (int)Math.floor(ev.getX()/desktop.scaleWidthRatio);
-      int sy = (desktop.scaleHeightRatio == 1.00) 
-        ? ev.getY() : (int)Math.floor(ev.getY()/desktop.scaleHeightRatio);
+      int sx = (desktop.scaleWidthRatio == 1.00) ?
+        ev.getX() : (int)Math.floor(ev.getX() / desktop.scaleWidthRatio);
+      int sy = (desktop.scaleHeightRatio == 1.00) ?
+        ev.getY() : (int)Math.floor(ev.getY() / desktop.scaleHeightRatio);
       ev.translatePoint(sx - ev.getX(), sy - ev.getY());
     }
-    
-    synchronized (this) {
-      writer().writePointerEvent(new Point(ev.getX(),ev.getY()), buttonMask);
-    }
 
-    if (buttonMask == 0) writeModifiers(0);
+    writer().writePointerEvent(new Point(ev.getX(), ev.getY()), buttonMask);
   }
 
-
-  synchronized public void writeWheelEvent(MouseWheelEvent ev) {
-    if (state() != RFBSTATE_NORMAL) return;
+  public void writeWheelEvent(MouseWheelEvent ev) {
+    if (state() != RFBSTATE_NORMAL || shuttingDown)
+      return;
     int x, y;
     int clicks = ev.getWheelRotation();
     if (clicks < 0) {
@@ -1235,29 +1475,36 @@ public class CConn extends CConnection
     } else {
       buttonMask = 16;
     }
-    writeModifiers(ev.getModifiers() & ~KeyEvent.ALT_MASK & ~KeyEvent.META_MASK);
-    for (int i=0;i<Math.abs(clicks);i++) {
+    for (int i = 0; i < Math.abs(clicks); i++) {
       x = ev.getX();
       y = ev.getY();
       writer().writePointerEvent(new Point(x, y), buttonMask);
       buttonMask = 0;
       writer().writePointerEvent(new Point(x, y), buttonMask);
     }
-    writeModifiers(0);
 
   }
 
-
-  synchronized void writeModifiers(int m) {
-    if ((m & Event.SHIFT_MASK) != (pressedModifiers & Event.SHIFT_MASK))
-      writeKeyEvent(Keysyms.Shift_L, (m & Event.SHIFT_MASK) != 0);
-    if ((m & Event.CTRL_MASK) != (pressedModifiers & Event.CTRL_MASK))
-      writeKeyEvent(Keysyms.Control_L, (m & Event.CTRL_MASK) != 0);
-    if ((m & Event.ALT_MASK) != (pressedModifiers & Event.ALT_MASK))
-      writeKeyEvent(Keysyms.Alt_L, (m & Event.ALT_MASK) != 0);
-    if ((m & Event.META_MASK) != (pressedModifiers & Event.META_MASK))
-      writeKeyEvent(Keysyms.Meta_L, (m & Event.META_MASK) != 0);
-    pressedModifiers = m;
+  synchronized void releaseModifiers() {
+    if ((modifiers & Event.SHIFT_MASK) == Event.SHIFT_MASK)
+      writeKeyEvent(Keysyms.Shift_R, false);
+    if (((modifiers>>KEY_LOC_SHIFT_L) & Event.SHIFT_MASK) == Event.SHIFT_MASK)
+      writeKeyEvent(Keysyms.Shift_L, false);
+    if ((modifiers & Event.CTRL_MASK) == Event.CTRL_MASK)
+      writeKeyEvent(Keysyms.Control_R, false);
+    if (((modifiers>>KEY_LOC_SHIFT_L) & Event.CTRL_MASK) == Event.CTRL_MASK)
+      writeKeyEvent(Keysyms.Control_L, false);
+    if ((modifiers & Event.ALT_MASK) == Event.ALT_MASK)
+      writeKeyEvent(Keysyms.Alt_R, false);
+    if (((modifiers>>KEY_LOC_SHIFT_L) & Event.ALT_MASK) == Event.ALT_MASK)
+      writeKeyEvent(Keysyms.Alt_L, false);
+    if ((modifiers & Event.META_MASK) == Event.META_MASK)
+      writeKeyEvent(Keysyms.Meta_R, false);
+    if (((modifiers>>KEY_LOC_SHIFT_L) & Event.META_MASK) == Event.META_MASK)
+      writeKeyEvent(Keysyms.Meta_L, false);
+    if ((modifiers & SUPER_MASK) == SUPER_MASK)
+      writeKeyEvent(Keysyms.Super_L, false);
+    modifiers = 0;
   }
 
 
@@ -1265,17 +1512,16 @@ public class CConn extends CConnection
   // The following methods are called from both RFB and GUI threads
 
   // checkEncodings() sends a setEncodings message if one is needed.
-  synchronized private void checkEncodings() {
-    if (encodingChange && state() == RFBSTATE_NORMAL) {
-      vlog.info("Using "+Encodings.encodingName(currentEncoding)+" encoding");
+  private void checkEncodings() {
+    if (encodingChange && (writer() != null)) {
+      vlog.info("Requesting " + Encodings.encodingName(currentEncoding) +
+        " encoding");
       writer().writeSetEncodings(currentEncoding, true);
       encodingChange = false;
     }
   }
 
   // the following never change so need no synchronization:
-  JavaInStream jis;
-  JavaOutStream jos;
 
 
   // viewer object is only ever accessed by the GUI thread so needs no
@@ -1287,18 +1533,15 @@ public class CConn extends CConnection
 
   // the following need no synchronization:
 
-  ClassLoader cl = this.getClass().getClassLoader();
-  ImageIcon logo = new ImageIcon(cl.getResource("com/tigervnc/vncviewer/tigervnc.png"));
   public static UserPasswdGetter upg;
   public UserMsgBox msg;
 
   // shuttingDown is set by the GUI thread and only ever tested by the RFB
   // thread after the window has been destroyed.
-  boolean shuttingDown;
+  boolean shuttingDown = false;
 
   // reading and writing int and boolean is atomic in java, so no
   // synchronization of the following flags is needed:
-  int currentEncoding, lastServerEncoding;
   
   int lowColourLevel;
 
@@ -1313,25 +1556,39 @@ public class CConn extends CConnection
 
   // the following are only ever accessed by the GUI thread:
   int buttonMask;
-  int pressedModifiers;
 
-  public String serverHost;
-  public int serverPort;
-  public int menuKey;
-  PixelFormat serverPF;
-  ViewportFrame viewport;
-  DesktopWindow desktop;
-  PixelFormat fullColourPF;
-  boolean fullColour;
-  boolean autoSelect;
-  boolean shared;
-  boolean formatChange;
-  boolean encodingChange;
-  boolean sameMachine;
+  private String serverHost;
+  private int serverPort;
+  private Socket sock;
+
+  protected DesktopWindow desktop;
+
+  // FIXME: should be private
+  public PixelFormat serverPF;
+  private PixelFormat fullColourPF;
+
+  private boolean pendingPFChange;
+  private PixelFormat pendingPF;
+
+  private int currentEncoding, lastServerEncoding;
+
+  private boolean formatChange;
+  private boolean encodingChange;
+
+  private boolean firstUpdate;
+  private boolean pendingUpdate;
+  private boolean continuousUpdates;
+
+  private boolean forceNonincremental;
+
+  private boolean supportsSyncFence;
+
+  int modifiers;
+  public int menuKeyCode;
+  Viewport viewport;
+  private boolean fullColour;
+  private boolean autoSelect;
   boolean fullScreen;
-  boolean reverseConnection;
-  boolean firstUpdate;
-  boolean pendingUpdate;
   
   static LogWriter vlog = new LogWriter("CConn");
 }

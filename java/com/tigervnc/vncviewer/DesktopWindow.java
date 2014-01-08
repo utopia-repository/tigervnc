@@ -1,21 +1,22 @@
-/* Copyright (C) 2010 D. R. Commander.  All Rights Reserved.
- * Copyright (C) 2009 Paul Donohue.  All Rights Reserved.
+/* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
  * Copyright (C) 2006 Constantin Kaplinsky.  All Rights Reserved.
- * Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
- * 
+ * Copyright (C) 2009 Paul Donohue.  All Rights Reserved.
+ * Copyright (C) 2010, 2012-2013 D. R. Commander.  All Rights Reserved.
+ * Copyright (C) 2011-2013 Brian P. Hinz
+ *
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This software is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
  * USA.
  */
 
@@ -40,24 +41,42 @@ import com.tigervnc.rfb.*;
 import com.tigervnc.rfb.Cursor;
 import com.tigervnc.rfb.Point;
 
-class DesktopWindow extends JPanel implements
-                                   Runnable,
-                                   MouseListener,
-                                   MouseMotionListener,
-                                   MouseWheelListener,
-                                   KeyListener
-{
+class DesktopWindow extends JPanel implements Runnable, MouseListener,
+  MouseMotionListener, MouseWheelListener, KeyListener {
 
   ////////////////////////////////////////////////////////////////////
   // The following methods are all called from the RFB thread
 
-  public DesktopWindow(int width, int height, PixelFormat serverPF, CConn cc_) {
+  public DesktopWindow(int width, int height, PixelFormat serverPF,
+                       CConn cc_) {
     cc = cc_;
     setSize(width, height);
-    im = new PixelBufferImage(width, height, cc, this);
+    setOpaque(false);
+    GraphicsEnvironment ge =
+      GraphicsEnvironment.getLocalGraphicsEnvironment();
+    GraphicsDevice gd = ge.getDefaultScreenDevice();
+    GraphicsConfiguration gc = gd.getDefaultConfiguration();
+    BufferCapabilities bufCaps = gc.getBufferCapabilities();
+    ImageCapabilities imgCaps = gc.getImageCapabilities();
+    if (bufCaps.isPageFlipping() || bufCaps.isMultiBufferAvailable() ||
+        imgCaps.isAccelerated()) {
+      vlog.debug("GraphicsDevice supports HW acceleration.");
+    } else {
+      vlog.debug("GraphicsDevice does not support HW acceleration.");
+    }
+    im = new BIPixelBuffer(width, height, cc, this);
 
     cursor = new Cursor();
     cursorBacking = new ManagedPixelBuffer();
+    Dimension bestSize = tk.getBestCursorSize(16, 16);
+    BufferedImage cursorImage;
+    cursorImage = new BufferedImage(bestSize.width, bestSize.height, 
+                                    BufferedImage.TYPE_INT_ARGB);
+    java.awt.Point hotspot = new java.awt.Point(0,0);
+    nullCursor = tk.createCustomCursor(cursorImage, hotspot, "nullCursor");
+    cursorImage.flush();
+    if (!cc.cp.supportsLocalCursor && !bestSize.equals(new Dimension(0,0)))
+      setCursor(nullCursor);
     addMouseListener(this);
     addMouseWheelListener(this);
     addMouseMotionListener(this);
@@ -66,11 +85,14 @@ class DesktopWindow extends JPanel implements
       public void focusGained(FocusEvent e) {
         checkClipboard();
       }
+      public void focusLost(FocusEvent e) {
+        cc.releaseModifiers();
+      }
     });
     setFocusTraversalKeysEnabled(false);
     setFocusable(true);
   }
-  
+
   public int width() {
     return getWidth();
   }
@@ -79,24 +101,9 @@ class DesktopWindow extends JPanel implements
     return getHeight();
   }
 
-  // initGraphics() is needed because for some reason you can't call
-  // getGraphics() on a newly-created awt Component.  It is called when the
-  // DesktopWindow has actually been made visible so that getGraphics() ought
-  // to work.
+  public final PixelFormat getPF() { return im.getPF(); }
 
-  synchronized public void initGraphics() { 
-    graphics = this.getGraphics();
-    prepareImage(im.image, scaledWidth, scaledHeight, this);
-  }
-
-  final public PixelFormat getPF() { return im.getPF(); }
-
-  synchronized public void setPF(PixelFormat pf) { 
-    im.setPF(pf); 
-  }
-
-  public void setViewport(ViewportFrame viewport)
-  {
+  public void setViewport(Viewport viewport) {
     viewport.setChild(this);
   }
 
@@ -104,7 +111,7 @@ class DesktopWindow extends JPanel implements
   // wherever they access data shared with the GUI thread.
 
   public void setCursor(int w, int h, Point hotspot,
-                                     int[] data, byte[] mask) {
+                        int[] data, byte[] mask) {
     // strictly we should use a mutex around this test since useLocalCursor
     // might be being altered by the GUI thread.  However it's only a single
     // boolean and it doesn't matter if we get the wrong value anyway.
@@ -116,12 +123,8 @@ class DesktopWindow extends JPanel implements
 
     hideLocalCursor();
 
-    cursor.hotspot = hotspot;
-
-    Dimension bsc = tk.getBestCursorSize(w, h);
-
-    cursor.setSize(((int)bsc.getWidth() > w ? (int)bsc.getWidth() : w),
-                   ((int)bsc.getHeight() > h ? (int)bsc.getHeight() : h));
+    cursor.hotspot = (hotspot != null) ? hotspot : new Point(0, 0);
+    cursor.setSize(w, h);
     cursor.setPF(getPF());
 
     cursorBacking.setSize(cursor.width(), cursor.height());
@@ -130,43 +133,54 @@ class DesktopWindow extends JPanel implements
     cursor.data = new int[cursor.width() * cursor.height()];
     cursor.mask = new byte[cursor.maskLen()];
 
-    // set the masked pixels of the cursor transparent by using an extra bit in
-    // the colormap.  We'll OR this into the data based on the values in the mask.
-    if (cursor.getPF().bpp == 8) {
-      cursor.cm = new DirectColorModel(9, 7, (7 << 3), (3 << 6), (1 << 8));
-    }
-
     int maskBytesPerRow = (w + 7) / 8;
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w; x++) {
         int byte_ = y * maskBytesPerRow + x / 8;
         int bit = 7 - x % 8;
         if ((mask[byte_] & (1 << bit)) > 0) {
-          cursor.data[y * cursor.width() + x] = (cursor.getPF().bpp == 8) ?
-            data[y * w + x] | (1 << 8) : data[y * w + x];
+          cursor.data[y * cursor.width() + x] = (0xff << 24) |
+            (im.cm.getRed(data[y * w + x]) << 16) |
+            (im.cm.getGreen(data[y * w + x]) << 8) |
+            (im.cm.getBlue(data[y * w + x]));
         }
       }
-      System.arraycopy(mask, y * maskBytesPerRow, cursor.mask, 
+      System.arraycopy(mask, y * maskBytesPerRow, cursor.mask,
         y * ((cursor.width() + 7) / 8), maskBytesPerRow);
     }
 
-    MemoryImageSource bitmap = 
-      new MemoryImageSource(cursor.width(), cursor.height(), cursor.cm,
-                            cursor.data, 0, cursor.width());
     int cw = (int)Math.floor((float)cursor.width() * scaleWidthRatio);
     int ch = (int)Math.floor((float)cursor.height() * scaleHeightRatio);
-    int hint = java.awt.Image.SCALE_DEFAULT;
-    hotspot = new Point((int)Math.floor((float)hotspot.x * scaleWidthRatio),
-                        (int)Math.floor((float)hotspot.y * scaleHeightRatio));
-    Image cursorImage = (cw <= 0 || ch <= 0) ? tk.createImage(bitmap) :
-      tk.createImage(bitmap).getScaledInstance(cw,ch,hint);
-    softCursor = tk.createCustomCursor(cursorImage,
-                  new java.awt.Point(hotspot.x,hotspot.y), "Cursor");
+    Dimension bestSize = tk.getBestCursorSize(cw, ch);
+    MemoryImageSource cursorSrc;
+    cursorSrc = new MemoryImageSource(cursor.width(), cursor.height(), 
+                                      ColorModel.getRGBdefault(),
+                                      cursor.data, 0, cursor.width());
+    Image srcImage = tk.createImage(cursorSrc);
+    BufferedImage cursorImage;
+    cursorImage = new BufferedImage(bestSize.width, bestSize.height, 
+                                    BufferedImage.TYPE_INT_ARGB);
+    Graphics2D g2 = cursorImage.createGraphics();
+    g2.setRenderingHint(RenderingHints.KEY_RENDERING,
+                        RenderingHints.VALUE_RENDER_SPEED);
+    g2.drawImage(srcImage, 0, 0, (int)Math.min(cw, bestSize.width),
+                 (int)Math.min(ch, bestSize.height), 0, 0, cursor.width(),
+                 cursor.height(), null);
+    g2.dispose();
+    srcImage.flush();
+
+    int x = (int)Math.floor((float)cursor.hotspot.x * scaleWidthRatio);
+    int y = (int)Math.floor((float)cursor.hotspot.y * scaleHeightRatio);
+    x = (int)Math.min(x, Math.max(bestSize.width - 1, 0));
+    y = (int)Math.min(y, Math.max(bestSize.height - 1, 0));
+    java.awt.Point hs = new java.awt.Point(x, y);
+    if (!bestSize.equals(new Dimension(0, 0)))
+      softCursor = tk.createCustomCursor(cursorImage, hs, "softCursor");
     cursorImage.flush();
 
     if (softCursor != null) {
-      setCursor(softCursor); 
-      cursorAvailable = true;
+      setCursor(softCursor);
+      cursorAvailable = false;
       return;
     }
 
@@ -175,7 +189,10 @@ class DesktopWindow extends JPanel implements
     }
 
     showLocalCursor();
-    return;
+  }
+
+  public void setServerPF(PixelFormat pf) {
+    im.setPF(pf);
   }
 
   public PixelFormat getPreferredPF() {
@@ -188,12 +205,11 @@ class DesktopWindow extends JPanel implements
   // because getting java to recalculate its internal translation table and
   // redraw the screen is expensive.
 
-  synchronized public void setColourMapEntries(int firstColour, int nColours,
+  public synchronized void setColourMapEntries(int firstColour, int nColours,
                                                int[] rgbs) {
     im.setColourMapEntries(firstColour, nColours, rgbs);
     if (nColours <= 256) {
       im.updateColourMap();
-      im.put(0, 0, im.width(), im.height(), graphics);
     } else {
       if (setColourMapEntriesTimerThread == null) {
         setColourMapEntriesTimerThread = new Thread(this);
@@ -202,11 +218,22 @@ class DesktopWindow extends JPanel implements
     }
   }
 
-// Update the actual window with the changed parts of the framebuffer.
-
-  public void framebufferUpdateEnd()
-  {
-    drawInvalidRect();
+  // Update the actual window with the changed parts of the framebuffer.
+  public void updateWindow() {
+    Rect r = damage;
+    if (!r.is_empty()) {
+      if (cc.cp.width != scaledWidth || cc.cp.height != scaledHeight) {
+        int x = (int)Math.floor(r.tl.x * scaleWidthRatio);
+        int y = (int)Math.floor(r.tl.y * scaleHeightRatio);
+        // Need one extra pixel to account for rounding.
+        int width = (int)Math.ceil(r.width() * scaleWidthRatio) + 1;
+        int height = (int)Math.ceil(r.height() * scaleHeightRatio) + 1;
+        paintImmediately(x, y, width, height);
+      } else {
+        paintImmediately(r.tl.x, r.tl.y, r.width(), r.height());
+      }
+      damage.clear();
+    }
   }
 
   // resize() is called when the desktop has changed size
@@ -215,82 +242,31 @@ class DesktopWindow extends JPanel implements
     int h = cc.cp.height;
     hideLocalCursor();
     setSize(w, h);
-    synchronized (im) { 
-      im.resize(w, h);
-    }
+    im.resize(w, h);
   }
 
-  final void drawInvalidRect() {
-    if (!invalidRect) return;
-    int x = invalidLeft;
-    int w = invalidRight - x;
-    int y = invalidTop;
-    int h = invalidBottom - y;
-    invalidRect = false;
-
-    synchronized (im) {
-      im.put(x, y, w, h, graphics);
-    }
-  }
-
-  final void invalidate(int x, int y, int w, int h) {
-    if (invalidRect) {
-      if (x < invalidLeft) invalidLeft = x;
-      if (x + w > invalidRight) invalidRight = x + w;
-      if (y < invalidTop) invalidTop = y;
-      if (y + h > invalidBottom) invalidBottom = y + h;
-    } else {
-      invalidLeft = x;
-      invalidRight = x + w;
-      invalidTop = y;
-      invalidBottom = y + h;
-      invalidRect = true;
-    }
-
-    if ((invalidRight - invalidLeft) * (invalidBottom - invalidTop) > 100000)
-      drawInvalidRect();
-  }
-
-  public void beginRect(int x, int y, int w, int h, int encoding) {
-    invalidRect = false;
-  }
-
-  public void endRect(int x, int y, int w, int h, int encoding) {
-    drawInvalidRect();
-  }
-
-  final public void fillRect(int x, int y, int w, int h, int pix)
-  {
+  public final void fillRect(int x, int y, int w, int h, int pix) {
     if (overlapsCursor(x, y, w, h)) hideLocalCursor();
-    synchronized (im) { 
-      im.fillRect(x, y, w, h, pix);
-    }
-    invalidate(x, y, w, h);
-    if (softCursor == null)
-      showLocalCursor();
+    im.fillRect(x, y, w, h, pix);
+    damageRect(new Rect(x, y, x+w, y+h));
+    showLocalCursor();
   }
 
-  final public void imageRect(int x, int y, int w, int h,
-                                           int[] pix) {
+  public final void imageRect(int x, int y, int w, int h,
+                              Object pix) {
     if (overlapsCursor(x, y, w, h)) hideLocalCursor();
-    synchronized (im) {
-      im.imageRect(x, y, w, h, pix);
-    }
-    invalidate(x, y, w, h);
-    if (softCursor == null)
-      showLocalCursor();
+    im.imageRect(x, y, w, h, pix);
+    damageRect(new Rect(x, y, x+w, y+h));
+    showLocalCursor();
   }
 
-  final public void copyRect(int x, int y, int w, int h,
-                                          int srcX, int srcY) {
+  public final void copyRect(int x, int y, int w, int h,
+                             int srcX, int srcY) {
     if (overlapsCursor(x, y, w, h) || overlapsCursor(srcX, srcY, w, h))
       hideLocalCursor();
-    synchronized (im) {
-      im.copyRect(x, y, w, h, srcX, srcY, graphics);
-    }
-    if (!cc.viewer.fastCopyRect.getValue()) {
-      invalidate(x, y, w, h);
-    }
+    im.copyRect(x, y, w, h, srcX, srcY);
+    damageRect(new Rect(x, y, x+w, y+h));
+    showLocalCursor();
   }
 
 
@@ -298,7 +274,7 @@ class DesktopWindow extends JPanel implements
   final boolean overlapsCursor(int x, int y, int w, int h) {
     return (x < cursorBackingX + cursorBacking.width() &&
             y < cursorBackingY + cursorBacking.height() &&
-            x+w > cursorBackingX && y+h > cursorBackingY);
+            x + w > cursorBackingX && y + h > cursorBackingY);
   }
 
 
@@ -306,6 +282,12 @@ class DesktopWindow extends JPanel implements
   // The following methods are all called from the GUI thread
 
   void resetLocalCursor() {
+    if (cc.cp.supportsLocalCursor) {
+      if (softCursor != null)
+        setCursor(softCursor);
+    } else {
+      setCursor(nullCursor);
+    }
     hideLocalCursor();
     cursorAvailable = false;
   }
@@ -328,7 +310,8 @@ class DesktopWindow extends JPanel implements
 
   public void setScaledSize() {
     String scaleString = cc.viewer.scalingFactor.getValue();
-    if (!scaleString.equals("Auto") && !scaleString.equals("FixedRatio")) {
+    if (!scaleString.equalsIgnoreCase("Auto") &&
+        !scaleString.equalsIgnoreCase("FixedRatio")) {
       int scalingFactor = Integer.parseInt(scaleString);
       scaledWidth = 
         (int)Math.floor((float)cc.cp.width * (float)scalingFactor/100.0);
@@ -346,7 +329,7 @@ class DesktopWindow extends JPanel implements
                         vpSize.height - vpInsets.top - vpInsets.bottom);
         if (availableSize.width == 0 || availableSize.height == 0)
           availableSize = new Dimension(cc.cp.width, cc.cp.height);
-        if (scaleString.equals("FixedRatio")) {
+        if (scaleString.equalsIgnoreCase("FixedRatio")) {
           float widthRatio = (float)availableSize.width / (float)cc.cp.width;
           float heightRatio = (float)availableSize.height / (float)cc.cp.height;
           float ratio = Math.min(widthRatio, heightRatio);
@@ -364,20 +347,19 @@ class DesktopWindow extends JPanel implements
 
   public void paintComponent(Graphics g) {
     Graphics2D g2 = (Graphics2D) g;
-    g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, 
-                        RenderingHints.VALUE_INTERPOLATION_BILINEAR);  
-    g2.setRenderingHint(RenderingHints.KEY_RENDERING, 
-                        RenderingHints.VALUE_RENDER_QUALITY);
-    if (cc.cp.width == scaledWidth && cc.cp.height == scaledHeight) {
-      g2.drawImage(im.image, 0, 0, null);
+    if (cc.cp.width != scaledWidth || cc.cp.height != scaledHeight) {
+      g2.setRenderingHint(RenderingHints.KEY_RENDERING,
+                          RenderingHints.VALUE_RENDER_QUALITY);
+      g2.drawImage(im.getImage(), 0, 0, scaledWidth, scaledHeight, null);
     } else {
-      g2.drawImage(im.image, 0, 0, scaledWidth, scaledHeight, null);  
+      g2.drawImage(im.getImage(), 0, 0, null);
     }
+    g2.dispose();
   }
-  
+
   String oldContents = "";
-  
-  synchronized public void checkClipboard() {
+
+  public synchronized void checkClipboard() {
     SecurityManager sm = System.getSecurityManager();
     try {
       if (sm != null) sm.checkSystemClipboardAccess();
@@ -392,7 +374,7 @@ class DesktopWindow extends JPanel implements
               oldContents = newContents;
               cc.clipboardDialog.setContents(newContents);
             }
-          } catch (java.lang.Exception e) {
+          } catch(java.lang.Exception e) {
             System.out.println("Exception getting clipboard data: " + e.getMessage());
           }
         }
@@ -402,73 +384,132 @@ class DesktopWindow extends JPanel implements
     }
   }
 
-  /** Mouse-Motion callback function */
+  // Mouse-Motion callback function
   private void mouseMotionCB(MouseEvent e) {
-    if (!cc.viewer.viewOnly.getValue())
+    if (!cc.viewer.viewOnly.getValue() &&
+        e.getX() >= 0 && e.getX() <= scaledWidth &&
+        e.getY() >= 0 && e.getY() <= scaledHeight)
       cc.writePointerEvent(e);
     // - If local cursor rendering is enabled then use it
     if (cursorAvailable) {
       // - Render the cursor!
       if (e.getX() != cursorPosX || e.getY() != cursorPosY) {
         hideLocalCursor();
-        synchronized(im) {
-          if (e.getX() >= 0 && e.getX() < im.width() &&
-              e.getY() >= 0 && e.getY() < im.height()) {
-            cursorPosX = e.getX();
-            cursorPosY = e.getY();
-            if (softCursor == null)
-              showLocalCursor();
-          }
+        if (e.getX() >= 0 && e.getX() < im.width() &&
+            e.getY() >= 0 && e.getY() < im.height()) {
+          cursorPosX = e.getX();
+          cursorPosY = e.getY();
+          showLocalCursor();
         }
       }
     }
     lastX = e.getX();
-    lastY = e.getY();      
+    lastY = e.getY();
   }
-  public void mouseDragged(MouseEvent e) { mouseMotionCB(e);}
-  public void mouseMoved(MouseEvent e) { mouseMotionCB(e);}
+  public void mouseDragged(MouseEvent e) { mouseMotionCB(e); }
+  public void mouseMoved(MouseEvent e) { mouseMotionCB(e); }
 
-  /** Mouse callback function */
+  // Mouse callback function
   private void mouseCB(MouseEvent e) {
-    if (!cc.viewer.viewOnly.getValue())
-      cc.writePointerEvent(e);
+    if (!cc.viewer.viewOnly.getValue()) {
+      if ((e.getID() == MouseEvent.MOUSE_RELEASED) ||
+          (e.getX() >= 0 && e.getX() <= scaledWidth &&
+           e.getY() >= 0 && e.getY() <= scaledHeight))
+        cc.writePointerEvent(e);
+    }
     lastX = e.getX();
     lastY = e.getY();
   }
-  public void mouseReleased(MouseEvent e){ mouseCB(e);}
-  public void mousePressed(MouseEvent e) { mouseCB(e);}
-  public void mouseClicked(MouseEvent e){}
-  public void mouseEntered(MouseEvent e){}
-  public void mouseExited(MouseEvent e){}  
-  
-  /** MouseWheel callback function */
+  public void mouseReleased(MouseEvent e) { mouseCB(e); }
+  public void mousePressed(MouseEvent e) { mouseCB(e); }
+  public void mouseClicked(MouseEvent e) {}
+  public void mouseEntered(MouseEvent e) {}
+  public void mouseExited(MouseEvent e) {}
+
+  // MouseWheel callback function
   private void mouseWheelCB(MouseWheelEvent e) {
     if (!cc.viewer.viewOnly.getValue())
       cc.writeWheelEvent(e);
   }
-  public void mouseWheelMoved(MouseWheelEvent e){ 
+
+  public void mouseWheelMoved(MouseWheelEvent e) {
     mouseWheelCB(e);
   }
 
-  /** Handle the key-typed event. */
-  public void keyTyped(KeyEvent e) {}
-  /** Handle the key-released event. */
-  public void keyReleased(KeyEvent e) {}
-  /** Handle the key-pressed event. */
+  // Handle the key-typed event.
+  public void keyTyped(KeyEvent e) {
+    int keysym = UnicodeToKeysym.translate(e.getKeyChar());
+    if (!cc.viewer.viewOnly.getValue())
+      if (!e.isActionKey() && keysym > 0)
+        cc.writeKeyEvent(e, keysym);
+  }
+
+  // Handle the key-released event.
+  public void keyReleased(KeyEvent e) {
+    int keysym = UnicodeToKeysym.translate(e.getKeyChar());
+    if (!cc.viewer.viewOnly.getValue())
+      if (e.isActionKey() || keysym < 0)
+        cc.writeKeyEvent(e);
+  }
+
+  // Handle the key-pressed event.
   public void keyPressed(KeyEvent e) {
-    if (e.getKeyCode() == 
-        (KeyEvent.VK_F1+cc.menuKey-Keysyms.F1)) {
-      int sx = (scaleWidthRatio == 1.00) 
-        ? lastX : (int)Math.floor(lastX*scaleWidthRatio);
-      int sy = (scaleHeightRatio == 1.00) 
-        ? lastY : (int)Math.floor(lastY*scaleHeightRatio);
+    if (e.getKeyCode() == MenuKey.getMenuKeyCode()) {
+      int sx = (scaleWidthRatio == 1.00) ?
+        lastX : (int)Math.floor(lastX * scaleWidthRatio);
+      int sy = (scaleHeightRatio == 1.00) ?
+        lastY : (int)Math.floor(lastY * scaleHeightRatio);
       java.awt.Point ev = new java.awt.Point(lastX, lastY);
       ev.translate(sx - lastX, sy - lastY);
       cc.showMenu((int)ev.getX(), (int)ev.getY());
       return;
     }
+    int ctrlAltShiftMask = Event.SHIFT_MASK | Event.CTRL_MASK | Event.ALT_MASK;
+    if ((e.getModifiers() & ctrlAltShiftMask) == ctrlAltShiftMask) {
+      switch (e.getKeyCode()) {
+        case KeyEvent.VK_A:
+          cc.showAbout();
+          return;
+        case KeyEvent.VK_F:
+          cc.toggleFullScreen();
+          return;
+        case KeyEvent.VK_H:
+          cc.refresh();
+          return;
+        case KeyEvent.VK_I:
+          cc.showInfo();
+          return;
+        case KeyEvent.VK_O:
+          cc.options.showDialog(cc.viewport);
+          return;
+        case KeyEvent.VK_W:
+          VncViewer.newViewer(cc.viewer);
+          return;
+        case KeyEvent.VK_LEFT:
+        case KeyEvent.VK_RIGHT:
+        case KeyEvent.VK_UP:
+        case KeyEvent.VK_DOWN:
+          return;
+      }
+    }
+    if ((e.getModifiers() & Event.META_MASK) == Event.META_MASK) {
+      switch (e.getKeyCode()) {
+        case KeyEvent.VK_COMMA:
+        case KeyEvent.VK_N:
+        case KeyEvent.VK_W:
+        case KeyEvent.VK_I:
+        case KeyEvent.VK_R:
+        case KeyEvent.VK_L:
+        case KeyEvent.VK_F:
+        case KeyEvent.VK_Z:
+        case KeyEvent.VK_T:
+          return;
+      }
+    }
+    int keysym = UnicodeToKeysym.translate(e.getKeyChar());
     if (!cc.viewer.viewOnly.getValue())
-      cc.writeKeyEvent(e);
+      if (e.isActionKey() || keysym < 0)
+        cc.writeKeyEvent(e);
   }
 
   ////////////////////////////////////////////////////////////////////
@@ -477,18 +518,19 @@ class DesktopWindow extends JPanel implements
   // Note that mutex MUST be held when hideLocalCursor() and showLocalCursor()
   // are called.
 
-  synchronized private void hideLocalCursor() {
+  private synchronized void hideLocalCursor() {
     // - Blit the cursor backing store over the cursor
     if (cursorVisible) {
       cursorVisible = false;
       im.imageRect(cursorBackingX, cursorBackingY, cursorBacking.width(),
                    cursorBacking.height(), cursorBacking.data);
-      im.put(cursorBackingX, cursorBackingY, cursorBacking.width(),
-             cursorBacking.height(), graphics);
+      damageRect(new Rect(cursorBackingX, cursorBackingY,
+                          cursorBackingX+cursorBacking.width(),
+                          cursorBackingY+cursorBacking.height()));
     }
   }
 
-  synchronized private void showLocalCursor() {
+  private synchronized void showLocalCursor() {
     if (cursorAvailable && !cursorVisible) {
       if (!im.getPF().equal(cursor.getPF()) ||
           cursor.width() == 0 || cursor.height() == 0) {
@@ -497,7 +539,6 @@ class DesktopWindow extends JPanel implements
         return;
       }
       cursorVisible = true;
-      if (softCursor != null) return;
 
       int cursorLeft = cursor.hotspot.x;
       int cursorTop = cursor.hotspot.y;
@@ -512,26 +553,33 @@ class DesktopWindow extends JPanel implements
       cursorBackingX = x;
       cursorBackingY = y;
       cursorBacking.setSize(w, h);
-      
+
       for (int j = 0; j < h; j++)
-        System.arraycopy(im.data, (y+j) * im.width() + x,
-                         cursorBacking.data, j*w, w);
+        System.arraycopy(im.data, (y + j) * im.width() + x,
+                         cursorBacking.data, j * w, w);
 
       im.maskRect(cursorLeft, cursorTop, cursor.width(), cursor.height(),
                   cursor.data, cursor.mask);
-      im.put(x, y, w, h, graphics);
+      damageRect(new Rect(x, y, x+w, y+h));
     }
   }
 
+  void damageRect(Rect r) {
+    if (damage.is_empty()) {
+      damage.setXYWH(r.tl.x, r.tl.y, r.width(), r.height());
+    } else {
+      r = damage.union_boundary(r);
+      damage.setXYWH(r.tl.x, r.tl.y, r.width(), r.height());
+    }
+  }
 
   // run() is executed by the setColourMapEntriesTimerThread - it sleeps for
   // 100ms before actually updating the colourmap.
-  synchronized public void run() {
+  public synchronized void run() {
     try {
       Thread.sleep(100);
-    } catch (InterruptedException e) {}
+    } catch(InterruptedException e) {}
     im.updateColourMap();
-    im.put(0, 0, im.width(), im.height(), graphics);
     setColourMapEntriesTimerThread = null;
   }
 
@@ -539,28 +587,24 @@ class DesktopWindow extends JPanel implements
   CConn cc;
 
   // access to the following must be synchronized:
-  PixelBufferImage im;
-  Graphics graphics;
+  PlatformPixelBuffer im;
   Thread setColourMapEntriesTimerThread;
 
   Cursor cursor;
-  boolean cursorVisible;     // Is cursor currently rendered?
-  boolean cursorAvailable;   // Is cursor available for rendering?
+  boolean cursorVisible = false;     // Is cursor currently rendered?
+  boolean cursorAvailable = false;   // Is cursor available for rendering?
   int cursorPosX, cursorPosY;
   ManagedPixelBuffer cursorBacking;
   int cursorBackingX, cursorBackingY;
-  java.awt.Cursor softCursor;
+  java.awt.Cursor softCursor, nullCursor;
   static Toolkit tk = Toolkit.getDefaultToolkit();
 
   public int scaledWidth = 0, scaledHeight = 0;
   float scaleWidthRatio, scaleHeightRatio;
 
-  // the following are only ever accessed by the RFB thread:
-  boolean invalidRect;
-  int invalidLeft, invalidRight, invalidTop, invalidBottom;
-
   // the following are only ever accessed by the GUI thread:
   int lastX, lastY;
+  Rect damage = new Rect();
 
   static LogWriter vlog = new LogWriter("DesktopWindow");
 }

@@ -13,7 +13,7 @@ HDRS = RegionHelper.h vncExtInit.h vncHooks.h XserverDesktop.h xorg-version.h \
 	Input.h
 
 libvnccommon_la_SOURCES = $(HDRS) vncExtInit.cc vncHooks.cc XserverDesktop.cc \
-	Input.cc
+	Input.cc InputCore.cc InputXKB.cc
 
 libvnccommon_la_CPPFLAGS = -DVENDOR_RELEASE="$(VENDOR_RELEASE)" \
 	-DVENDOR_STRING="\"$(VENDOR_STRING)\"" -I$(TIGERVNC_SRCDIR)/common -UHAVE_CONFIG_H \
@@ -63,7 +63,7 @@ EXTRA_DIST = Xvnc.man
 BUILT_SOURCES = $(nodist_Xvnc_SOURCES)
 
 fb.h: $(top_srcdir)/fb/fb.h
-	cat $(top_srcdir)/fb/fb.h | sed -e 's,and,c_and,' -e 's,xor,c_xor,' > $(srcdir)/fb.h
+	cat $(top_srcdir)/fb/fb.h | sed -e 's,and,c_and,g' -e 's,xor,c_xor,g' > $(srcdir)/fb.h
 
 pixman.h:
 	for i in ${XSERVERLIBS_CFLAGS}; do \
@@ -78,4 +78,4 @@ pixman.h:
 	fi
 
 fbrop.h: $(top_srcdir)/fb/fbrop.h
-	cat $(top_srcdir)/fb/fbrop.h | sed -e 's,and,c_and,' -e 's,xor,c_xor,' > $(srcdir)/fbrop.h
+	cat $(top_srcdir)/fb/fbrop.h | sed -e 's,and,c_and,g' -e 's,xor,c_xor,g' > $(srcdir)/fbrop.h
