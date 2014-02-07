@@ -1,8 +1,9 @@
 Source: tigervnc
 Section: x11
 Priority: optional
-Maintainer: Joachim Falk <joachim.falk@gmx.de>
+Maintainer: TigerVNC Packaging Team <pkg-tigervnc-devel@lists.alioth.debian.org>
 Uploaders:
+ Joachim Falk <joachim.falk@gmx.de>,
  Mike Gabriel <mike.gabriel@das-netzwerkteam.de>,
  Yaroslav Halchenko <debian@onerussian.com>
 # all the Build-Depends up to x11proto-xf86-dri-dev are for the normal Xorg

@@ -5,7 +5,7 @@
 #export DH_VERBOSE=1
 
 # Where the tigervnc sources are
-DEB_SRCDIR   = tigervnc
+DEB_SRCDIR   = .
 # Don't override DEB_BUILDDIR as /usr/share/cdbs/1/class/cmake.mk does not
 # support this
 ## Where to built tigervnc
@@ -15,7 +15,7 @@ DEB_SRCDIR   = tigervnc
 #       figure out version of xorg-server-source
 #       pick matching/closest patch (e.g. 114 seems to
 #       apply fine over 1.15)
-VNC_PATCH = $(CURDIR)../tigervnc-gitsvn2/unix/xserver114.patch
+VNC_PATCH = $(CURDIR)/unix/xserver114.patch
 
 include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/class/cmake.mk
@@ -181,7 +181,7 @@ XORG_DEBIAN_CONFIGURE_FLAGS = $(shell cat $(DEB_BUILDDIR)/unix/xserver/debian/co
 $(DEB_BUILDDIR)/unix/xserver/configure.stamp: $(DEB_BUILDDIR)/unix/xserver/debian/confflags
 	mkdir -p $(DEB_BUILDDIR)/unix/xserver
 	cd $(DEB_BUILDDIR)/unix/xserver && \
-	  $(DEB_CONFIGURE_SCRIPT_ENV) ../../../tigervnc/unix/xserver/configure \
+	  $(DEB_CONFIGURE_SCRIPT_ENV) $(CURDIR)/$(DEB_BUILDDIR)/unix/xserver/configure \
 		CPPFLAGS="$(CPPFLAGS)" \
 		CFLAGS="$(CFLAGS)" \
 		CXXFLAGS="$(CXXFLAGS)" \
@@ -193,7 +193,7 @@ $(DEB_BUILDDIR)/unix/xserver/configure.stamp: $(DEB_BUILDDIR)/unix/xserver/debia
 		--localstatedir=/var \
 		$(XORG_DEBIAN_CONFIGURE_FLAGS) \
 		$(DEB_CONFIGURE_EXTRA_FLAGS) \
-		--with-builderstring="tigervnc-xorg-server $(NO_EPOCH_VER) (Joachim Falk <joachim.falk@gmx.de>)" \
+		--with-builderstring="tigervnc-xorg-server $(NO_EPOCH_VER) (TigerVNC Packaging Team <pkg-tigervnc-devel@lists.alioth.debian.org>)" \
 		--disable-xfbdev \
 		--disable-dmx \
 		--disable-xvfb \
@@ -241,29 +241,6 @@ debian/tmp/common-binary-impl.stamp:
 	  rm -f $$line; \
 	done
 	touch $@
-
-get-orig-source:
-	git submodule update --init || { echo "Ups... Can't fetch subprojects!"; exit 1; }
-	( cd $(DEB_SRCDIR) && pristine-tar checkout ../$(TIGERVNC_TARBALL) ) && \
-	  mv -f $(DEB_SRCDIR)/../$(TIGERVNC_TARBALL) $(CURDIR)/../tigervnc_$(NO_EPOCH_VER).orig-$(TIGERVNC_PACKAGE).tar.gz
-	( cd $(CURDIR) && { git fetch origin pristine-tar:pristine-tar || true; } ) && { \
-	  cp -pr $(CURDIR)/xorg-server $(CURDIR)/xorg-server-help && \
-	  ( cd $(CURDIR)/xorg-server-help && \
-	    if test -f .git; then \
-	      gitdir=`sed -ne '/^gitdir:/{s/^[^:]*:\s*//;p}' .git`; \
-	      test x"$$gitdir" != x"" -a -d "$$gitdir" || exit 1; \
-	      rm -f .git && cp -pr "$$gitdir" .git || exit 1; \
-	      sed -e '/worktree/d' $$gitdir/config > .git/config || exit 1; \
-	    fi && \
-            { git checkout -b pristine-tar remotes/origin/pristine-tar || true; } && \
-	    { git remote add pkg-tigervnc .. || true; } && \
-	    git fetch pkg-tigervnc && \
-	    git merge remotes/pkg-tigervnc/pristine-tar -m "Merge in pristine-tar delta+id files for currently used xorg-server version." && \
-	    pristine-tar checkout ../$(X11_TARBALL) ) && \
-	  mv -f $(CURDIR)/$(X11_TARBALL) $(CURDIR)/../tigervnc_$(NO_EPOCH_VER).orig-$(X11_PACKAGE).tar.gz && \
-	  rm -rf $(CURDIR)/xorg-server-help; } || { rm -rf $(CURDIR)/xorg-server-help; exit 1; }
-
-.PHONY: get-orig-source
 
 clean::
 	rm -rf $(DEB_BUILDDIR)

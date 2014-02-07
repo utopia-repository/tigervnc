@@ -3,21 +3,21 @@ Upstream-Name: tigervnc
 Upstream-Contact: Peter Åstrand, Pierre Ossman, Adam Tkac
 Source: http://sourceforge.net/apps/mediawiki/tigervnc/index.php
 
-Files: tigervnc/java/com/tigervnc/*
-       tigervnc/unix/tx/*
-       tigervnc/unix/vncconfig/*
-       tigervnc/unix/vncpasswd/*
-       tigervnc/unix/vncserver
-       tigervnc/unix/x*server/*
-       tigervnc/vncviewer/*
-       tigervnc/win/rfb_win32/*
-       tigervnc/win/vncconfig/*
-       tigervnc/win/winvnc/*
-       tigervnc/win/wm_hooks/*
-       tigervnc/common/os/*
-       tigervnc/common/network/*
-       tigervnc/common/rdr/*
-       tigervnc/common/rfb/*
+Files: java/com/tigervnc/*
+       unix/tx/*
+       unix/vncconfig/*
+       unix/vncpasswd/*
+       unix/vncserver
+       unix/x*server/*
+       vncviewer/*
+       win/rfb_win32/*
+       win/vncconfig/*
+       win/winvnc/*
+       win/wm_hooks/*
+       common/os/*
+       common/network/*
+       common/rdr/*
+       common/rfb/*
 Copyright: Copyright (C) 1999 AT&T Laboratories Cambridge
            Copyright (C) 2002-2005 RealVNC Ltd.
            Copyright (C) 2000-2009 TightVNC Group
@@ -55,7 +55,7 @@ License: GPLv2+
  License version 2 can be found in the file
  `/usr/share/common-licenses/GPL-2'.
 
-Files: tigervnc/common/Xregion/*
+Files: common/Xregion/*
 Copyright: 1987, 1988, 1998 (C) The Open Group
            1987, 1988 (C) Digital Equipment Corporation, Maynard,
                Massachusetts.
@@ -81,7 +81,7 @@ License: MIT/X11-style
  used in advertising or otherwise to promote the sale, use or other dealings
  in this Software without prior written authorization from The Open Group.
 
-Files: tigervnc/common/zlib
+Files: common/zlib
 Copyright: 1995-2010 Jean-loup Gailly and Mark Adler
 License: BSD-3-like
  This software is provided 'as-is', without any express or implied
@@ -100,7 +100,7 @@ License: BSD-3-like
     misrepresented as being the original software.
  3. This notice may not be removed or altered from any source distribution.
 
-Files: tigervnc/java/com/jcraft/jzlib
+Files: java/com/jcraft/jzlib
 Copyright: 2000-2003 ymnk, JCraft,Inc. All rights reserved.
 License: BSD-3
  Redistribution and use in source and binary forms, with or without
@@ -127,7 +127,7 @@ License: BSD-3
  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Files: tigervnc/common/fltk/*
+Files: common/fltk/*
 Copyright: 1998-2011 (C) Bill Spitzak <spitzak@users.sourceforge.net> and others
 License: LGPLv2+
  This library is free software; you can redistribute it
@@ -147,7 +147,7 @@ License: LGPLv2+
  Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  Boston, MA  02110-1301 USA
 
-Files: tigervnc/unix/xserver/hw/vnc/xvnc.cc
+Files: unix/xserver/hw/vnc/xvnc.cc
 Copyright: 1993  X Consortium
            2002-2005 RealVNC Ltd.
            2009 Pierre Ossman for Cendio AB

@@ -1,4 +1,4 @@
-tigervnc (1.2.0+X1.15.0-1) unstable; urgency=low
+tigervnc (1.3.0+X1.15.0-1) unstable; urgency=low
 
   * debian/{control,rules}
     - Use xorg-server-source source package instead of a convenience

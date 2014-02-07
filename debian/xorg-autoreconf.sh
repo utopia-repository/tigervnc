@@ -1,3 +1,3 @@
 #! /bin/sh
 
-cd tigervnc/unix/xserver && exec autoreconf --force -v --install
+cd unix/xserver && exec autoreconf --force -v --install
