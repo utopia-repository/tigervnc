@@ -1,10 +1,12 @@
 Add __GNU__ define as /usr/include/GL/internal/dri_interface.h needs it. Otherwise include of drm.h will fail!
 
---- tigervnc/unix/xserver/glx/Makefile.am.orig	2012-02-23 19:56:10.000000000 +0100
-+++ tigervnc/unix/xserver/glx/Makefile.am	2012-03-04 13:55:34.000000000 +0100
-@@ -13,7 +13,8 @@
- 	@DRIPROTO_CFLAGS@ \
- 	-DXFree86Server \
+Index: b/unix/xserver/glx/Makefile.am
+===================================================================
+--- a/unix/xserver/glx/Makefile.am
++++ b/unix/xserver/glx/Makefile.am
+@@ -10,7 +10,8 @@ AM_CFLAGS = \
+ 	@XLIB_CFLAGS@ \
+ 	@LIBDRM_CFLAGS@ \
  	@GLX_DEFINES@ \
 -	@GLX_ARCH_DEFINES@
 +	@GLX_ARCH_DEFINES@ \

@@ -1,8 +1,8 @@
-diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 6584010..a9ae5d0 100644
+Index: b/CMakeLists.txt
+===================================================================
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -195,6 +195,36 @@ if(ENABLE_NLS)
+@@ -215,6 +215,36 @@ if(NOT DEFINED ENABLE_NLS OR ENABLE_NLS)
    endif()
  endif()
  
@@ -39,8 +39,8 @@ index 6584010..a9ae5d0 100644
  # Check for libjpeg
  find_package(JPEG REQUIRED)
  
-diff --git a/common/network/CMakeLists.txt b/common/network/CMakeLists.txt
-index ddde574..8c5d21e 100644
+Index: b/common/network/CMakeLists.txt
+===================================================================
 --- a/common/network/CMakeLists.txt
 +++ b/common/network/CMakeLists.txt
 @@ -1,7 +1,20 @@
@@ -65,16 +65,15 @@ index ddde574..8c5d21e 100644
  
  if(UNIX)
    libtool_create_control_file(network)
-diff --git a/common/network/NetConfig.h.in b/common/network/NetConfig.h.in
-new file mode 100644
-index 0000000..2ab6ced
+Index: b/common/network/NetConfig.h.in
+===================================================================
 --- /dev/null
 +++ b/common/network/NetConfig.h.in
 @@ -0,0 +1,2 @@
 +/* Define if you want to include libwrap support */
 +#cmakedefine HAVE_LIBWRAP
-diff --git a/common/network/TcpSocket.h b/common/network/TcpSocket.h
-index b0bba53..f5283ed 100644
+Index: b/common/network/TcpSocket.h
+===================================================================
 --- a/common/network/TcpSocket.h
 +++ b/common/network/TcpSocket.h
 @@ -28,6 +28,7 @@
@@ -103,9 +102,8 @@ index b0bba53..f5283ed 100644
  }
  
  #endif // __NETWORK_TCP_SOCKET_H__
-diff --git a/common/network/TcpWrappersFilter.cxx b/common/network/TcpWrappersFilter.cxx
-new file mode 100644
-index 0000000..4a93f25
+Index: b/common/network/TcpWrappersFilter.cxx
+===================================================================
 --- /dev/null
 +++ b/common/network/TcpWrappersFilter.cxx
 @@ -0,0 +1,106 @@
@@ -215,8 +213,8 @@ index 0000000..4a93f25
 +} // namespace network
 +
 +#endif // HAVE_LIBWRAP
-diff --git a/common/rfb/CMakeLists.txt b/common/rfb/CMakeLists.txt
-index 27e3caa..1d26d9e 100644
+Index: b/common/rfb/CMakeLists.txt
+===================================================================
 --- a/common/rfb/CMakeLists.txt
 +++ b/common/rfb/CMakeLists.txt
 @@ -1,4 +1,5 @@
@@ -225,8 +223,8 @@ index 27e3caa..1d26d9e 100644
  
  set(RFB_SOURCES
    Blacklist.cxx
-diff --git a/unix/x0vncserver/CMakeLists.txt b/unix/x0vncserver/CMakeLists.txt
-index bdd6482..708dd2a 100644
+Index: b/unix/x0vncserver/CMakeLists.txt
+===================================================================
 --- a/unix/x0vncserver/CMakeLists.txt
 +++ b/unix/x0vncserver/CMakeLists.txt
 @@ -2,6 +2,7 @@ include_directories(${X11_INCLUDE_DIR})
@@ -237,8 +235,8 @@ index bdd6482..708dd2a 100644
  
  add_executable(x0vncserver
    buildtime.c
-diff --git a/unix/x0vncserver/x0vncserver.cxx b/unix/x0vncserver/x0vncserver.cxx
-index 64fbe68..f1bf486 100644
+Index: b/unix/x0vncserver/x0vncserver.cxx
+===================================================================
 --- a/unix/x0vncserver/x0vncserver.cxx
 +++ b/unix/x0vncserver/x0vncserver.cxx
 @@ -449,6 +449,9 @@ int main(int argc, char** argv)
@@ -251,8 +249,8 @@ index 64fbe68..f1bf486 100644
      vlog.info("Listening on port %d", (int)rfbport);
  
      const char *hostsData = hostsFile.getData();
-diff --git a/unix/xserver/hw/vnc/Makefile.am b/unix/xserver/hw/vnc/Makefile.am
-index 2f58b4c..984a789 100644
+Index: b/unix/xserver/hw/vnc/Makefile.am
+===================================================================
 --- a/unix/xserver/hw/vnc/Makefile.am
 +++ b/unix/xserver/hw/vnc/Makefile.am
 @@ -12,6 +12,8 @@ noinst_LTLIBRARIES = libvnccommon.la
@@ -262,13 +260,13 @@ index 2f58b4c..984a789 100644
 +XVNC_CPPFLAGS = @XVNC_CPPFLAGS@ -I$(LIB_DIR)
 +
  libvnccommon_la_SOURCES = $(HDRS) vncExtInit.cc vncHooks.cc XserverDesktop.cc \
- 	Input.cc
+ 	Input.cc InputCore.cc InputXKB.cc
  
-diff --git a/unix/xserver/hw/vnc/XserverDesktop.cc b/unix/xserver/hw/vnc/XserverDesktop.cc
-index 5fc32c3..13f0966 100644
+Index: b/unix/xserver/hw/vnc/XserverDesktop.cc
+===================================================================
 --- a/unix/xserver/hw/vnc/XserverDesktop.cc
 +++ b/unix/xserver/hw/vnc/XserverDesktop.cc
-@@ -553,9 +553,11 @@ void XserverDesktop::wakeupHandler(fd_set* fds, int nfds)
+@@ -650,9 +650,11 @@ void XserverDesktop::wakeupHandler(fd_se
          if (FD_ISSET(listener->getFd(), fds)) {
            FD_CLR(listener->getFd(), fds);
            Socket* sock = listener->accept();
@@ -283,7 +281,7 @@ index 5fc32c3..13f0966 100644
          }
        }
  
-@@ -563,9 +565,11 @@ void XserverDesktop::wakeupHandler(fd_set* fds, int nfds)
+@@ -660,9 +662,11 @@ void XserverDesktop::wakeupHandler(fd_se
          if (FD_ISSET(httpListener->getFd(), fds)) {
            FD_CLR(httpListener->getFd(), fds);
            Socket* sock = httpListener->accept();
@@ -298,11 +296,11 @@ index 5fc32c3..13f0966 100644
          }
        }
  
-diff --git a/unix/xserver/hw/vnc/vncExtInit.cc b/unix/xserver/hw/vnc/vncExtInit.cc
-index 7d865ed..db3d927 100644
+Index: b/unix/xserver/hw/vnc/vncExtInit.cc
+===================================================================
 --- a/unix/xserver/hw/vnc/vncExtInit.cc
 +++ b/unix/xserver/hw/vnc/vncExtInit.cc
-@@ -228,6 +228,9 @@ void vncExtensionInit()
+@@ -229,6 +229,9 @@ void vncExtensionInit()
                !network::TcpSocket::isConnected(vncInetdSock))
            {
              listener = new network::TcpListener(NULL, 0, 0, vncInetdSock, true);
@@ -312,7 +310,7 @@ index 7d865ed..db3d927 100644
              vlog.info("inetd wait");
            }
          } else {
-@@ -237,12 +240,18 @@ void vncExtensionInit()
+@@ -238,12 +241,18 @@ void vncExtensionInit()
            listener = new network::TcpListener(listenaddr, port, localhostOnly);
            vlog.info("Listening for VNC connections on %s interface(s), port %d",
  		    listenaddr == NULL ? "all" : listenaddr, port);
@@ -331,8 +329,8 @@ index 7d865ed..db3d927 100644
              vlog.info("Listening for HTTP connections on %s interface(s), port %d",
  		      listenaddr == NULL ? "all" : listenaddr, port);
            }
-diff --git a/vncviewer/CMakeLists.txt b/vncviewer/CMakeLists.txt
-index 5639ccb..09cbe24 100644
+Index: b/vncviewer/CMakeLists.txt
+===================================================================
 --- a/vncviewer/CMakeLists.txt
 +++ b/vncviewer/CMakeLists.txt
 @@ -2,6 +2,7 @@ include_directories(${FLTK_INCLUDE_DIR})

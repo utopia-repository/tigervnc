@@ -24,7 +24,9 @@ Build-Depends:
  libxft-dev,
  libxcursor-dev,
  libwrap0-dev,
+ libfltk1.3-dev,
  xorg-server-source,
+ xserver-xorg-dev,
 # this are dependencies from xorg deb
  debhelper (>= 8),
  quilt,
@@ -96,7 +98,7 @@ Build-Depends:
  x11-xkb-utils,
 # getpeereid()
  libbsd-dev [kfreebsd-any],
-Standards-Version: 3.9.3
+Standards-Version: 3.9.5
 Vcs-Git: git://git.debian.org/git/pkg-tigervnc/pkg-tigervnc.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-tigervnc/pkg-tigervnc.git 
 Homepage: http://www.tigervnc.org

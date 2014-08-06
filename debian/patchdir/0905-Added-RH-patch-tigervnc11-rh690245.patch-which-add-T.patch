@@ -12,11 +12,11 @@ communication between a server and a viewer. (BZ#653491)
  common/rfb/SecurityServer.cxx |    2 +-
  3 files changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/common/rfb/Security.cxx b/common/rfb/Security.cxx
-index e51c891..dba14fd 100644
+Index: b/common/rfb/Security.cxx
+===================================================================
 --- a/common/rfb/Security.cxx
 +++ b/common/rfb/Security.cxx
-@@ -67,7 +67,6 @@ const std::list<rdr::U8> Security::GetEnabledSecTypes(void)
+@@ -71,7 +71,6 @@ const std::list<rdr::U8> Security::GetEn
    list<rdr::U8> result;
    list<U32>::iterator i;
  
@@ -24,7 +24,7 @@ index e51c891..dba14fd 100644
    for (i = enabledSecTypes.begin(); i != enabledSecTypes.end(); i++)
      if (*i < 0x100)
        result.push_back(*i);
-@@ -105,8 +104,6 @@ bool Security::IsSupported(U32 secType)
+@@ -109,8 +108,6 @@ bool Security::IsSupported(U32 secType)
    for (i = enabledSecTypes.begin(); i != enabledSecTypes.end(); i++)
      if (*i == secType)
        return true;
@@ -33,8 +33,8 @@ index e51c891..dba14fd 100644
  
    return false;
  }
-diff --git a/common/rfb/SecurityClient.cxx b/common/rfb/SecurityClient.cxx
-index 4173c74..0b69298 100644
+Index: b/common/rfb/SecurityClient.cxx
+===================================================================
 --- a/common/rfb/SecurityClient.cxx
 +++ b/common/rfb/SecurityClient.cxx
 @@ -45,7 +45,7 @@ StringParameter SecurityClient::secTypes
@@ -46,8 +46,8 @@ index 4173c74..0b69298 100644
  #else
   "VncAuth,None",
  #endif
-diff --git a/common/rfb/SecurityServer.cxx b/common/rfb/SecurityServer.cxx
-index 76ece77..66f9f91 100644
+Index: b/common/rfb/SecurityServer.cxx
+===================================================================
 --- a/common/rfb/SecurityServer.cxx
 +++ b/common/rfb/SecurityServer.cxx
 @@ -39,7 +39,7 @@ StringParameter SecurityServer::secTypes
@@ -59,6 +59,3 @@ index 76ece77..66f9f91 100644
  #else
   "VncAuth",
  #endif
--- 
-1.7.2.5
-

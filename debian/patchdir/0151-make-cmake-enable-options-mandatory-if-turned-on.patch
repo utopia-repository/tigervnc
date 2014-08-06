@@ -1,6 +1,8 @@
---- tigervnc/CMakeLists.txt.orig	2012-07-06 22:14:47.000000000 +0200
-+++ tigervnc/CMakeLists.txt	2012-07-06 22:26:17.000000000 +0200
-@@ -162,8 +162,8 @@
+Index: b/CMakeLists.txt
+===================================================================
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -173,8 +173,8 @@ if(USE_INCLUDED_ZLIB)
  endif()
  
  # Check for gettext
@@ -10,8 +12,8 @@
 +if(NOT DEFINED ENABLE_NLS OR ENABLE_NLS)
    # Tools
    find_package(Gettext)
-   set(LOCALE_DIR "${CMAKE_INSTALL_PREFIX}/share/locale")
-@@ -194,8 +194,14 @@
+ 
+@@ -204,8 +204,14 @@ if(ENABLE_NLS)
    endif()
  
    if(NOT GETTEXT_FOUND OR NOT ICONV_FOUND)
@@ -28,7 +30,7 @@
    endif()
  endif()
  
-@@ -360,8 +366,8 @@
+@@ -308,8 +314,8 @@ if(FLTK_FOUND)
  endif()
  
  # Check for GNUTLS library
@@ -37,9 +39,9 @@
 +option(ENABLE_GNUTLS "Enable protocol encryption and advanced authentication")
 +if(NOT DEFINED ENABLE_GNUTLS OR ENABLE_GNUTLS)
    find_package(GnuTLS)
-   if (GNUTLS_FOUND)
-     include_directories(${GNUTLS_INCLUDE_DIR})
-@@ -391,12 +397,18 @@
+   find_package(Gcrypt)
+   find_package(Gpg_Error)
+@@ -352,12 +358,18 @@ if(ENABLE_GNUTLS)
      set(CMAKE_REQUIRED_FLAGS)
      set(CMAKE_EXTRA_INCLUDE_FILES) 
      set(CMAKE_REQUIRED_LIBRARIES)
@@ -60,7 +62,7 @@
    check_include_files(security/pam_appl.h HAVE_PAM_H)
    set(CMAKE_REQUIRED_LIBRARIES -lpam)
    check_function_exists(pam_start HAVE_PAM_START)
-@@ -404,7 +416,12 @@
+@@ -365,7 +377,12 @@ if(ENABLE_PAM)
    if(HAVE_PAM_H AND HAVE_PAM_START)
      set(PAM_LIBS pam)
    else()

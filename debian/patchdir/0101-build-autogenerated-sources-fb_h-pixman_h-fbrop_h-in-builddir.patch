@@ -1,13 +1,13 @@
-diff --git a/unix/xserver/hw/vnc/Makefile.am b/unix/xserver/hw/vnc/Makefile.am
-index 2f58b4c..6747133 100644
+Index: b/unix/xserver/hw/vnc/Makefile.am
+===================================================================
 --- a/unix/xserver/hw/vnc/Makefile.am
 +++ b/unix/xserver/hw/vnc/Makefile.am
 @@ -63,7 +63,7 @@ EXTRA_DIST = Xvnc.man
  BUILT_SOURCES = $(nodist_Xvnc_SOURCES)
  
  fb.h: $(top_srcdir)/fb/fb.h
--	cat $(top_srcdir)/fb/fb.h | sed -e 's,and,c_and,' -e 's,xor,c_xor,' > $(srcdir)/fb.h
-+	cat $(top_srcdir)/fb/fb.h | sed -e 's,and,c_and,' -e 's,xor,c_xor,' > fb.h
+-	cat $(top_srcdir)/fb/fb.h | sed -e 's,and,c_and,g' -e 's,xor,c_xor,g' > $(srcdir)/fb.h
++	cat $(top_srcdir)/fb/fb.h | sed -e 's,and,c_and,g' -e 's,xor,c_xor,g' > fb.h
  
  pixman.h:
  	for i in ${XSERVERLIBS_CFLAGS}; do \
@@ -22,5 +22,5 @@ index 2f58b4c..6747133 100644
  	fi
  
  fbrop.h: $(top_srcdir)/fb/fbrop.h
--	cat $(top_srcdir)/fb/fbrop.h | sed -e 's,and,c_and,' -e 's,xor,c_xor,' > $(srcdir)/fbrop.h
-+	cat $(top_srcdir)/fb/fbrop.h | sed -e 's,and,c_and,' -e 's,xor,c_xor,' > fbrop.h
+-	cat $(top_srcdir)/fb/fbrop.h | sed -e 's,and,c_and,g' -e 's,xor,c_xor,g' > $(srcdir)/fbrop.h
++	cat $(top_srcdir)/fb/fbrop.h | sed -e 's,and,c_and,g' -e 's,xor,c_xor,g' > fbrop.h
