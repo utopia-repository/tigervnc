@@ -18,10 +18,10 @@ include(CheckCSourceRuns)
 include(CMakeMacroLibtoolFile)
 
 project(tigervnc)
-set(VERSION 1.3.0)
+set(VERSION 1.3.1)
 
 # The RC version must always be four comma-separated numbers
-set(RCVERSION 1,3,0,0)
+set(RCVERSION 1,3,1,0)
 
 # Installation paths
 set(BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin")
@@ -62,6 +62,10 @@ endif()
 
 message(STATUS "VERSION = ${VERSION}, BUILD = ${BUILD}")
 add_definitions(-D__BUILD__="${BUILD}")
+
+# We want to keep our asserts even in release builds so remove NDEBUG
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -UNDEBUG")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -UNDEBUG")
 
 if(NOT DEFINED BUILD_WINVNC)
   set(BUILD_WINVNC 1)
@@ -303,8 +307,20 @@ endif()
 option(ENABLE_GNUTLS "Enable protocol encryption and advanced authentication" ON)
 if(ENABLE_GNUTLS)
   find_package(GnuTLS)
+  find_package(Gcrypt)
+  find_package(Gpg_Error)
   if (GNUTLS_FOUND)
     include_directories(${GNUTLS_INCLUDE_DIR})
+    if (GCRYPT_FOUND)
+      include_directories(${GCRYPT_INCLUDE_DIR})
+      set(GNUTLS_LIBRARIES ${GNUTLS_LIBRARIES};${GCRYPT_LIBRARIES})
+      set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${GCRYPT_LIBRARIES})
+      if (GPG_ERROR_FOUND)
+        include_directories(${GPG_ERROR_INCLUDE_DIR})
+        set(GNUTLS_LIBRARIES ${GNUTLS_LIBRARIES};${GPG_ERROR_LIBRARIES})
+        set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${GPG_ERROR_LIBRARIES})
+      endif()
+    endif()
     add_definitions("-DHAVE_GNUTLS")
     add_definitions(${GNUTLS_DEFINITIONS})
     
