@@ -2,6 +2,7 @@ tigervnc (1.3.0+X1.15.0-2) UNRELEASED; urgency=medium
 
   * debian/gbp.conf
     - filter out contrib/packages which now carries copies of xorg-server
+    - use pristine-tar
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 06 Aug 2014 11:06:37 -0400
 
