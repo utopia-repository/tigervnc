@@ -19,7 +19,7 @@ Build-Depends:
  gettext,
  zlib1g-dev,
  libjpeg-dev,
- libgnutls-dev,
+ libgnutls28-dev,
  libpam0g-dev,
  libxft-dev,
  libxcursor-dev,
