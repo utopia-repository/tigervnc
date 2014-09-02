@@ -15,7 +15,10 @@ DEB_SRCDIR   = .
 #       figure out version of xorg-server-source
 #       pick matching/closest patch (e.g. 114 seems to
 #       apply fine over 1.15)
-VNC_PATCH = $(CURDIR)/unix/xserver114.patch
+#VNC_PATCH = $(CURDIR)/unix/xserver114.patch
+# there is no stock patch for 1.16.  To avoid patching the patch, we
+# just carry for now a copy of adjusted patch
+VNC_PATCH = $(CURDIR)/debian/patchdir/xserver116.patch
 
 include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/class/cmake.mk
