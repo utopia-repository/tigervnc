@@ -14,6 +14,7 @@ tigervnc (1.3.1-1) UNRELEASED; urgency=medium
     - many patches updated, some removed, and bulk added
 
   [ Yaroslav Halchenko ]
+  * Second re-upload to Debian proper (Closes: #650394)
   * debian/gbp.conf
     - filter out contrib/packages which now carries copies of xorg-server
     - use pristine-tar
