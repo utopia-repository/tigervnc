@@ -166,7 +166,7 @@ configure/tigervnc-standalone-server configure/tigervnc-xorg-extension:: $(DEB_B
 
 include /usr/share/xserver-xorg/configure_flags.mk
 
-xserver_confflags := $(shell echo '$(xserver_confflags)' | sed 's/--with-builderstring="[^"]*"//')
+xserver_confflags := $(shell echo '$(xserver_confflags)' | sed 's/--with-builderstring="[^"]*"//' | sed 's/--enable-xwayland/--disable-xwayland/')
 XORG_DEBIAN_CONFIGURE_FLAGS = \
 	$(filter-out \
 		--prefix=% \
