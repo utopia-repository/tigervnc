@@ -1,4 +1,4 @@
-tigervnc (1.3.1-1) unstable; urgency=medium
+tigervnc (1.3.1-1) UNRELEASED; urgency=medium
 
   [ Matthias Klose ]
   * Updated packaging for TigerVNC 1.3.1
@@ -25,6 +25,7 @@ tigervnc (1.3.1-1) unstable; urgency=medium
       copyright
   * debian/control
     - build-depend on versioned libgnutls28-dev due to conflicts (see #731175)
+    - added libepoxy-dev to build-depends
   * debian/patchdir/xserver116.patch
     - xserver114.patch updated to be compatible with xserver-xorg 1.16
 
