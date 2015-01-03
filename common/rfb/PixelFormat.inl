@@ -1,4 +1,4 @@
-/* Copyright 2009 Pierre Ossman for Cendio AB
+/* Copyright 2009-2014 Pierre Ossman for Cendio AB
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -75,43 +75,60 @@ inline void PixelFormat::bufferFromPixel(rdr::U8* buffer, Pixel p) const
 }
 
 
-inline void PixelFormat::rgbFromPixel(Pixel p, ColourMap* cm, rdr::U16 *r, rdr::U16 *g, rdr::U16 *b) const
+inline Pixel PixelFormat::pixelFromRGB(rdr::U16 red, rdr::U16 green, rdr::U16 blue) const
 {
-  if (trueColour) {
-    /* We don't need to mask since we shift out unwanted bits */
-    *r = (p >> redShift) << redConvShift;
-    *g = (p >> greenShift) << greenConvShift;
-    *b = (p >> blueShift) << blueConvShift;
-  } else if (cm) {
-    int ir, ig, ib;
-    cm->lookup(p, &ir, &ig, &ib);
-    *r = ir;
-    *g = ig;
-    *b = ib;
-  } else {
-    // XXX just return 0 for colour map?
-    *r = 0;
-    *g = 0;
-    *b = 0;
-  }
+  Pixel p;
+
+  /* We don't need to mask since we shift out unwanted bits */
+  p = ((Pixel)red >> (16 - redBits)) << redShift;
+  p |= ((Pixel)green >> (16 - greenBits)) << greenShift;
+  p |= ((Pixel)blue >> (16 - blueBits)) << blueShift;
+
+  return p;
 }
 
 
-inline void PixelFormat::rgbFromPixel(Pixel p, ColourMap* cm, rdr::U8 *r, rdr::U8 *g, rdr::U8 *b) const
+inline Pixel PixelFormat::pixelFromRGB(rdr::U8 red, rdr::U8 green, rdr::U8 blue) const
 {
-  if (trueColour) {
-    *r = (p >> redShift) << (redConvShift - 8);
-    *g = (p >> greenShift) << (greenConvShift - 8);
-    *b = (p >> blueShift) << (blueConvShift - 8);
-  } else {
-    rdr::U16 r2, g2, b2;
+  Pixel p;
 
-    rgbFromPixel(p, cm, &r2, &g2, &b2);
+  p = ((Pixel)red >> (8 - redBits)) << redShift;
+  p |= ((Pixel)green >> (8 - greenBits)) << greenShift;
+  p |= ((Pixel)blue >> (8 - blueBits)) << blueShift;
 
-    *r = r2 >> 8;
-    *g = g2 >> 8;
-    *b = b2 >> 8;
-  }
+  return p;
+}
+
+
+inline void PixelFormat::rgbFromPixel(Pixel p, rdr::U16 *r, rdr::U16 *g, rdr::U16 *b) const
+{
+  rdr::U8 _r, _g, _b;
+
+  _r = p >> redShift;
+  _g = p >> greenShift;
+  _b = p >> blueShift;
+
+  _r = upconvTable[(redBits-1)*256 + _r];
+  _g = upconvTable[(greenBits-1)*256 + _g];
+  _b = upconvTable[(blueBits-1)*256 + _b];
+
+  *r = _r << 8 | _r;
+  *g = _g << 8 | _g;
+  *b = _b << 8 | _b;
+}
+
+
+inline void PixelFormat::rgbFromPixel(Pixel p, rdr::U8 *r, rdr::U8 *g, rdr::U8 *b) const
+{
+  rdr::U8 _r, _g, _b;
+
+  _r = p >> redShift;
+  _g = p >> greenShift;
+  _b = p >> blueShift;
+
+  *r = upconvTable[(redBits-1)*256 + _r];
+  *g = upconvTable[(greenBits-1)*256 + _g];
+  *b = upconvTable[(blueBits-1)*256 + _b];
 }
 
 

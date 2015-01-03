@@ -21,16 +21,13 @@
 //
 // Tight decoding functions.
 //
-// This file is #included after having set the following macros:
+// This file is #included after having set the following macro:
 // BPP                - 8, 16 or 32
-// EXTRA_ARGS         - optional extra arguments
-// FILL_RECT          - fill a rectangle with a single color
-// IMAGE_RECT         - draw a rectangle of pixel data from a buffer
 
 #include <rdr/InStream.h>
 #include <rdr/ZlibInStream.h>
 #include <rfb/Exception.h>
-#include <assert.h>
+#include <rfb/TightConstants.h>
 
 namespace rfb {
 
@@ -71,27 +68,27 @@ void TIGHT_DECODE (const Rect& r)
   }
 
   // "Fill" compression type.
-  if (comp_ctl == rfbTightFill) {
+  if (comp_ctl == tightFill) {
     PIXEL_T pix;
     if (cutZeros) {
       rdr::U8 bytebuf[3];
       is->readBytes(bytebuf, 3);
-      serverpf.bufferFromRGB((rdr::U8*)&pix, bytebuf, 1, NULL);
+      serverpf.bufferFromRGB((rdr::U8*)&pix, bytebuf, 1);
     } else {
       pix = is->READ_PIXEL();
     }
-    FILL_RECT(r, pix);
+    pb->fillRect(serverpf, r, pix);
     return;
   }
 
   // "JPEG" compression type.
-  if (comp_ctl == rfbTightJpeg) {
+  if (comp_ctl == tightJpeg) {
     DECOMPRESS_JPEG_RECT(r);
     return;
   }
 
   // Quit on unsupported compression type.
-  if (comp_ctl > rfbTightMaxSubencoding) {
+  if (comp_ctl > tightMaxSubencoding) {
     throw Exception("TightDecoder: bad subencoding value received");
     return;
   }
@@ -101,24 +98,24 @@ void TIGHT_DECODE (const Rect& r)
   static PIXEL_T palette[256];
   bool useGradient = false;
 
-  if ((comp_ctl & rfbTightExplicitFilter) != 0) {
+  if ((comp_ctl & tightExplicitFilter) != 0) {
     rdr::U8 filterId = is->readU8();
 
     switch (filterId) {
-    case rfbTightFilterPalette: 
+    case tightFilterPalette:
       palSize = is->readU8() + 1;
       if (cutZeros) {
         rdr::U8 tightPalette[256 * 3];
         is->readBytes(tightPalette, palSize * 3);
-        serverpf.bufferFromRGB((rdr::U8*)palette, tightPalette, palSize, NULL);
+        serverpf.bufferFromRGB((rdr::U8*)palette, tightPalette, palSize);
       } else {
         is->readBytes(palette, palSize * sizeof(PIXEL_T));
       }
       break;
-    case rfbTightFilterGradient: 
+    case tightFilterGradient:
       useGradient = true;
       break;
-    case rfbTightFilterCopy:
+    case tightFilterCopy:
       break;
     default:
       throw Exception("TightDecoder: unknown filter code received");
@@ -141,7 +138,7 @@ void TIGHT_DECODE (const Rect& r)
   if (dataSize < TIGHT_MIN_TO_COMPRESS) {
     input = is;
   } else {
-    int length = is->readCompactLength();
+    int length = readCompact(is);
     streamId = comp_ctl & 0x03;
     zis[streamId].setUnderlying(is, length);
     input = &zis[streamId];
@@ -156,8 +153,8 @@ void TIGHT_DECODE (const Rect& r)
 
   PIXEL_T *buf;
   int stride = r.width();
-  if (directDecode) buf = (PIXEL_T *)handler->getRawPixelsRW(r, &stride);
-  else buf = (PIXEL_T *)reader->getImageBuf(r.area());
+  if (directDecode) buf = (PIXEL_T *)pb->getBufferRW(r, &stride);
+  else buf = (PIXEL_T *)conn->reader()->getImageBuf(r.area());
 
   if (palSize == 0) {
     // Truecolor data
@@ -178,7 +175,7 @@ void TIGHT_DECODE (const Rect& r)
       int w = r.width();
       if (cutZeros) {
         while (h > 0) {
-          serverpf.bufferFromRGB((rdr::U8*)ptr, srcPtr, w, NULL);
+          serverpf.bufferFromRGB((rdr::U8*)ptr, srcPtr, w);
           ptr += stride;
           srcPtr += w * 3;
           h--;
@@ -228,8 +225,8 @@ void TIGHT_DECODE (const Rect& r)
     }
   }
 
-  if (directDecode) handler->releaseRawPixels(r);
-  else IMAGE_RECT(r, buf);
+  if (directDecode) pb->commitBufferRW(r);
+  else pb->imageRect(serverpf, r, buf);
 
   delete [] netbuf;
 
@@ -242,7 +239,7 @@ void
 DECOMPRESS_JPEG_RECT(const Rect& r)
 {
   // Read length
-  int compressedLen = is->readCompactLength();
+  int compressedLen = readCompact(is);
   if (compressedLen <= 0) {
       throw Exception("Incorrect data received from the server.\n");
   }
@@ -256,10 +253,9 @@ DECOMPRESS_JPEG_RECT(const Rect& r)
 
   // We always use direct decoding with JPEG images
   int stride;
-  rdr::U8 *buf = handler->getRawPixelsRW(r, &stride);
-  jd.decompress(netbuf, compressedLen, buf, stride * clientpf.bpp / 8, r,
-                clientpf);
-  handler->releaseRawPixels(r);
+  rdr::U8 *buf = pb->getBufferRW(r, &stride);
+  jd.decompress(netbuf, compressedLen, buf, stride, r, clientpf);
+  pb->commitBufferRW(r);
 
   delete [] netbuf;
 }
@@ -288,7 +284,7 @@ TightDecoder::FilterGradient24(rdr::U8 *netbuf, PIXEL_T* buf, int stride,
       pix[c] = netbuf[y*rectWidth*3+c] + prevRow[c];
       thisRow[c] = pix[c];
     }
-    serverpf.bufferFromRGB((rdr::U8*)&buf[y*stride], pix, 1, NULL);
+    serverpf.bufferFromRGB((rdr::U8*)&buf[y*stride], pix, 1);
 
     /* Remaining pixels of a row */
     for (x = 1; x < rectWidth; x++) {
@@ -302,7 +298,7 @@ TightDecoder::FilterGradient24(rdr::U8 *netbuf, PIXEL_T* buf, int stride,
         pix[c] = netbuf[(y*rectWidth+x)*3+c] + est[c];
         thisRow[x*3+c] = pix[c];
       }
-      serverpf.bufferFromRGB((rdr::U8*)&buf[y*stride+x], pix, 1, NULL);
+      serverpf.bufferFromRGB((rdr::U8*)&buf[y*stride+x], pix, 1);
     }
 
     memcpy(prevRow, thisRow, sizeof(prevRow));
@@ -328,13 +324,13 @@ FILTER_GRADIENT(rdr::U8 *netbuf, PIXEL_T* buf, int stride, const Rect& r)
 
   for (y = 0; y < rectHeight; y++) {
     /* First pixel in a row */
-    serverpf.rgbFromBuffer(pix, (rdr::U8*)&netbuf[y*rectWidth], 1, NULL);
+    serverpf.rgbFromBuffer(pix, (rdr::U8*)&netbuf[y*rectWidth], 1);
     for (c = 0; c < 3; c++)
       pix[c] += prevRow[c];
 
     memcpy(thisRow, pix, sizeof(pix));
 
-    serverpf.bufferFromRGB((rdr::U8*)&buf[y*stride], pix, 1, NULL);
+    serverpf.bufferFromRGB((rdr::U8*)&buf[y*stride], pix, 1);
 
     /* Remaining pixels of a row */
     for (x = 1; x < rectWidth; x++) {
@@ -347,13 +343,13 @@ FILTER_GRADIENT(rdr::U8 *netbuf, PIXEL_T* buf, int stride, const Rect& r)
         }
       }
 
-      serverpf.rgbFromBuffer(pix, (rdr::U8*)&netbuf[y*rectWidth+x], 1, NULL);
+      serverpf.rgbFromBuffer(pix, (rdr::U8*)&netbuf[y*rectWidth+x], 1);
       for (c = 0; c < 3; c++)
         pix[c] += est[c];
 
       memcpy(&thisRow[x*3], pix, sizeof(pix));
 
-      serverpf.bufferFromRGB((rdr::U8*)&buf[y*stride+x], pix, 1, NULL);
+      serverpf.bufferFromRGB((rdr::U8*)&buf[y*stride+x], pix, 1);
     }
 
     memcpy(prevRow, thisRow, sizeof(prevRow));

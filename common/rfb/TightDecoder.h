@@ -28,11 +28,13 @@ namespace rfb {
   class TightDecoder : public Decoder {
 
   public:
-    static Decoder* create(CMsgReader* reader);
-    virtual void readRect(const Rect& r, CMsgHandler* handler);
+    TightDecoder(CConnection* conn);
     virtual ~TightDecoder();
+    virtual void readRect(const Rect& r, ModifiablePixelBuffer* pb);
 
   private:
+    rdr::U32 readCompact(rdr::InStream* is);
+
     void tightDecode8(const Rect& r);
     void tightDecode16(const Rect& r);
     void tightDecode32(const Rect& r);
@@ -54,10 +56,7 @@ namespace rfb {
     void directFillRect16(const Rect& r, Pixel pix);
     void directFillRect32(const Rect& r, Pixel pix);
 
-    TightDecoder(CMsgReader* reader);
-
-    CMsgReader* reader;
-    CMsgHandler* handler;
+    ModifiablePixelBuffer* pb;
     rdr::InStream* is;
     rdr::ZlibInStream zis[4];
     JpegDecompressor jd;
@@ -65,17 +64,6 @@ namespace rfb {
     PixelFormat serverpf;
     bool directDecode;
   };
-
-  // Compression control 
-  const unsigned int rfbTightExplicitFilter = 0x04;
-  const unsigned int rfbTightFill = 0x08;
-  const unsigned int rfbTightJpeg = 0x09;
-  const unsigned int rfbTightMaxSubencoding = 0x09;
-
-  // Filters to improve compression efficiency
-  const unsigned int rfbTightFilterCopy = 0x00;
-  const unsigned int rfbTightFilterPalette = 0x01;
-  const unsigned int rfbTightFilterGradient = 0x02;
 }
 
 #endif

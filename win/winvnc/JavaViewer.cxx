@@ -25,8 +25,6 @@
 
 #include <windows.h>
 
-#define strcasecmp _stricmp
-
 using namespace winvnc;
 using namespace rfb;
 
@@ -93,7 +91,7 @@ char* JavaViewerServer::substitute(const char* varName)
   }
   if (strcmp(varName, "$APPLETHEIGHT") == 0) {
     char* str = new char[10];
-    sprintf(str, "%d", server->getDesktopSize().y + 32);
+    sprintf(str, "%d", server->getDesktopSize().y);
     return str;
   }
   if (strcmp(varName, "$DESKTOP") == 0) {

@@ -1,16 +1,16 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
  * Copyright (C) 2012 Brian P. Hinz
- * 
+ *
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This software is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
@@ -52,7 +52,7 @@ public class TcpListener extends SocketListener  {
 
     // - Bind it to the desired port
     InetAddress addr = null;
-  
+
     try {
       if (localhostOnly) {
         addr = InetAddress.getByName(null);
@@ -64,13 +64,13 @@ public class TcpListener extends SocketListener  {
     } catch (UnknownHostException e) {
       throw new Exception(e.getMessage());
     }
-  
+
     try {
       channel.socket().bind(new InetSocketAddress(addr, port));
     } catch (IOException e) {
       throw new Exception("unable to bind listening socket: "+e.toString());
     }
-  
+
     // - Set it to be a listening socket
     try {
       selector = Selector.open();
@@ -84,12 +84,21 @@ public class TcpListener extends SocketListener  {
     this(listenaddr, port, false, null, true);
   }
 
-//  TcpListener::~TcpListener() {
-//    if (closeFd) closesocket(fd);
-//  }
+  protected void finalize() throws Exception {
+    if (closeFd)
+      try {
+        ((SocketDescriptor)getFd()).close();
+      } catch (IOException e) {
+        throw new Exception(e.getMessage());
+      }
+  }
 
-  public void shutdown() {
-    //shutdown(getFd(), 2);
+  public void shutdown() throws Exception {
+    try {
+      ((SocketDescriptor)getFd()).shutdown();
+    } catch (IOException e) {
+      throw new Exception(e.getMessage());
+    }
   }
 
   public TcpSocket accept() {
@@ -132,32 +141,12 @@ public class TcpListener extends SocketListener  {
     }
     fd.setChannel(new_sock);
     TcpSocket s = new TcpSocket(fd);
-    //if (filter && !filter->verifyConnection(s)) {
-    //  delete s;
-    //  return 0;
-    //}
     return s;
   }
 
-/*
-void TcpListener::getMyAddresses(std::list<char*>* result) {
-  const hostent* addrs = gethostbyname(0);
-  if (addrs == 0)
-    throw rdr::SystemException("gethostbyname", errorNumber);
-  if (addrs->h_addrtype != AF_INET)
-    throw rdr::Exception("getMyAddresses: bad family");
-  for (int i=0; addrs->h_addr_list[i] != 0; i++) {
-    const char* addrC = inet_ntoa(*((struct in_addr*)addrs->h_addr_list[i]));
-    char* addr = new char[strlen(addrC)+1];
-    strcpy(addr, addrC);
-    result->push_back(addr);
+  public int getMyPort() {
+    return ((SocketDescriptor)getFd()).socket().getLocalPort();
   }
-}
-  */
-
-  //public int getMyPort() {
-  //  return TcpSocket.getSockPort();
-  //}
 
   private boolean closeFd;
   private ServerSocketChannel channel;

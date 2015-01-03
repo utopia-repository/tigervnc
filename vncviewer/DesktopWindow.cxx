@@ -34,7 +34,9 @@
 #include "parameters.h"
 #include "vncviewer.h"
 #include "CConn.h"
+#include "Viewport.h"
 
+#include <FL/Fl.H>
 #include <FL/Fl_Scroll.H>
 #include <FL/x.H>
 
@@ -101,7 +103,7 @@ DesktopWindow::DesktopWindow(int w, int h, const char *name,
         break;
       default:
         geom_x = geom_y = 0;
-        vlog.error("Invalid geometry specified!");
+        vlog.error(_("Invalid geometry specified!"));
       }
     }
   }
@@ -191,12 +193,6 @@ DesktopWindow::~DesktopWindow()
 }
 
 
-void DesktopWindow::setServerPF(const rfb::PixelFormat& pf)
-{
-  viewport->setServerPF(pf);
-}
-
-
 const rfb::PixelFormat &DesktopWindow::getPreferredPF()
 {
   return viewport->getPreferredPF();
@@ -214,10 +210,9 @@ void DesktopWindow::setName(const char *name)
 }
 
 
-void DesktopWindow::setColourMapEntries(int firstColour, int nColours,
-                                        rdr::U16* rgbs)
+rfb::ModifiablePixelBuffer* DesktopWindow::getFramebuffer(void)
 {
-  viewport->setColourMapEntries(firstColour, nColours, rgbs);
+  return viewport->getFramebuffer();
 }
 
 
@@ -329,7 +324,7 @@ void DesktopWindow::resize(int x, int y, int w, int h)
         Fl::screen_xywh(sx, sy, sw, sh, i);
 
         if ((sx == x) && (sy == y) && (sw == w) && (sh == h)) {
-          vlog.info("Adjusting window size to avoid accidental full screen request");
+          vlog.info(_("Adjusting window size to avoid accidental full screen request"));
           // Assume a panel of some form and adjust the height
           y += 20;
           h -= 40;
@@ -663,12 +658,20 @@ void DesktopWindow::maximizeWindow()
 
 void DesktopWindow::handleDesktopSize()
 {
-  int width, height;
+  if (desktopSize.hasBeenSet()) {
+    int width, height;
 
-  if (sscanf(desktopSize.getValueStr(), "%dx%d", &width, &height) != 2)
-    return;
+    // An explicit size has been requested
 
-  remoteResize(width, height);
+    if (sscanf(desktopSize.getValueStr(), "%dx%d", &width, &height) != 2)
+      return;
+
+    remoteResize(width, height);
+  } else if (::remoteResize) {
+    // No explicit size, but remote resizing is on so make sure it
+    // matches whatever size the window ended up being
+    remoteResize(w(), h());
+  }
 }
 
 
@@ -799,7 +802,7 @@ void DesktopWindow::remoteResize(int width, int height)
              cc->cp.width, cc->cp.height, width, height, layout.num_screens());
 
   if (!layout.validate(width, height)) {
-    vlog.error("Invalid screen layout computed for resize request!");
+    vlog.error(_("Invalid screen layout computed for resize request!"));
     return;
   }
 

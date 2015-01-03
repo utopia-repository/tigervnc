@@ -17,17 +17,13 @@
  */
 #include <rdr/InStream.h>
 #include <rfb/CMsgReader.h>
-#include <rfb/CMsgHandler.h>
+#include <rfb/CConnection.h>
+#include <rfb/PixelBuffer.h>
 #include <rfb/RawDecoder.h>
 
 using namespace rfb;
 
-Decoder* RawDecoder::create(CMsgReader* reader)
-{
-  return new RawDecoder(reader);
-}
-
-RawDecoder::RawDecoder(CMsgReader* reader_) : reader(reader_)
+RawDecoder::RawDecoder(CConnection* conn) : Decoder(conn)
 {
 }
 
@@ -35,20 +31,21 @@ RawDecoder::~RawDecoder()
 {
 }
 
-void RawDecoder::readRect(const Rect& r, CMsgHandler* handler)
+void RawDecoder::readRect(const Rect& r, ModifiablePixelBuffer* pb)
 {
   int x = r.tl.x;
   int y = r.tl.y;
   int w = r.width();
   int h = r.height();
   int nPixels;
-  rdr::U8* imageBuf = reader->getImageBuf(w, w*h, &nPixels);
-  int bytesPerRow = w * (reader->bpp() / 8);
+  rdr::U8* imageBuf = conn->reader()->getImageBuf(w, w*h, &nPixels);
+  const PixelFormat& pf = conn->cp.pf();
+  int bytesPerRow = w * (pf.bpp / 8);
   while (h > 0) {
     int nRows = nPixels / w;
     if (nRows > h) nRows = h;
-    reader->getInStream()->readBytes(imageBuf, nRows * bytesPerRow);
-    handler->imageRect(Rect(x, y, x+w, y+nRows), imageBuf);
+    conn->getInStream()->readBytes(imageBuf, nRows * bytesPerRow);
+    pb->imageRect(pf, Rect(x, y, x+w, y+nRows), imageBuf);
     h -= nRows;
     y += nRows;
   }

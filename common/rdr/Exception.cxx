@@ -22,6 +22,9 @@
 #include <config.h>
 #endif
 
+#include <stdio.h>
+#include <stdarg.h>
+
 #include <rdr/Exception.h>
 #include <rdr/TLSException.h>
 #ifdef _WIN32
@@ -29,8 +32,6 @@
 #include <winsock2.h>
 #include <windows.h>
 #endif
-
-#include <os/print.h>
 
 #include <string.h>
 
@@ -49,7 +50,7 @@ Exception::Exception(const char *format, ...) {
 }
 
 SystemException::SystemException(const char* s, int err_)
-  : Exception(s), err(err_)
+  : Exception("%s", s), err(err_)
 {
   strncat(str_, ": ", len-1-strlen(str_));
 #ifdef _WIN32

@@ -1,5 +1,5 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
- * Copyright 2011 Pierre Ossman <ossman@cendio.se> for Cendio AB
+ * Copyright 2011-2014 Pierre Ossman for Cendio AB
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,6 @@
 #include <config.h>
 #endif
 
-#include <assert.h>
 #include <stdlib.h>
 
 #include <FL/x.H>
@@ -29,11 +28,12 @@
 #include <rfb/LogWriter.h>
 #include <rfb/Exception.h>
 
+#include "i18n.h"
 #include "X11PixelBuffer.h"
 
 using namespace rfb;
 
-static rfb::LogWriter vlog("PlatformPixelBuffer");
+static rfb::LogWriter vlog("X11PixelBuffer");
 
 static PixelFormat display_pf()
 {
@@ -56,7 +56,7 @@ static PixelFormat display_pf()
     if (format[i].depth == fl_visual->depth) break;
 
   if (i == nformats)
-    throw rfb::Exception("Error: display lacks pixmap format for default depth");
+    throw rfb::Exception(_("Display lacks pixmap format for default depth"));
 
   switch (format[i].bits_per_pixel) {
   case 8:
@@ -65,7 +65,7 @@ static PixelFormat display_pf()
     bpp = format[i].bits_per_pixel;
     break;
   default:
-    throw rfb::Exception("Error: couldn't find suitable pixmap format");
+    throw rfb::Exception(_("Couldn't find suitable pixmap format"));
   }
 
   XFree(format);
@@ -74,9 +74,9 @@ static PixelFormat display_pf()
   trueColour = (fl_visual->c_class == TrueColor);
 
   if (!trueColour)
-    throw rfb::Exception("Error: only true colour displays supported");
+    throw rfb::Exception(_("Only true colour displays supported"));
 
-  vlog.info("Using default colormap and visual, %sdepth %d.",
+  vlog.info(_("Using default colormap and visual, %sdepth %d."),
             (fl_visual->c_class == TrueColor) ? "TrueColor, " :
             ((fl_visual->c_class == PseudoColor) ? "PseudoColor, " : ""),
             fl_visual->depth);
@@ -93,8 +93,8 @@ static PixelFormat display_pf()
                      redShift, greenShift, blueShift);
 }
 
-PlatformPixelBuffer::PlatformPixelBuffer(int width, int height) :
-  FullFramePixelBuffer(display_pf(), width, height, NULL, NULL),
+X11PixelBuffer::X11PixelBuffer(int width, int height) :
+  PlatformPixelBuffer(display_pf(), width, height, NULL, 0),
   shminfo(NULL), xim(NULL)
 {
   // Might not be open at this point
@@ -103,17 +103,20 @@ PlatformPixelBuffer::PlatformPixelBuffer(int width, int height) :
   if (!setupShm()) {
     xim = XCreateImage(fl_display, fl_visual->visual, fl_visual->depth,
                        ZPixmap, 0, 0, width, height, BitmapPad(fl_display), 0);
-    assert(xim);
+    if (!xim)
+      throw rfb::Exception(_("Could not create framebuffer image"));
 
     xim->data = (char*)malloc(xim->bytes_per_line * xim->height);
-    assert(xim->data);
+    if (!xim->data)
+      throw rfb::Exception(_("Not enough memory for framebuffer"));
   }
 
   data = (rdr::U8*)xim->data;
+  stride = xim->bytes_per_line / (getPF().bpp/8);
 }
 
 
-PlatformPixelBuffer::~PlatformPixelBuffer()
+X11PixelBuffer::~X11PixelBuffer()
 {
   if (shminfo) {
     vlog.debug("Freeing shared memory XImage");
@@ -130,7 +133,7 @@ PlatformPixelBuffer::~PlatformPixelBuffer()
 }
 
 
-void PlatformPixelBuffer::draw(int src_x, int src_y, int x, int y, int w, int h)
+void X11PixelBuffer::draw(int src_x, int src_y, int x, int y, int w, int h)
 {
   if (shminfo)
     XShmPutImage(fl_display, fl_window, fl_gc, xim, src_x, src_y, x, y, w, h, False);
@@ -138,11 +141,6 @@ void PlatformPixelBuffer::draw(int src_x, int src_y, int x, int y, int w, int h)
     XPutImage(fl_display, fl_window, fl_gc, xim, src_x, src_y, x, y, w, h);
 }
 
-
-int PlatformPixelBuffer::getStride() const
-{
-  return xim->bytes_per_line / (getPF().bpp/8);
-}
 
 static bool caughtError;
 
@@ -152,12 +150,17 @@ static int XShmAttachErrorHandler(Display *dpy, XErrorEvent *error)
   return 0;
 }
 
-int PlatformPixelBuffer::setupShm()
+int X11PixelBuffer::setupShm()
 {
   int major, minor;
   Bool pixmaps;
   XErrorHandler old_handler;
   Status status;
+  const char *display_name = XDisplayName (NULL);
+
+  /* Don't use MIT-SHM on remote displays */
+  if (*display_name && *display_name != ':')
+    return 0;
 
   if (!XShmQueryVersion(fl_display, &major, &minor, &pixmaps))
     return 0;
@@ -186,7 +189,11 @@ int PlatformPixelBuffer::setupShm()
   caughtError = false;
   old_handler = XSetErrorHandler(XShmAttachErrorHandler);
 
-  XShmAttach(fl_display, shminfo);
+  if (!XShmAttach(fl_display, shminfo)) {
+    XSetErrorHandler(old_handler);
+    goto free_shmaddr;
+  }
+
   XSync(fl_display, False);
 
   XSetErrorHandler(old_handler);

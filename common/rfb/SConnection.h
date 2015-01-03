@@ -70,6 +70,11 @@ namespace rfb {
     void approveConnection(bool accept, const char* reason=0);
 
 
+    // Overridden from SMsgHandler
+
+    virtual void setEncodings(int nEncodings, rdr::S32* encodings);
+
+
     // Methods to be overridden in a derived class
 
     // versionReceived() indicates that the version number has just been read
@@ -101,11 +106,6 @@ namespace rfb {
     // message is received.  The derived class must call on to
     // SConnection::framebufferUpdateRequest().
     virtual void framebufferUpdateRequest(const Rect& r, bool incremental);
-
-    // setInitialColourMap() is called when the client needs an initial
-    // SetColourMapEntries message.  In fact this only happens when the client
-    // accepts the server's default pixel format and it uses a colour map.
-    virtual void setInitialColourMap();
 
     // fence() is called when we get a fence request or response. By default
     // it responds directly to requests (stating it doesn't support any
@@ -178,8 +178,11 @@ namespace rfb {
 
     stateEnum state() { return state_; }
 
+    rdr::S32 getPreferredEncoding() { return preferredEncoding; }
+
   protected:
     void setState(stateEnum s) { state_ = s; }
+    void writeFakeColourMap(void);
 
     bool readyForSetColourMapEntries;
 
@@ -198,6 +201,7 @@ namespace rfb {
     SSecurity* ssecurity;
     stateEnum state_;
     bool reverseConnection;
+    rdr::S32 preferredEncoding;
   };
 }
 #endif

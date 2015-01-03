@@ -16,14 +16,12 @@
  * USA.
  */
 #include <rfb/CMsgReader.h>
-#include <rfb/CMsgHandler.h>
+#include <rfb/CConnection.h>
+#include <rfb/PixelBuffer.h>
 #include <rfb/RREDecoder.h>
 
 using namespace rfb;
 
-#define EXTRA_ARGS CMsgHandler* handler
-#define FILL_RECT(r, p) handler->fillRect(r, p)
-#define IMAGE_RECT(r, p) handler->imageRect(r, p)
 #define BPP 8
 #include <rfb/rreDecode.h>
 #undef BPP
@@ -34,12 +32,7 @@ using namespace rfb;
 #include <rfb/rreDecode.h>
 #undef BPP
 
-Decoder* RREDecoder::create(CMsgReader* reader)
-{
-  return new RREDecoder(reader);
-}
-
-RREDecoder::RREDecoder(CMsgReader* reader_) : reader(reader_)
+RREDecoder::RREDecoder(CConnection* conn) : Decoder(conn)
 {
 }
 
@@ -47,12 +40,13 @@ RREDecoder::~RREDecoder()
 {
 }
 
-void RREDecoder::readRect(const Rect& r, CMsgHandler* handler)
+void RREDecoder::readRect(const Rect& r, ModifiablePixelBuffer* pb)
 {
-  rdr::InStream* is = reader->getInStream();
-  switch (reader->bpp()) {
-  case 8:  rreDecode8 (r, is, handler); break;
-  case 16: rreDecode16(r, is, handler); break;
-  case 32: rreDecode32(r, is, handler); break;
+  rdr::InStream* is = conn->getInStream();
+  const PixelFormat& pf = conn->cp.pf();
+  switch (pf.bpp) {
+  case 8:  rreDecode8 (r, is, pf, pb); break;
+  case 16: rreDecode16(r, is, pf, pb); break;
+  case 32: rreDecode32(r, is, pf, pb); break;
   }
 }

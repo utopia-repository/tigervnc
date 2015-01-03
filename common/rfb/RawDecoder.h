@@ -24,12 +24,9 @@ namespace rfb {
 
   class RawDecoder : public Decoder {
   public:
-    static Decoder* create(CMsgReader* reader);
-    virtual void readRect(const Rect& r, CMsgHandler* handler);
+    RawDecoder(CConnection* conn);
     virtual ~RawDecoder();
-  private:
-    RawDecoder(CMsgReader* reader);
-    CMsgReader* reader;
+    virtual void readRect(const Rect& r, ModifiablePixelBuffer* pb);
   };
 }
 #endif

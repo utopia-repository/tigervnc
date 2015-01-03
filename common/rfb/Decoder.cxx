@@ -1,4 +1,5 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
+ * Copyright 2014 Pierre Ossman for Cendio AB
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,9 +17,10 @@
  * USA.
  */
 #include <stdio.h>
-#include <rfb/Exception.h>
+#include <rfb/encodings.h>
 #include <rfb/Decoder.h>
 #include <rfb/RawDecoder.h>
+#include <rfb/CopyRectDecoder.h>
 #include <rfb/RREDecoder.h>
 #include <rfb/HextileDecoder.h>
 #include <rfb/ZRLEDecoder.h>
@@ -26,45 +28,45 @@
 
 using namespace rfb;
 
+Decoder::Decoder(CConnection* conn_) : conn(conn_)
+{
+}
+
 Decoder::~Decoder()
 {
 }
 
-DecoderCreateFnType Decoder::createFns[encodingMax+1] = { 0 };
-
 bool Decoder::supported(int encoding)
 {
-  return encoding >= 0 && encoding <= encodingMax && createFns[encoding];
+  switch (encoding) {
+  case encodingRaw:
+  case encodingCopyRect:
+  case encodingRRE:
+  case encodingHextile:
+  case encodingZRLE:
+  case encodingTight:
+    return true;
+  default:
+    return false;
+  }
 }
 
-Decoder* Decoder::createDecoder(int encoding, CMsgReader* reader)
+Decoder* Decoder::createDecoder(int encoding, CConnection* conn)
 {
-  if (supported(encoding))
-    return (*createFns[encoding])(reader);
-  return 0;
-}
-
-void Decoder::registerDecoder(int encoding,
-                              DecoderCreateFnType createFn)
-{
-  if (encoding > encodingMax)
-    throw Exception("Decoder::registerDecoder: encoding out of range");
-
-  if (createFns[encoding])
-    fprintf(stderr,"Replacing existing decoder for encoding %s (%d)\n",
-            encodingName(encoding), encoding);
-  createFns[encoding] = createFn;
-}
-
-int DecoderInit::count = 0;
-
-DecoderInit::DecoderInit()
-{
-  if (count++ != 0) return;
-
-  Decoder::registerDecoder(encodingRaw, RawDecoder::create);
-  Decoder::registerDecoder(encodingRRE, RREDecoder::create);
-  Decoder::registerDecoder(encodingHextile, HextileDecoder::create);
-  Decoder::registerDecoder(encodingZRLE, ZRLEDecoder::create);
-  Decoder::registerDecoder(encodingTight, TightDecoder::create);
+  switch (encoding) {
+  case encodingRaw:
+    return new RawDecoder(conn);
+  case encodingCopyRect:
+    return new CopyRectDecoder(conn);
+  case encodingRRE:
+    return new RREDecoder(conn);
+  case encodingHextile:
+    return new HextileDecoder(conn);
+  case encodingZRLE:
+    return new ZRLEDecoder(conn);
+  case encodingTight:
+    return new TightDecoder(conn);
+  default:
+    return NULL;
+  }
 }

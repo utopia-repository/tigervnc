@@ -22,10 +22,12 @@
 #include <rfb/Security.h>
 #include <rfb/msgTypes.h>
 #include <rfb/fenceTypes.h>
-#include <rfb/SMsgReaderV3.h>
-#include <rfb/SMsgWriterV3.h>
+#include <rfb/SMsgReader.h>
+#include <rfb/SMsgWriter.h>
 #include <rfb/SConnection.h>
 #include <rfb/ServerCore.h>
+#include <rfb/encodings.h>
+#include <rfb/EncodeManager.h>
 
 #include <rfb/LogWriter.h>
 
@@ -47,7 +49,8 @@ SConnection::SConnection(bool reverseConnection_)
   : readyForSetColourMapEntries(false),
     is(0), os(0), reader_(0), writer_(0),
     security(0), ssecurity(0), state_(RFBSTATE_UNINITIALISED),
-    reverseConnection(reverseConnection_)
+    reverseConnection(reverseConnection_),
+    preferredEncoding(encodingRaw)
 {
   defaultMajorVersion = 3;
   defaultMinorVersion = 8;
@@ -264,6 +267,21 @@ void SConnection::writeConnFailedFromScratch(const char* msg,
   os->flush();
 }
 
+void SConnection::setEncodings(int nEncodings, rdr::S32* encodings)
+{
+  int i;
+
+  preferredEncoding = encodingRaw;
+  for (i = 0;i < nEncodings;i++) {
+    if (EncodeManager::supported(encodings[i])) {
+      preferredEncoding = encodings[i];
+      break;
+    }
+  }
+
+  SMsgHandler::setEncodings(nEncodings, encodings);
+}
+
 void SConnection::versionReceived()
 {
 }
@@ -297,17 +315,13 @@ void SConnection::approveConnection(bool accept, const char* reason)
 
   if (accept) {
     state_ = RFBSTATE_INITIALISATION;
-    reader_ = new SMsgReaderV3(this, is);
-    writer_ = new SMsgWriterV3(&cp, os);
+    reader_ = new SMsgReader(this, is);
+    writer_ = new SMsgWriter(&cp, os);
     authSuccess();
   } else {
     state_ = RFBSTATE_INVALID;
     throw AuthFailureException(reason);
   }
-}
-
-void SConnection::setInitialColourMap()
-{
 }
 
 void SConnection::clientInit(bool shared)
@@ -320,6 +334,8 @@ void SConnection::setPixelFormat(const PixelFormat& pf)
 {
   SMsgHandler::setPixelFormat(pf);
   readyForSetColourMapEntries = true;
+  if (!pf.trueColour)
+    writeFakeColourMap();
 }
 
 void SConnection::framebufferUpdateRequest(const Rect& r, bool incremental)
@@ -327,7 +343,7 @@ void SConnection::framebufferUpdateRequest(const Rect& r, bool incremental)
   if (!readyForSetColourMapEntries) {
     readyForSetColourMapEntries = true;
     if (!cp.pf().trueColour) {
-      setInitialColourMap();
+      writeFakeColourMap();
     }
   }
 }
@@ -346,4 +362,15 @@ void SConnection::fence(rdr::U32 flags, unsigned len, const char data[])
 void SConnection::enableContinuousUpdates(bool enable,
                                           int x, int y, int w, int h)
 {
+}
+
+void SConnection::writeFakeColourMap(void)
+{
+  int i;
+  rdr::U16 red[256], green[256], blue[256];
+
+  for (i = 0;i < 256;i++)
+    cp.pf().rgbFromPixel(i, &red[i], &green[i], &blue[i]);
+
+  writer()->writeSetColourMapEntries(0, 256, red, green, blue);
 }

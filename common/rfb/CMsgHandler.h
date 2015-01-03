@@ -59,22 +59,12 @@ namespace rfb {
 
     virtual void framebufferUpdateStart() = 0;
     virtual void framebufferUpdateEnd() = 0;
-    virtual void beginRect(const Rect& r, int encoding) = 0;
-    virtual void endRect(const Rect& r, int encoding) = 0;
+    virtual void dataRect(const Rect& r, int encoding) = 0;
 
     virtual void setColourMapEntries(int firstColour, int nColours,
 				     rdr::U16* rgbs) = 0;
     virtual void bell() = 0;
     virtual void serverCutText(const char* str, rdr::U32 len) = 0;
-
-    virtual void fillRect(const Rect& r, Pixel pix) = 0;
-    virtual void imageRect(const Rect& r, void* pixels) = 0;
-    virtual void copyRect(const Rect& r, int srcX, int srcY) = 0;
-
-    virtual rdr::U8* getRawPixelsRW(const Rect& r, int* stride) = 0;
-    virtual void releaseRawPixels(const Rect& r) = 0;
-
-    virtual const PixelFormat &getPreferredPF(void) = 0;
 
     ConnParams cp;
   };

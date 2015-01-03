@@ -65,18 +65,17 @@ extern "C" {
 
   extern void vncExtensionInit();
   static void vncResetProc(ExtensionEntry* extEntry);
-  static void vncBlockHandler(pointer data, OSTimePtr t, pointer readmask);
-  static void vncWakeupHandler(pointer data, int nfds, pointer readmask);
+  static void vncBlockHandler(void * data, OSTimePtr t, void * readmask);
+  static void vncWakeupHandler(void * data, int nfds, void * readmask);
   void vncWriteBlockHandler(fd_set *fds);
   void vncWriteWakeupHandler(int nfds, fd_set *fds);
-  static void vncClientStateChange(CallbackListPtr*, pointer, pointer);
+  static void vncClientStateChange(CallbackListPtr*, void *, void *);
   static void SendSelectionChangeEvent(Atom selection);
   static int ProcVncExtDispatch(ClientPtr client);
   static int SProcVncExtDispatch(ClientPtr client);
-  static void vncSelectionCallback(CallbackListPtr *callbacks, pointer data,
-				   pointer args);
+  static void vncSelectionCallback(CallbackListPtr *callbacks, void * data,
+				   void * args);
 
-  extern char *display;
   extern char *listenaddr;
 }
 
@@ -168,8 +167,10 @@ static PixelFormat vncGetPixelFormat(ScreenPtr pScreen)
 
   trueColour = (vis->c_class == TrueColor);
 
-  if (!trueColour && bpp != 8)
-    throw rfb::Exception("X server uses unsupported visual");
+  if (!trueColour) {
+    fprintf(stderr,"pseudocolour not supported");
+    abort();
+  }
 
   redShift   = ffs(vis->redMask) - 1;
   greenShift = ffs(vis->greenMask) - 1;
@@ -266,9 +267,6 @@ void vncExtensionInit()
           desktop[scr]->addClient(sock, false);
           vlog.info("added inetd sock");
         }
-
-      } else {
-        desktop[scr]->serverReset(screenInfo.screens[scr]);
       }
 
       vncHooksInit(screenInfo.screens[scr], desktop[scr]);
@@ -285,7 +283,7 @@ static void vncResetProc(ExtensionEntry* extEntry)
 {
 }
 
-static void vncSelectionCallback(CallbackListPtr *callbacks, pointer data, pointer args)
+static void vncSelectionCallback(CallbackListPtr *callbacks, void * data, void * args)
 {
   SelectionInfoRec *info = (SelectionInfoRec *) args;
   Selection *selection = info->selection;
@@ -302,7 +300,7 @@ static void vncWriteWakeupHandlerFallback();
 // selections have changed, and if so, notify any interested X clients.
 //
 
-static void vncBlockHandler(pointer data, OSTimePtr timeout, pointer readmask)
+static void vncBlockHandler(void * data, OSTimePtr timeout, void * readmask)
 {
   fd_set* fds = (fd_set*)readmask;
 
@@ -313,7 +311,7 @@ static void vncBlockHandler(pointer data, OSTimePtr timeout, pointer readmask)
       desktop[scr]->blockHandler(fds, timeout);
 }
 
-static void vncWakeupHandler(pointer data, int nfds, pointer readmask)
+static void vncWakeupHandler(void * data, int nfds, void * readmask)
 {
   fd_set* fds = (fd_set*)readmask;
 
@@ -403,7 +401,7 @@ static void vncWriteWakeupHandlerFallback()
   vncWriteWakeupHandler(ret, &fallbackFds);
 }
 
-static void vncClientStateChange(CallbackListPtr*, pointer, pointer p)
+static void vncClientStateChange(CallbackListPtr*, void *, void * p)
 {
   ClientPtr client = ((NewClientInfoRec*)p)->client;
   if (client->clientState == ClientStateGone) {
@@ -469,7 +467,7 @@ void vncClientCutText(const char* str, int len)
 
 
 static CARD32 queryConnectTimerCallback(OsTimerPtr timer,
-                                        CARD32 now, pointer arg)
+                                        CARD32 now, void * arg)
 {
   if (queryConnectTimeout)
     queryConnectDesktop->approveConnection(queryConnectId, false, "The attempt to prompt the user to accept the connection failed");
@@ -1070,7 +1068,7 @@ static int ProcVncExtApproveConnect(ClientPtr client)
 {
   REQUEST(xVncExtApproveConnectReq);
   REQUEST_SIZE_MATCH(xVncExtApproveConnectReq);
-  if (queryConnectId == (void*)stuff->opaqueId) {
+  if ((CARD32)(long)queryConnectId == stuff->opaqueId) {
     for (int scr = 0; scr < screenInfo.numScreens; scr++) {
       if (desktop[scr]) {
         desktop[scr]->approveConnection(queryConnectId, stuff->approve,

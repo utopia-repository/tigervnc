@@ -1,4 +1,5 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
+ * Copyright 2014 Pierre Ossman for Cendio AB
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,34 +20,28 @@
 #define __RFB_DECODER_H__
 
 #include <rfb/Rect.h>
-#include <rfb/encodings.h>
 
 namespace rfb {
-  class CMsgReader;
-  class CMsgHandler;
-  class Decoder;
-  typedef Decoder* (*DecoderCreateFnType)(CMsgReader*);
+  class CConnection;
+  class ModifiablePixelBuffer;
 
   class Decoder {
   public:
+    Decoder(CConnection* conn);
     virtual ~Decoder();
-    virtual void readRect(const Rect& r, CMsgHandler* handler)=0;
+
+    // readRect() is the main interface that decodes the given rectangle
+    // with data from the CConnection, given at decoder creation, onto
+    // the ModifiablePixelBuffer. The PixelFormat of the PixelBuffer might
+    // not match the ConnParams and it is up to the decoder to do
+    // any necessary conversion.
+    virtual void readRect(const Rect& r, ModifiablePixelBuffer* pb)=0;
 
     static bool supported(int encoding);
-    static Decoder* createDecoder(int encoding, CMsgReader* reader);
-    static void registerDecoder(int encoding,
-                                DecoderCreateFnType createFn);
-  private:
-    static DecoderCreateFnType createFns[encodingMax+1];
+    static Decoder* createDecoder(int encoding, CConnection* conn);
+  protected:
+    CConnection* conn;
   };
-
-  class DecoderInit {
-    static int count;
-  public:
-    DecoderInit();
-  };
-
-  static DecoderInit decoderInitObj;
 }
 
 #endif

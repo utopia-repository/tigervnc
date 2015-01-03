@@ -1,5 +1,5 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
- * Copyright 2011 Pierre Ossman <ossman@cendio.se> for Cendio AB
+ * Copyright 2011-2014 Pierre Ossman for Cendio AB
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,6 @@
 #include <config.h>
 #endif
 
-#include <assert.h>
 #include <stdlib.h>
 
 #include <windows.h>
@@ -31,16 +30,17 @@
 #include <rfb/LogWriter.h>
 #include <rfb/Exception.h>
 
+#include "i18n.h"
 #include "Win32PixelBuffer.h"
 
 using namespace rfb;
 
-static rfb::LogWriter vlog("PlatformPixelBuffer");
+static rfb::LogWriter vlog("Win32PixelBuffer");
 
-PlatformPixelBuffer::PlatformPixelBuffer(int width, int height) :
-  FullFramePixelBuffer(rfb::PixelFormat(32, 24, false, true,
-                                        255, 255, 255, 16, 8, 0),
-                       width, height, NULL, NULL),
+Win32PixelBuffer::Win32PixelBuffer(int width, int height) :
+  PlatformPixelBuffer(rfb::PixelFormat(32, 24, false, true,
+                                       255, 255, 255, 16, 8, 0),
+                      width, height, NULL, width),
   bitmap(NULL)
 {
   BITMAPINFOHEADER bih;
@@ -59,27 +59,27 @@ PlatformPixelBuffer::PlatformPixelBuffer(int width, int height) :
                             DIB_RGB_COLORS, (void**)&data, NULL, 0);
   if (!bitmap) {
     int err = GetLastError();
-    throw rdr::SystemException("unable to create DIB section", err);
+    throw rdr::SystemException(_("unable to create DIB section"), err);
   }
 }
 
 
-PlatformPixelBuffer::~PlatformPixelBuffer()
+Win32PixelBuffer::~Win32PixelBuffer()
 {
   DeleteObject(bitmap);
 }
 
 
-void PlatformPixelBuffer::draw(int src_x, int src_y, int x, int y, int w, int h)
+void Win32PixelBuffer::draw(int src_x, int src_y, int x, int y, int w, int h)
 {
   HDC dc;
 
   dc = CreateCompatibleDC(fl_gc);
   if (!dc)
-    throw rdr::SystemException("CreateCompatibleDC failed", GetLastError());
+    throw rdr::SystemException(_("CreateCompatibleDC failed"), GetLastError());
 
   if (!SelectObject(dc, bitmap))
-    throw rdr::SystemException("SelectObject failed", GetLastError());
+    throw rdr::SystemException(_("SelectObject failed"), GetLastError());
 
   if (!BitBlt(fl_gc, x, y, w, h, dc, src_x, src_y, SRCCOPY)) {
     // If the desktop we're rendering to is inactive (like when the screen
@@ -88,7 +88,7 @@ void PlatformPixelBuffer::draw(int src_x, int src_y, int x, int y, int w, int h)
     // with it. For now, we've only seen this error and for this function
     // so only ignore this combination.
     if (GetLastError() != ERROR_INVALID_HANDLE)
-      throw rdr::SystemException("BitBlt failed", GetLastError());
+      throw rdr::SystemException(_("BitBlt failed"), GetLastError());
   }
 
   DeleteDC(dc);

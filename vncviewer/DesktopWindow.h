@@ -23,13 +23,15 @@
 #include <map>
 
 #include <rfb/Rect.h>
+#include <rfb/Pixel.h>
 
-#include "Viewport.h"
-
-#include <FL/Fl.H>
 #include <FL/Fl_Window.H>
 
+namespace rfb { class ModifiablePixelBuffer; }
+
 class CConn;
+class Viewport;
+
 class Fl_Scroll;
 
 class DesktopWindow : public Fl_Window {
@@ -39,38 +41,22 @@ public:
                 const rfb::PixelFormat& serverPF, CConn* cc_);
   ~DesktopWindow();
 
-  // PixelFormat of incoming write operations
-  void setServerPF(const rfb::PixelFormat& pf);
   // Most efficient format (from DesktopWindow's point of view)
   const rfb::PixelFormat &getPreferredPF();
 
   // Flush updates to screen
   void updateWindow();
 
-  // Methods forwarded from CConn
+  // Updated session title
   void setName(const char *name);
 
-  void setColourMapEntries(int firstColour, int nColours, rdr::U16* rgbs);
+  // Return a pointer to the framebuffer for decoders to write into
+  rfb::ModifiablePixelBuffer* getFramebuffer(void);
 
-  void fillRect(const rfb::Rect& r, rfb::Pixel pix) {
-    viewport->fillRect(r, pix);
-  }
-  void imageRect(const rfb::Rect& r, void* pixels) {
-    viewport->imageRect(r, pixels);
-  }
-  void copyRect(const rfb::Rect& r, int srcX, int srcY) {
-    viewport->copyRect(r, srcX, srcY);
-  }
-
-  rdr::U8* getPixelsRW(const rfb::Rect& r, int* stride) {
-    return viewport->getPixelsRW(r, stride);
-  }
-  void damageRect(const rfb::Rect& r) {
-    viewport->damageRect(r);
-  }
-
+  // Resize the current framebuffer, but retain the contents
   void resizeFramebuffer(int new_w, int new_h);
 
+  // New image for the locally rendered cursor
   void setCursor(int width, int height, const rfb::Point& hotspot,
                  void* data, void* mask);
 

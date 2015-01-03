@@ -16,14 +16,12 @@
  * USA.
  */
 #include <rfb/CMsgReader.h>
-#include <rfb/CMsgHandler.h>
+#include <rfb/CConnection.h>
+#include <rfb/PixelBuffer.h>
 #include <rfb/HextileDecoder.h>
 
 using namespace rfb;
 
-#define EXTRA_ARGS CMsgHandler* handler
-#define FILL_RECT(r, p) handler->fillRect(r, p)
-#define IMAGE_RECT(r, p) handler->imageRect(r, p)
 #define BPP 8
 #include <rfb/hextileDecode.h>
 #undef BPP
@@ -34,12 +32,7 @@ using namespace rfb;
 #include <rfb/hextileDecode.h>
 #undef BPP
 
-Decoder* HextileDecoder::create(CMsgReader* reader)
-{
-  return new HextileDecoder(reader);
-}
-
-HextileDecoder::HextileDecoder(CMsgReader* reader_) : reader(reader_)
+HextileDecoder::HextileDecoder(CConnection* conn) : Decoder(conn)
 {
 }
 
@@ -47,13 +40,14 @@ HextileDecoder::~HextileDecoder()
 {
 }
 
-void HextileDecoder::readRect(const Rect& r, CMsgHandler* handler)
+void HextileDecoder::readRect(const Rect& r, ModifiablePixelBuffer* pb)
 {
-  rdr::InStream* is = reader->getInStream();
-  rdr::U8* buf = reader->getImageBuf(16 * 16 * 4);
-  switch (reader->bpp()) {
-  case 8:  hextileDecode8 (r, is, (rdr::U8*) buf, handler); break;
-  case 16: hextileDecode16(r, is, (rdr::U16*)buf, handler); break;
-  case 32: hextileDecode32(r, is, (rdr::U32*)buf, handler); break;
+  rdr::InStream* is = conn->getInStream();
+  rdr::U8* buf = conn->reader()->getImageBuf(16 * 16 * 4);
+  const PixelFormat& pf = conn->cp.pf();
+  switch (pf.bpp) {
+  case 8:  hextileDecode8 (r, is, (rdr::U8*) buf, pf, pb); break;
+  case 16: hextileDecode16(r, is, (rdr::U16*)buf, pf, pb); break;
+  case 32: hextileDecode32(r, is, (rdr::U32*)buf, pf, pb); break;
   }
 }
