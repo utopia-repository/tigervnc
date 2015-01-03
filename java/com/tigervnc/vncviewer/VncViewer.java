@@ -1,18 +1,18 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
  * Copyright 2011 Pierre Ossman <ossman@cendio.se> for Cendio AB
- * Copyright (C) 2011 D. R. Commander.  All Rights Reserved.
- * Copyright (C) 2011-2013 Brian P. Hinz
- * 
+ * Copyright (C) 2011-2013 D. R. Commander.  All Rights Reserved.
+ * Copyright (C) 2011-2014 Brian P. Hinz
+ *
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This software is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
@@ -31,6 +31,7 @@
 package com.tigervnc.vncviewer;
 
 import java.awt.*;
+import java.awt.event.*;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Image;
@@ -38,6 +39,7 @@ import java.io.InputStream;
 import java.io.IOException;
 import java.io.File;
 import java.lang.Character;
+import java.lang.reflect.*;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.*;
@@ -49,28 +51,42 @@ import com.tigervnc.rdr.*;
 import com.tigervnc.rfb.*;
 import com.tigervnc.network.*;
 
-public class VncViewer extends java.applet.Applet implements Runnable
-{
+public class VncViewer extends javax.swing.JApplet 
+  implements Runnable, ActionListener {
+
   public static final String aboutText = new String("TigerVNC Java Viewer v%s (%s)%n"+
                                                     "Built on %s at %s%n"+
-                                                    "Copyright (C) 1999-2012 TigerVNC Team and many others (see README.txt)%n"+
+                                                    "Copyright (C) 1999-2013 TigerVNC Team and many others (see README.txt)%n"+
                                                     "See http://www.tigervnc.org for information on TigerVNC.");
-                                           
+
   public static String version = null;
   public static String build = null;
   public static String buildDate = null;
   public static String buildTime = null;
-  static ImageIcon frameIconSrc = 
+  static ImageIcon frameIconSrc =
     new ImageIcon(VncViewer.class.getResource("tigervnc.ico"));
   public static final Image frameIcon = frameIconSrc.getImage();
-  public static final ImageIcon logoIcon = 
+  public static final ImageIcon logoIcon =
     new ImageIcon(VncViewer.class.getResource("tigervnc.png"));
   public static final Image logoImage = logoIcon.getImage();
-  public static final InputStream timestamp = 
+  public static final InputStream timestamp =
     VncViewer.class.getResourceAsStream("timestamp");
+  public static final String os = 
+    System.getProperty("os.name").toLowerCase();
 
   public static void setLookAndFeel() {
     try {
+      if (os.startsWith("mac os x")) {
+        Class appClass = Class.forName("com.apple.eawt.Application");
+        Method getApplication = 
+          appClass.getMethod("getApplication", (Class[])null);
+        Object app = getApplication.invoke(appClass);
+        Class paramTypes[] = new Class[1];
+        paramTypes[0] = Image.class;
+        Method setDockIconImage = 
+          appClass.getMethod("setDockIconImage", paramTypes);
+        setDockIconImage.invoke(app, VncViewer.logoImage);
+      }
       // Use Nimbus LookAndFeel if it's available, otherwise fallback
       // to the native laf, or Metal if no native laf is available.
       String laf = System.getProperty("swing.defaultlaf");
@@ -107,7 +123,7 @@ public class VncViewer extends java.applet.Applet implements Runnable
         FontUIResource r = new FontUIResource(name, style, size);
       	UIManager.put("TitledBorder.font", r);
       }
-    } catch (java.lang.Exception e) { 
+    } catch (java.lang.Exception e) {
       vlog.info(e.toString());
     }
   }
@@ -118,19 +134,19 @@ public class VncViewer extends java.applet.Applet implements Runnable
     viewer.start();
   }
 
-  
+
   public VncViewer(String[] argv) {
-    applet = false;
+    embed.setParam(false);
 
     // load user preferences
     UserPreferences.load("global");
 
     SecurityClient.setDefaults();
-    
+
     // Write about text to console, still using normal locale codeset
     getTimestamp();
     System.err.format("%n");
-    System.err.format(aboutText, version, build, buildDate, buildTime); 
+    System.err.format(aboutText, version, build, buildDate, buildTime);
     System.err.format("%n");
 
     Configuration.enableViewerParams();
@@ -266,12 +282,12 @@ public class VncViewer extends java.applet.Applet implements Runnable
 
   public VncViewer() {
     UserPreferences.load("global");
-    applet = true;
+    embed.setParam(true);
   }
 
   public static void newViewer(VncViewer oldViewer, Socket sock, boolean close) {
     VncViewer viewer = new VncViewer();
-    viewer.applet = oldViewer.applet;
+    viewer.embed.setParam(oldViewer.embed.getValue());
     viewer.sock = sock;
     viewer.start();
     if (close)
@@ -286,8 +302,56 @@ public class VncViewer extends java.applet.Applet implements Runnable
     newViewer(oldViewer, null);
   }
 
+  public boolean isAppletDragStart(MouseEvent e) {
+    if(e.getID() == MouseEvent.MOUSE_DRAGGED) {
+      // Drag undocking on Mac works, but introduces a host of
+      // problems so disable it for now.
+      if (os.startsWith("mac os x"))
+        return false;
+      else if (os.startsWith("windows"))
+        return (e.getModifiersEx() & MouseEvent.ALT_DOWN_MASK) != 0;
+      else
+        return (e.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK) != 0;
+    } else {
+      return false;
+    }
+  }
+
+  public void appletDragStarted() {
+    embed.setParam(false);
+    cc.recreateViewport();
+    JFrame f = (JFrame)JOptionPane.getFrameForComponent(this);
+    // The default JFrame created by the drag event will be
+    // visible briefly between appletDragStarted and Finished.
+    if (f != null)
+      f.setSize(0, 0);
+  }
+
+  public void appletDragFinished() {
+    cc.setEmbeddedFeatures(true);
+    JFrame f = (JFrame)JOptionPane.getFrameForComponent(this);
+    if (f != null)
+      f.dispose();
+  }
+
+  public void setAppletCloseListener(ActionListener cl) {
+    cc.setCloseListener(cl);
+  }
+
+  public void appletRestored() {
+    cc.setEmbeddedFeatures(false);
+    cc.setCloseListener(null);
+  }
+
   public void init() {
     vlog.debug("init called");
+    Container parent = getParent();
+    while (!parent.isFocusCycleRoot()) {
+      parent = parent.getParent();
+    }
+    ((Frame)parent).setModalExclusionType(null);
+    parent.setFocusable(false);
+    parent.setFocusTraversalKeysEnabled(false);
     setLookAndFeel();
     setBackground(Color.white);
   }
@@ -308,9 +372,11 @@ public class VncViewer extends java.applet.Applet implements Runnable
   public void start() {
     vlog.debug("start called");
     getTimestamp();
-    if (applet && nViewers == 0) {
-      alwaysShowServerDialog.setParam(true);
+    if (embed.getValue() && nViewers == 0) {
+      alwaysShowServerDialog.setParam(false);
       Configuration.global().readAppletParams(this);
+      fullScreen.setParam(false);
+      scalingFactor.setParam("100");
       String host = getCodeBase().getHost();
       if (vncServerName.getValue() == null && vncServerPort.getValue() != 0) {
         int port = vncServerPort.getValue();
@@ -328,27 +394,53 @@ public class VncViewer extends java.applet.Applet implements Runnable
     nViewers--;
     if (nViewers > 0)
       return;
-    if (applet) {
+    if (embed.getValue())
       destroy();
-    } else {
+    else
       System.exit(n);
+  }
+
+  // If "Reconnect" button is pressed
+  public void actionPerformed(ActionEvent e) {
+    getContentPane().removeAll();
+    start();
+  }
+
+  void reportException(java.lang.Exception e) {
+    String title, msg = e.getMessage();
+    int msgType = JOptionPane.ERROR_MESSAGE;
+    title = "TigerVNC Viewer : Error";
+    e.printStackTrace();
+    if (embed.getValue()) {
+      getContentPane().removeAll();
+      JLabel label = new JLabel("<html><center><b>" + title + "</b><p><i>" +
+                                msg + "</i></center></html>", JLabel.CENTER);
+      label.setFont(new Font("Helvetica", Font.PLAIN, 24));
+      label.setMaximumSize(new Dimension(getSize().width, 100));
+      label.setVerticalAlignment(JLabel.CENTER);
+      label.setAlignmentX(Component.CENTER_ALIGNMENT);
+      JButton button = new JButton("Reconnect");
+      button.addActionListener(this);
+      button.setMaximumSize(new Dimension(200, 30));
+      button.setAlignmentX(Component.CENTER_ALIGNMENT);
+      setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
+      add(label);
+      add(button);
+      validate();
+      repaint();
+    } else {
+      JOptionPane.showMessageDialog(null, msg, title, msgType);
     }
   }
 
-  public void paint(Graphics g) {
-    g.drawImage(logoImage, 0, 0, this);
-    int h = logoImage.getHeight(this)+20;
-    g.drawString(String.format(aboutText, version, build, 
-                               buildDate, buildTime), 0, h);
-  }
-
+  CConn cc;
   public void run() {
-    CConn cc = null;
+    cc = null;
 
     if (listenMode.getValue()) {
       int port = 5500;
 
-      if (vncServerName.getValue() != null && 
+      if (vncServerName.getValue() != null &&
           Character.isDigit(vncServerName.getValue().charAt(0)))
         port = Integer.parseInt(vncServerName.getValue());
 
@@ -356,7 +448,7 @@ public class VncViewer extends java.applet.Applet implements Runnable
       try {
         listener = new TcpListener(null, port);
       } catch (java.lang.Exception e) {
-        System.out.println(e.toString());
+        reportException(e);
         exit(1);
       }
 
@@ -365,7 +457,7 @@ public class VncViewer extends java.applet.Applet implements Runnable
       while (true) {
         Socket new_sock = listener.accept();
         if (new_sock != null)
-          newViewer(this, new_sock);
+          newViewer(this, new_sock, true);
       }
     }
 
@@ -374,23 +466,33 @@ public class VncViewer extends java.applet.Applet implements Runnable
       while (!cc.shuttingDown)
         cc.processMsg();
     } catch (java.lang.Exception e) {
-      if (e instanceof EndOfStream) {
-        vlog.info(e.getMessage());
-      } else if (cc == null || !cc.shuttingDown) {
-        e.printStackTrace();
-        JOptionPane op = 
-          new JOptionPane(e.getMessage(), JOptionPane.WARNING_MESSAGE);
-        JDialog dlg = op.createDialog("TigerVNC Viewer");
-        dlg.setIconImage(frameIcon);
-        dlg.setVisible(true);
+      if (cc == null || !cc.shuttingDown) {
+        reportException(e);
+        if (cc != null)
+          cc.deleteWindow();
+        exit(1);
+      } else if (embed.getValue()) {
+        reportException(new java.lang.Exception("Connection closed"));
       } else {
-        if (!cc.shuttingDown)
-          vlog.info(e.toString());
         cc = null;
       }
     }
     exit(0);
   }
+
+  static BoolParameter noLionFS
+  = new BoolParameter("NoLionFS",
+  "On Mac systems, setting this parameter will force the use of the old "+
+  "(pre-Lion) full-screen mode, even if the viewer is running on OS X 10.7 "+
+  "Lion or later.",
+  false);
+
+  BoolParameter embed
+  = new BoolParameter("Embed",
+  "If the viewer is being run as an applet, display its output to " +
+  "an embedded frame in the browser window rather than to a dedicated " +
+  "window. Embed=1 implies FullScreen=0 and Scale=100.",
+  false);
 
   BoolParameter useLocalCursor
   = new BoolParameter("UseLocalCursor",
@@ -427,7 +529,7 @@ public class VncViewer extends java.applet.Applet implements Runnable
   = new IntParameter("LowColorLevel",
                      "Color level to use on slow connections. "+
                      "0 = Very Low (8 colors), 1 = Low (64 colors), "+
-                     "2 = Medium (256 colors)", 
+                     "2 = Medium (256 colors)",
                      2);
   AliasParameter lowColourLevelAlias
   = new AliasParameter("LowColourLevel",
@@ -460,6 +562,10 @@ public class VncViewer extends java.applet.Applet implements Runnable
   = new BoolParameter("SendClipboard",
                       "Send clipboard changes to the server",
                       true);
+  static IntParameter maxCutText
+  = new IntParameter("MaxCutText",
+                     "Maximum permitted length of an outgoing clipboard update",
+                     262144);
   StringParameter menuKey
   = new StringParameter("MenuKey",
                         "The key which brings up the popup menu",
@@ -470,7 +576,7 @@ public class VncViewer extends java.applet.Applet implements Runnable
                         "connect (if possible)", "");
   BoolParameter listenMode
   = new BoolParameter("listen",
-                      "Listen for connections from VNC servers", 
+                      "Listen for connections from VNC servers",
                       false);
   StringParameter scalingFactor
   = new StringParameter("ScalingFactor",
@@ -503,7 +609,7 @@ public class VncViewer extends java.applet.Applet implements Runnable
                      0);
   BoolParameter acceptBell
   = new BoolParameter("AcceptBell",
-                      "Produce a system beep when requested to by the server.", 
+                      "Produce a system beep when requested to by the server.",
                       true);
   StringParameter via
   = new StringParameter("via",
@@ -556,7 +662,6 @@ public class VncViewer extends java.applet.Applet implements Runnable
 
   Thread thread;
   Socket sock;
-  boolean applet;
   static int nViewers;
   static LogWriter vlog = new LogWriter("main");
 }

@@ -19,7 +19,7 @@ JPEG codec.
 Legal
 =====
 
-TigerVNC is
+Incomplete and generally out of date copyright list:
 
         Copyright (C) 1999 AT&T Laboratories Cambridge
         Copyright (C) 2002-2005 RealVNC Ltd.
@@ -34,7 +34,7 @@ TigerVNC is
         Copyright (C) 2009-2011 D. R. Commander
         Copyright (C) 2009-2011 Pierre Ossman for Cendio AB
         Copyright (C) 2004, 2009-2011 Red Hat, Inc.
-        Copyright (C) 2009-2011 TigerVNC Team
+        Copyright (C) 2009-2013 TigerVNC Team
         All Rights Reserved.
 
 This software is distributed under the GNU General Public Licence as published
@@ -66,8 +66,7 @@ The Windows version of TigerVNC contains the following programs:
 
 The Windows version of TigerVNC should work on Windows 2000 and later.  On
 Windows XP and later, winvnc may not work if the Fast User Switching or Remote
-Desktop features are in use.  Running winvnc as a service does not (yet) work
-with Windows Vista or later.
+Desktop features are in use.
 
 
 Unix/Linux-Specific (not Mac)

@@ -1,4 +1,4 @@
-/* Copyright 2011 Pierre Ossman <ossman@cendio.se> for Cendio AB
+/* Copyright 2011-2014 Pierre Ossman for Cendio AB
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,8 +20,6 @@
 #include <config.h>
 #endif
 
-#include <assert.h>
-
 #include <ApplicationServices/ApplicationServices.h>
 
 #include <FL/Fl_Window.H>
@@ -30,38 +28,45 @@
 #include <rfb/LogWriter.h>
 #include <rfb/Exception.h>
 
+#include "i18n.h"
 #include "OSXPixelBuffer.h"
 
 using namespace rfb;
 
-static rfb::LogWriter vlog("PlatformPixelBuffer");
+static rfb::LogWriter vlog("OSXPixelBuffer");
 
-PlatformPixelBuffer::PlatformPixelBuffer(int width, int height) :
-  ManagedPixelBuffer(rfb::PixelFormat(32, 24, false, true,
-                                      255, 255, 255, 16, 8, 0),
-                     width, height),
+OSXPixelBuffer::OSXPixelBuffer(int width, int height) :
+  PlatformPixelBuffer(rfb::PixelFormat(32, 24, false, true,
+                                       255, 255, 255, 16, 8, 0),
+                      width, height, NULL, width),
   bitmap(NULL)
 {
   CGColorSpaceRef lut;
 
+  data = new rdr::U8[width * height * format.bpp/8];
+  if (data == NULL)
+    throw rfb::Exception(_("Not enough memory for framebuffer"));
+
   lut = CGColorSpaceCreateDeviceRGB();
-  assert(lut);
+  if (!lut)
+    throw rfb::Exception(_("Could not create framebuffer device"));
 
   bitmap = CGBitmapContextCreate(data, width, height, 8, width*4, lut,
                                  kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little);
-  assert(bitmap);
-
   CGColorSpaceRelease(lut);
+  if (!bitmap)
+    throw rfb::Exception(_("Could not create framebuffer bitmap"));
 }
 
 
-PlatformPixelBuffer::~PlatformPixelBuffer()
+OSXPixelBuffer::~OSXPixelBuffer()
 {
   CFRelease((CGContextRef)bitmap);
+  delete [] data;
 }
 
 
-void PlatformPixelBuffer::draw(int src_x, int src_y, int x, int y, int w, int h)
+void OSXPixelBuffer::draw(int src_x, int src_y, int x, int y, int w, int h)
 {
   CGRect rect;
   CGContextRef gc;

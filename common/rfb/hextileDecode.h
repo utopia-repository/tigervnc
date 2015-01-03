@@ -18,11 +18,8 @@
 //
 // Hextile decoding function.
 //
-// This file is #included after having set the following macros:
+// This file is #included after having set the following macro:
 // BPP                - 8, 16 or 32
-// EXTRA_ARGS         - optional extra arguments
-// FILL_RECT          - fill a rectangle with a single colour
-// IMAGE_RECT         - draw a rectangle of pixel data from a buffer
 
 #include <rdr/InStream.h>
 #include <rfb/hextileConstants.h>
@@ -40,11 +37,8 @@ namespace rfb {
 #define READ_PIXEL CONCAT2E(readOpaque,BPP)
 #define HEXTILE_DECODE CONCAT2E(hextileDecode,BPP)
 
-void HEXTILE_DECODE (const Rect& r, rdr::InStream* is, PIXEL_T* buf
-#ifdef EXTRA_ARGS
-                     , EXTRA_ARGS
-#endif
-                     )
+void HEXTILE_DECODE (const Rect& r, rdr::InStream* is, PIXEL_T* buf,
+                     const PixelFormat& pf, ModifiablePixelBuffer* pb)
 {
   Rect t;
   PIXEL_T bg = 0;
@@ -62,20 +56,16 @@ void HEXTILE_DECODE (const Rect& r, rdr::InStream* is, PIXEL_T* buf
 
       if (tileType & hextileRaw) {
 	is->readBytes(buf, t.area() * (BPP/8));
-	IMAGE_RECT(t, buf);
+	pb->imageRect(pf, t, buf);
 	continue;
       }
 
       if (tileType & hextileBgSpecified)
 	bg = is->READ_PIXEL();
 
-#ifdef FAVOUR_FILL_RECT
-      FILL_RECT(t, bg);
-#else
       int len = t.area();
       PIXEL_T* ptr = (PIXEL_T*)buf;
       while (len-- > 0) *ptr++ = bg;
-#endif
 
       if (tileType & hextileFgSpecified)
 	fg = is->READ_PIXEL();
@@ -91,14 +81,6 @@ void HEXTILE_DECODE (const Rect& r, rdr::InStream* is, PIXEL_T* buf
           int xy = is->readU8();
           int wh = is->readU8();
 
-#ifdef FAVOUR_FILL_RECT
-          Rect s;
-          s.tl.x = t.tl.x + ((xy >> 4) & 15);
-          s.tl.y = t.tl.y + (xy & 15);
-          s.br.x = s.tl.x + ((wh >> 4) & 15) + 1;
-          s.br.y = s.tl.y + (wh & 15) + 1;
-          FILL_RECT(s, fg);
-#else
           int x = ((xy >> 4) & 15);
           int y = (xy & 15);
           int w = ((wh >> 4) & 15) + 1;
@@ -110,12 +92,9 @@ void HEXTILE_DECODE (const Rect& r, rdr::InStream* is, PIXEL_T* buf
             while (len-- > 0) *ptr++ = fg;
             ptr += rowAdd;
           }
-#endif
         }
       }
-#ifndef FAVOUR_FILL_RECT
-      IMAGE_RECT(t, buf);
-#endif
+      pb->imageRect(pf, t, buf);
     }
   }
 }

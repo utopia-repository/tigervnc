@@ -1,6 +1,6 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
- * Copyright 2009-2011 Pierre Ossman <ossman@cendio.se> for Cendio AB
  * Copyright (C) 2011 D. R. Commander.  All Rights Reserved.
+ * Copyright 2009-2014 Pierre Ossman for Cendio AB
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,6 +29,7 @@
 
 #include <rfb/CMsgWriter.h>
 #include <rfb/encodings.h>
+#include <rfb/Decoder.h>
 #include <rfb/Hostname.h>
 #include <rfb/LogWriter.h>
 #include <rfb/util.h>
@@ -44,6 +45,7 @@
 
 #include "CConn.h"
 #include "OptionsDialog.h"
+#include "DesktopWindow.h"
 #include "i18n.h"
 #include "parameters.h"
 #include "vncviewer.h"
@@ -64,8 +66,9 @@ static const PixelFormat verylowColourPF(8, 3,false, true,
 // 64 colours (2 bits per component)
 static const PixelFormat lowColourPF(8, 6, false, true,
                                      3, 3, 3, 4, 2, 0);
-// 256 colours (palette)
-static const PixelFormat mediumColourPF(8, 8, false, false);
+// 256 colours (2-3 bits per component)
+static const PixelFormat mediumColourPF(8, 8, false, true,
+                                        7, 7, 3, 5, 2, 0);
 
 CConn::CConn(const char* vncServerName, network::Socket* socket=NULL)
   : serverHost(0), serverPort(0), desktop(NULL),
@@ -78,6 +81,8 @@ CConn::CConn(const char* vncServerName, network::Socket* socket=NULL)
   setShared(::shared);
   sock = socket;
 
+  memset(decoders, 0, sizeof(decoders));
+
   int encNum = encodingNum(preferredEncoding);
   if (encNum != -1)
     currentEncoding = encNum;
@@ -88,11 +93,15 @@ CConn::CConn(const char* vncServerName, network::Socket* socket=NULL)
   cp.supportsExtendedDesktopSize = true;
   cp.supportsDesktopRename = true;
 
-  cp.customCompressLevel = customCompressLevel;
-  cp.compressLevel = compressLevel;
+  if (customCompressLevel)
+    cp.compressLevel = compressLevel;
+  else
+    cp.compressLevel = -1;
 
-  cp.noJpeg = noJpeg;
-  cp.qualityLevel = qualityLevel;
+  if (!noJpeg)
+    cp.qualityLevel = qualityLevel;
+  else
+    cp.qualityLevel = -1;
 
   if(sock == NULL) {
     try {
@@ -125,6 +134,9 @@ CConn::~CConn()
 {
   OptionsDialog::removeCallback(handleOptions);
 
+  for (int i = 0; i < sizeof(decoders)/sizeof(decoders[0]); i++)
+    delete decoders[i];
+
   if (desktop)
     delete desktop;
 
@@ -148,31 +160,65 @@ const char *CConn::connectionInfo()
 {
   static char infoText[1024] = "";
 
+  char scratch[100];
   char pfStr[100];
-  char spfStr[100];
+
+  // Crude way of avoiding constant overflow checks
+  assert((sizeof(scratch) + 1) * 10 < sizeof(infoText));
+
+  infoText[0] = '\0';
+
+  snprintf(scratch, sizeof(scratch),
+           _("Desktop name: %.80s"), cp.name());
+  strcat(infoText, scratch);
+  strcat(infoText, "\n");
+
+  snprintf(scratch, sizeof(scratch),
+           _("Host: %.80s port: %d"), serverHost, serverPort);
+  strcat(infoText, scratch);
+  strcat(infoText, "\n");
+
+  snprintf(scratch, sizeof(scratch),
+           _("Size: %d x %d"), cp.width, cp.height);
+  strcat(infoText, scratch);
+  strcat(infoText, "\n");
 
   cp.pf().print(pfStr, 100);
-  serverPF.print(spfStr, 100);
+  snprintf(scratch, sizeof(scratch),
+           _("Pixel format: %s"), pfStr);
+  strcat(infoText, scratch);
+  strcat(infoText, "\n");
 
-  int secType = csecurity->getType();
+  serverPF.print(pfStr, 100);
+  snprintf(scratch, sizeof(scratch),
+           _("(server default %s)"), pfStr);
+  strcat(infoText, scratch);
+  strcat(infoText, "\n");
 
-  snprintf(infoText, sizeof(infoText),
-           _("Desktop name: %.80s\n"
-             "Host: %.80s port: %d\n"
-             "Size: %d x %d\n"
-             "Pixel format: %s\n"
-             "(server default %s)\n"
-             "Requested encoding: %s\n"
-             "Last used encoding: %s\n"
-             "Line speed estimate: %d kbit/s\n"
-             "Protocol version: %d.%d\n"
-             "Security method: %s\n"),
-           cp.name(), serverHost, serverPort, cp.width, cp.height,
-           pfStr, spfStr, encodingName(currentEncoding),
-           encodingName(lastServerEncoding),
-           sock->inStream().kbitsPerSecond(),
-           cp.majorVersion, cp.minorVersion,
-           secTypeName(secType));
+  snprintf(scratch, sizeof(scratch),
+           _("Requested encoding: %s"), encodingName(currentEncoding));
+  strcat(infoText, scratch);
+  strcat(infoText, "\n");
+
+  snprintf(scratch, sizeof(scratch),
+           _("Last used encoding: %s"), encodingName(lastServerEncoding));
+  strcat(infoText, scratch);
+  strcat(infoText, "\n");
+
+  snprintf(scratch, sizeof(scratch),
+           _("Line speed estimate: %d kbit/s"), sock->inStream().kbitsPerSecond());
+  strcat(infoText, scratch);
+  strcat(infoText, "\n");
+
+  snprintf(scratch, sizeof(scratch),
+           _("Protocol version: %d.%d"), cp.majorVersion, cp.minorVersion);
+  strcat(infoText, scratch);
+  strcat(infoText, "\n");
+
+  snprintf(scratch, sizeof(scratch),
+           _("Security method: %s"), secTypeName(csecurity->getType()));
+  strcat(infoText, scratch);
+  strcat(infoText, "\n");
 
   return infoText;
 }
@@ -251,7 +297,6 @@ void CConn::serverInit()
   // This initial update request is a bit of a corner case, so we need
   // to help out setting the correct format here.
   assert(pendingPFChange);
-  desktop->setServerPF(pendingPF);
   cp.setPF(pendingPF);
   pendingPFChange = false;
 }
@@ -318,7 +363,6 @@ void CConn::framebufferUpdateEnd()
   // A format change has been scheduled and we are now past the update
   // with the old format. Time to active the new one.
   if (pendingPFChange) {
-    desktop->setServerPF(pendingPF);
     cp.setPF(pendingPF);
     pendingPFChange = false;
   }
@@ -337,7 +381,7 @@ void CConn::framebufferUpdateEnd()
 
 void CConn::setColourMapEntries(int firstColour, int nColours, rdr::U16* rgbs)
 {
-  desktop->setColourMapEntries(firstColour, nColours, rgbs);
+  vlog.error(_("Invalid SetColourMapEntries from server!"));
 }
 
 void CConn::bell()
@@ -364,7 +408,7 @@ void CConn::serverCutText(const char* str, rdr::U32 len)
   ret = fl_utf8froma(buffer, size, str, len);
   assert(ret < size);
 
-  vlog.debug("Got clipboard data: '%s'", buffer);
+  vlog.debug("Got clipboard data (%d bytes)", strlen(buffer));
 
   // RFB doesn't have separate selection and clipboard concepts, so we
   // dump the data into both variants.
@@ -374,34 +418,30 @@ void CConn::serverCutText(const char* str, rdr::U32 len)
   delete [] buffer;
 }
 
-// We start timing on beginRect and stop timing on endRect, to
-// avoid skewing the bandwidth estimation as a result of the server
-// being slow or the network having high latency
-void CConn::beginRect(const Rect& r, int encoding)
+void CConn::dataRect(const Rect& r, int encoding)
 {
   sock->inStream().startTiming();
-  if (encoding != encodingCopyRect) {
-    lastServerEncoding = encoding;
-  }
-}
 
-void CConn::endRect(const Rect& r, int encoding)
-{
+  if (encoding != encodingCopyRect)
+    lastServerEncoding = encoding;
+
+  if (!Decoder::supported(encoding)) {
+    vlog.error(_("Unknown rect encoding %d"), encoding);
+    throw Exception(_("Unknown rect encoding"));
+  }
+
+  if (!decoders[encoding]) {
+    decoders[encoding] = Decoder::createDecoder(encoding, this);
+    if (!decoders[encoding]) {
+      vlog.error(_("Unknown rect encoding %d"), encoding);
+      throw Exception(_("Unknown rect encoding"));
+    }
+  }
+  decoders[encoding]->readRect(r, desktop->getFramebuffer());
+
   sock->inStream().stopTiming();
 }
 
-void CConn::fillRect(const rfb::Rect& r, rfb::Pixel p)
-{
-  desktop->fillRect(r,p);
-}
-void CConn::imageRect(const rfb::Rect& r, void* p)
-{
-  desktop->imageRect(r,p);
-}
-void CConn::copyRect(const rfb::Rect& r, int sx, int sy)
-{
-  desktop->copyRect(r,sx,sy);
-}
 void CConn::setCursor(int width, int height, const Point& hotspot,
                       void* data, void* mask)
 {
@@ -438,16 +478,8 @@ void CConn::fence(rdr::U32 flags, unsigned len, const char data[])
 
     pf.read(&memStream);
 
-    desktop->setServerPF(pf);
     cp.setPF(pf);
   }
-}
-
-rdr::U8* CConn::getRawPixelsRW(const rfb::Rect& r, int* stride) {
-  return desktop->getPixelsRW(r, stride);
-}
-void CConn::releaseRawPixels(const rfb::Rect& r) {
-  desktop->damageRect(r);
 }
 
 
@@ -615,16 +647,19 @@ void CConn::handleOptions(void *data)
 
     if (encNum != -1)
       self->currentEncoding = encNum;
-
-    self->cp.qualityLevel = qualityLevel;
   }
 
   self->cp.supportsLocalCursor = true;
 
-  self->cp.customCompressLevel = customCompressLevel;
-  self->cp.compressLevel = compressLevel;
+  if (customCompressLevel)
+    self->cp.compressLevel = compressLevel;
+  else
+    self->cp.compressLevel = -1;
 
-  self->cp.noJpeg = noJpeg;
+  if (!noJpeg && !autoSelect)
+    self->cp.qualityLevel = qualityLevel;
+  else
+    self->cp.qualityLevel = -1;
 
   self->encodingChange = true;
 

@@ -1,4 +1,5 @@
 /* Copyright (C) 2007-2008 Constantin Kaplinsky.  All Rights Reserved.
+ * Copyright 2014 Pierre Ossman for Cendio AB
  *    
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,36 +29,34 @@
 using namespace rfb;
 
 XPixelBuffer::XPixelBuffer(Display *dpy, ImageFactory &factory,
-                           const Rect &rect, ColourMap* cm)
+                           const Rect &rect)
   : FullFramePixelBuffer(),
     m_poller(0),
     m_dpy(dpy),
     m_image(factory.newImage(dpy, rect.width(), rect.height())),
     m_offsetLeft(rect.tl.x),
-    m_offsetTop(rect.tl.y),
-    m_stride(0)
+    m_offsetTop(rect.tl.y)
 {
   // Fill in the PixelFormat structure of the parent class.
-  format.bpp        = m_image->xim->bits_per_pixel;
-  format.depth      = m_image->xim->depth;
-  format.bigEndian  = (m_image->xim->byte_order == MSBFirst);
-  format.trueColour = m_image->isTrueColor();
-  format.redShift   = ffs(m_image->xim->red_mask) - 1;
-  format.greenShift = ffs(m_image->xim->green_mask) - 1;
-  format.blueShift  = ffs(m_image->xim->blue_mask) - 1;
-  format.redMax     = m_image->xim->red_mask   >> format.redShift;
-  format.greenMax   = m_image->xim->green_mask >> format.greenShift;
-  format.blueMax    = m_image->xim->blue_mask  >> format.blueShift;
+  format = PixelFormat(m_image->xim->bits_per_pixel,
+                       m_image->xim->depth,
+                       (m_image->xim->byte_order == MSBFirst),
+                       m_image->isTrueColor(),
+                       m_image->xim->red_mask   >> (ffs(m_image->xim->red_mask) - 1),
+                       m_image->xim->green_mask >> (ffs(m_image->xim->green_mask) - 1),
+                       m_image->xim->blue_mask  >> (ffs(m_image->xim->blue_mask) - 1),
+                       ffs(m_image->xim->red_mask) - 1,
+                       ffs(m_image->xim->green_mask) - 1,
+                       ffs(m_image->xim->blue_mask) - 1);
 
   // Set up the remaining data of the parent class.
   width_ = rect.width();
   height_ = rect.height();
   data = (rdr::U8 *)m_image->xim->data;
-  colourmap = cm;
 
   // Calculate the distance in pixels between two subsequent scan
   // lines of the framebuffer. This may differ from image width.
-  m_stride = m_image->xim->bytes_per_line * 8 / m_image->xim->bits_per_pixel;
+  stride = m_image->xim->bytes_per_line * 8 / m_image->xim->bits_per_pixel;
 
   // Get initial screen image from the X display.
   m_image->get(DefaultRootWindow(m_dpy), m_offsetLeft, m_offsetTop);

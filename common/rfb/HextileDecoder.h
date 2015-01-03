@@ -24,12 +24,9 @@ namespace rfb {
 
   class HextileDecoder : public Decoder {
   public:
-    static Decoder* create(CMsgReader* reader);
-    virtual void readRect(const Rect& r, CMsgHandler* handler);
+    HextileDecoder(CConnection* conn);
     virtual ~HextileDecoder();
-  private:
-    HextileDecoder(CMsgReader* reader);
-    CMsgReader* reader;
+    virtual void readRect(const Rect& r, ModifiablePixelBuffer* pb);
   };
 }
 #endif

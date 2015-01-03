@@ -1,5 +1,5 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
- * Copyright 2009-2011 Pierre Ossman for Cendio AB
+ * Copyright 2009-2014 Pierre Ossman for Cendio AB
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@
 #include <rfb/ServerCore.h>
 #include <rfb/ComparingUpdateTracker.h>
 #include <rfb/KeyRemapper.h>
+#include <rfb/Encoder.h>
 #define XK_MISCELLANY
 #define XK_XKB_KEYS
 #include <rfb/keysymdef.h>
@@ -70,10 +71,9 @@ VNCSConnectionST::VNCSConnectionST(VNCServerST* server_, network::Socket *s,
     fenceDataLen(0), fenceData(NULL),
     baseRTT(-1), minRTT(-1), seenCongestion(false), pingCounter(0),
     ackedOffset(0), sentOffset(0), congWindow(0), congestionTimer(this),
-    server(server_),
-    updates(false), image_getter(server->useEconomicTranslate),
+    server(server_), updates(false),
     drawRenderedCursor(false), removeRenderedCursor(false),
-    continuousUpdates(false),
+    continuousUpdates(false), encodeManager(this),
     updateTimer(this), pointerEventTime(0),
     accessRights(AccessDefault), startTime(time(0))
 {
@@ -227,8 +227,6 @@ void VNCSConnectionST::pixelBufferChange()
     // work out what's actually changed.
     updates.clear();
     updates.add_changed(server->pb->getRect());
-    vlog.debug("pixel buffer changed - re-initialising image getter");
-    image_getter.init(server->pb, cp.pf(), writer());
     writeFramebufferUpdate();
   } catch(rdr::Exception &e) {
     close(e.str());
@@ -249,15 +247,6 @@ void VNCSConnectionST::screenLayoutChangeOrClose(rdr::U16 reason)
   try {
     screenLayoutChange(reason);
   } catch(rdr::Exception &e) {
-    close(e.str());
-  }
-}
-
-void VNCSConnectionST::setColourMapEntriesOrClose(int firstColour,int nColours)
-{
-  try {
-    setColourMapEntries(firstColour, nColours);
-  } catch(rdr::Exception& e) {
     close(e.str());
   }
 }
@@ -407,7 +396,6 @@ void VNCSConnectionST::authSuccess()
   char buffer[256];
   cp.pf().print(buffer, 256);
   vlog.info("Server default pixel format %s", buffer);
-  image_getter.init(server->pb, cp.pf(), 0);
 
   // - Mark the entire display as "dirty"
   updates.add_changed(server->pb->getRect());
@@ -481,7 +469,6 @@ void VNCSConnectionST::setPixelFormat(const PixelFormat& pf)
   char buffer[256];
   pf.print(buffer, 256);
   vlog.info("Client pixel format %s", buffer);
-  image_getter.init(server->pb, pf, writer());
   setCursor();
 }
 
@@ -625,11 +612,6 @@ void VNCSConnectionST::setDesktopSize(int fb_width, int fb_height,
   writeFramebufferUpdate();
 }
 
-void VNCSConnectionST::setInitialColourMap()
-{
-  setColourMapEntries(0, 0);
-}
-
 void VNCSConnectionST::fence(rdr::U32 flags, unsigned len, const char data[])
 {
   if (flags & fenceFlagRequest) {
@@ -718,40 +700,6 @@ void VNCSConnectionST::supportsContinuousUpdates()
     return;
 
   writer()->writeEndOfContinuousUpdates();
-}
-
-void VNCSConnectionST::writeSetCursorCallback()
-{
-  if (cp.supportsLocalXCursor) {
-    Pixel pix0, pix1;
-    rdr::U8Array bitmap(server->cursor.getBitmap(&pix0, &pix1));
-    if (bitmap.buf) {
-      // The client supports XCursor and the cursor only has two
-      // colors. Use the XCursor encoding.
-      writer()->writeSetXCursor(server->cursor.width(),
-				server->cursor.height(),
-				server->cursor.hotspot.x,
-				server->cursor.hotspot.y,
-				bitmap.buf, server->cursor.mask.buf);
-      return;
-    } else {
-      // More than two colors
-      if (!cp.supportsLocalCursor) {
-	// FIXME: We could reduce to two colors. 
-	vlog.info("Unable to send multicolor cursor: RichCursor not supported by client");
-	return;
-      }
-    }
-  }
-
-  // Use RichCursor
-  rdr::U8* transData = writer()->getImageBuf(server->cursor.area());
-  image_getter.translatePixels(server->cursor.data, transData,
-			       server->cursor.area());
-  writer()->writeSetCursor(server->cursor.width(),
-                           server->cursor.height(),
-                           server->cursor.hotspot,
-                           transData, server->cursor.mask.buf);
 }
 
 
@@ -1052,8 +1000,8 @@ void VNCSConnectionST::writeFramebufferUpdate()
 
   if (needRenderedCursor()) {
     renderedCursorRect
-      = (server->renderedCursor.getRect(server->renderedCursorTL)
-         .intersect(req.get_bounding_rect()));
+      = server->renderedCursor.getEffectiveRect()
+         .intersect(req.get_bounding_rect());
 
     if (renderedCursorRect.is_empty()) {
       drawRenderedCursor = false;
@@ -1074,69 +1022,27 @@ void VNCSConnectionST::writeFramebufferUpdate()
   }
 
   if (!ui.is_empty() || writer()->needFakeUpdate() || drawRenderedCursor) {
-    // Compute the number of rectangles. Tight encoder makes the things more
-    // complicated as compared to the original VNC4.
-    writer()->setupCurrentEncoder();
-    int nRects = (ui.copied.numRects() +
-                  (drawRenderedCursor ? 1 : 0));
+    RenderedCursor *cursor;
 
-    std::vector<Rect> rects;
-    std::vector<Rect>::const_iterator i;
-    ui.changed.get_rects(&rects);
-    for (i = rects.begin(); i != rects.end(); i++) {
-      if (i->width() && i->height()) {
-        int nUpdateRects = writer()->getNumRects(*i);
-        if (nUpdateRects == 0 && cp.currentEncoding() == encodingTight) {
-          // With Tight encoding and LastRect support, the client does not
-          // care about the number of rectangles in the update - it will
-          // stop parsing when it encounters a LastRect "rectangle".
-          // In this case, pretend to send 65535 rectangles.
-          nRects = 0xFFFF;  break;
-        }
-        else
-          nRects += nUpdateRects;
-      }
-    }
-
-    writeRTTPing();
-    
-    writer()->writeFramebufferUpdateStart(nRects);
-
-    Region updatedRegion;
-    writer()->writeRects(ui, &image_getter, &updatedRegion);
-    updates.subtract(updatedRegion);
-
+    cursor = NULL;
     if (drawRenderedCursor)
-      writeRenderedCursorRect();
-
-    writer()->writeFramebufferUpdateEnd();
+      cursor = &server->renderedCursor;
 
     writeRTTPing();
 
+    encodeManager.writeUpdate(ui, server->getPixelBuffer(), cursor);
+
+    writeRTTPing();
+
+    drawRenderedCursor = false;
     requested.clear();
+    updates.clear();
   }
 
 out:
   network::TcpSocket::cork(sock->getFd(), false);
 }
 
-
-// writeRenderedCursorRect() writes a single rectangle drawing the rendered
-// cursor on the client.
-
-void VNCSConnectionST::writeRenderedCursorRect()
-{
-  image_getter.setPixelBuffer(&server->renderedCursor);
-  image_getter.setOffset(server->renderedCursorTL);
-
-  Rect actual;
-  writer()->writeRect(renderedCursorRect, &image_getter, &actual);
-
-  image_getter.setPixelBuffer(server->pb);
-  image_getter.setOffset(Point(0,0));
-
-  drawRenderedCursor = false;
-}
 
 void VNCSConnectionST::screenLayoutChange(rdr::U16 reason)
 {
@@ -1153,21 +1059,6 @@ void VNCSConnectionST::screenLayoutChange(rdr::U16 reason)
   writeFramebufferUpdate();
 }
 
-void VNCSConnectionST::setColourMapEntries(int firstColour, int nColours)
-{
-  if (!readyForSetColourMapEntries)
-    return;
-  if (server->pb->getPF().trueColour)
-    return;
-
-  image_getter.setColourMapEntries(firstColour, nColours);
-
-  if (cp.pf().trueColour) {
-    updates.add_changed(server->pb->getRect());
-    writeFramebufferUpdate();
-  }
-}
-
 
 // setCursor() is called whenever the cursor has changed shape or pixel format.
 // If the client supports local cursor then it will arrange for the cursor to
@@ -1177,10 +1068,16 @@ void VNCSConnectionST::setCursor()
 {
   if (state() != RFBSTATE_NORMAL)
     return;
-  if (!cp.supportsLocalCursor)
-    return;
 
-  writer()->cursorChange(this);
+  cp.setCursor(server->cursor);
+
+  if (!writer()->writeSetCursor()) {
+    if (!writer()->writeSetXCursor()) {
+      // No client support
+      return;
+    }
+  }
+
   writeFramebufferUpdate();
 }
 

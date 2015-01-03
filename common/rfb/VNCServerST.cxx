@@ -1,4 +1,5 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
+ * Copyright 2009-2014 Pierre Ossman for Cendio AB
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -83,7 +84,6 @@ VNCServerST::VNCServerST(const char* name_, SDesktop* desktop_)
     name(strDup(name_)), pointerClient(0), comparer(0),
     renderedCursorInvalid(false),
     queryConnectionHandler(0), keyRemapper(&KeyRemapper::defInstance),
-    useEconomicTranslate(false),
     lastConnectionTime(0), disableclients(false),
     deferTimer(this), deferPending(false)
 {
@@ -293,7 +293,7 @@ void VNCServerST::setPixelBuffer(PixelBuffer* pb_, const ScreenSet& layout)
 
   comparer = new ComparingUpdateTracker(pb);
   cursor.setPF(pb->getPF());
-  renderedCursor.setPF(pb->getPF());
+  renderedCursorInvalid = true;
 
   // Make sure that we have at least one screen
   if (screenLayout.num_screens() == 0)
@@ -359,15 +359,6 @@ void VNCServerST::setScreenLayout(const ScreenSet& layout)
   }
 }
 
-void VNCServerST::setColourMapEntries(int firstColour, int nColours)
-{
-  std::list<VNCSConnectionST*>::iterator ci, ci_next;
-  for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
-    ci_next = ci; ci_next++;
-    (*ci)->setColourMapEntriesOrClose(firstColour, nColours);
-  }
-}
-
 void VNCServerST::bell()
 {
   std::list<VNCSConnectionST*>::iterator ci, ci_next;
@@ -417,11 +408,11 @@ void VNCServerST::add_copied(const Region& dest, const Point& delta)
 }
 
 void VNCServerST::setCursor(int width, int height, const Point& newHotspot,
-                            void* data, void* mask)
+                            const void* data, const void* mask)
 {
   cursor.hotspot = newHotspot;
   cursor.setSize(width, height);
-  memcpy(cursor.data, data, cursor.dataLen());
+  cursor.imageRect(cursor.getRect(), data);
   memcpy(cursor.mask.buf, mask, cursor.maskLen());
 
   cursor.crop();
@@ -606,15 +597,12 @@ bool VNCServerST::checkUpdate()
 
   if (renderCursor) {
     Rect clippedCursorRect
-      = cursor.getRect(cursorTL()).intersect(pb->getRect());
+      = cursor.getRect(cursorPos.subtract(cursor.hotspot)).intersect(pb->getRect());
 
     if (!renderedCursorInvalid && (toCheck.intersect(clippedCursorRect)
                                    .is_empty())) {
       renderCursor = false;
     } else {
-      renderedCursorTL = clippedCursorRect.tl;
-      renderedCursor.setSize(clippedCursorRect.width(),
-                             clippedCursorRect.height());
       toCheck.assign_union(clippedCursorRect);
     }
   }
@@ -630,11 +618,7 @@ bool VNCServerST::checkUpdate()
     comparer->getUpdateInfo(&ui, pb->getRect());
 
   if (renderCursor) {
-    pb->getImage(renderedCursor.data,
-                 renderedCursor.getRect(renderedCursorTL));
-    renderedCursor.maskRect(cursor.getRect(cursorTL()
-                                           .subtract(renderedCursorTL)),
-                            cursor.data, cursor.mask.buf);
+    renderedCursor.update(pb, &cursor, cursorPos);
     renderedCursorInvalid = false;
   }
 

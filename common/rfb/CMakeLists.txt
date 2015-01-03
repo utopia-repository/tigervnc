@@ -5,9 +5,7 @@ set(RFB_SOURCES
   CConnection.cxx
   CMsgHandler.cxx
   CMsgReader.cxx
-  CMsgReaderV3.cxx
   CMsgWriter.cxx
-  CMsgWriterV3.cxx
   CSecurityPlain.cxx
   CSecurityStack.cxx
   CSecurityVeNCrypt.cxx
@@ -15,9 +13,11 @@ set(RFB_SOURCES
   ComparingUpdateTracker.cxx
   Configuration.cxx
   ConnParams.cxx
+  CopyRectDecoder.cxx
   Cursor.cxx
   Decoder.cxx
   d3des.c
+  EncodeManager.cxx
   Encoder.cxx
   HTTPServer.cxx
   HextileDecoder.cxx
@@ -32,7 +32,6 @@ set(RFB_SOURCES
   Password.cxx
   PixelBuffer.cxx
   PixelFormat.cxx
-  PixelTransformer.cxx
   RREEncoder.cxx
   RREDecoder.cxx
   RawDecoder.cxx
@@ -41,9 +40,7 @@ set(RFB_SOURCES
   SConnection.cxx
   SMsgHandler.cxx
   SMsgReader.cxx
-  SMsgReaderV3.cxx
   SMsgWriter.cxx
-  SMsgWriterV3.cxx
   ServerCore.cxx
   Security.cxx
   SecurityServer.cxx
@@ -52,13 +49,11 @@ set(RFB_SOURCES
   SSecurityStack.cxx
   SSecurityVncAuth.cxx
   SSecurityVeNCrypt.cxx
-  ScaledPixelBuffer.cxx
   ScaleFilters.cxx
   Timer.cxx
   TightDecoder.cxx
   TightEncoder.cxx
-  TightPalette.cxx
-  TransImageGetter.cxx
+  TightJPEGEncoder.cxx
   UpdateTracker.cxx
   VNCSConnectionST.cxx
   VNCServerST.cxx
@@ -72,7 +67,7 @@ if(WIN32)
   set(RFB_SOURCES ${RFB_SOURCES} WinPasswdValidator.cxx)
 endif(WIN32)
 
-set(RFB_LIBRARIES ${JPEG_LIBRARIES} os)
+set(RFB_LIBRARIES ${JPEG_LIBRARIES} os rdr)
 
 if(HAVE_PAM)
   set(RFB_SOURCES ${RFB_SOURCES} UnixPasswordValidator.cxx

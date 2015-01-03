@@ -75,8 +75,6 @@ typedef struct {
 #if XORG < 110
   RestoreAreasProcPtr          RestoreAreas;
 #endif
-  InstallColormapProcPtr       InstallColormap;
-  StoreColorsProcPtr           StoreColors;
   DisplayCursorProcPtr         DisplayCursor;
   ScreenBlockHandlerProcPtr    BlockHandler;
 #ifdef RENDER
@@ -91,8 +89,13 @@ typedef struct {
 } vncHooksScreenRec, *vncHooksScreenPtr;
 
 typedef struct {
+#if XORG >= 116
+    const GCFuncs *wrappedFuncs;
+    const GCOps *wrappedOps;
+#else
     GCFuncs *wrappedFuncs;
     GCOps *wrappedOps;
+#endif
 } vncHooksGCRec, *vncHooksGCPtr;
 
 #if XORG == 15
@@ -119,7 +122,7 @@ static DevPrivateKeyRec vncHooksGCKeyRec;
 
 // screen functions
 
-#if XORG < 112
+#if XORG <= 112
 static Bool vncHooksCloseScreen(int i, ScreenPtr pScreen);
 #else
 static Bool vncHooksCloseScreen(ScreenPtr pScreen);
@@ -132,20 +135,17 @@ static void vncHooksClearToBackground(WindowPtr pWin, int x, int y, int w,
 #if XORG < 110
 static RegionPtr vncHooksRestoreAreas(WindowPtr pWin, RegionPtr prgnExposed);
 #endif
-static void vncHooksInstallColormap(ColormapPtr pColormap);
-static void vncHooksStoreColors(ColormapPtr pColormap, int ndef,
-                                xColorItem* pdef);
 static Bool vncHooksDisplayCursor(
 #if XORG >= 16
 				  DeviceIntPtr pDev,
 #endif
 				  ScreenPtr pScreen, CursorPtr cursor);
-#if XORG < 112
+#if XORG <= 112
 static void vncHooksBlockHandler(int i, pointer blockData, pointer pTimeout,
                                  pointer pReadmask);
 #else
-static void vncHooksBlockHandler(ScreenPtr pScreen, pointer pTimeout,
-                                 pointer pReadmask);
+static void vncHooksBlockHandler(ScreenPtr pScreen, void * pTimeout,
+                                 void * pReadmask);
 #endif
 #ifdef RENDER
 static void vncHooksComposite(CARD8 op, PicturePtr pSrc, PicturePtr pMask, 
@@ -174,7 +174,7 @@ static void vncHooksValidateGC(GCPtr pGC, unsigned long changes,
 static void vncHooksChangeGC(GCPtr pGC, unsigned long mask);
 static void vncHooksCopyGC(GCPtr src, unsigned long mask, GCPtr dst);
 static void vncHooksDestroyGC(GCPtr pGC);
-static void vncHooksChangeClip(GCPtr pGC, int type, pointer pValue,int nrects);
+static void vncHooksChangeClip(GCPtr pGC, int type, void * pValue,int nrects);
 static void vncHooksDestroyClip(GCPtr pGC);
 static void vncHooksCopyClip(GCPtr dst, GCPtr src);
 
@@ -226,10 +226,10 @@ static void vncHooksImageText16(DrawablePtr pDrawable, GCPtr pGC, int x, int y,
                                 int count, unsigned short *chars);
 static void vncHooksImageGlyphBlt(DrawablePtr pDrawable, GCPtr pGC, int x,
                                   int y, unsigned int nglyph,
-                                  CharInfoPtr *ppci, pointer pglyphBase);
+                                  CharInfoPtr *ppci, void * pglyphBase);
 static void vncHooksPolyGlyphBlt(DrawablePtr pDrawable, GCPtr pGC, int x,
                                  int y, unsigned int nglyph,
-                                 CharInfoPtr *ppci, pointer pglyphBase);
+                                 CharInfoPtr *ppci, void * pglyphBase);
 static void vncHooksPushPixels(GCPtr pGC, PixmapPtr pBitMap,
                                DrawablePtr pDrawable, int w, int h, int x,
                                int y);
@@ -289,8 +289,6 @@ Bool vncHooksInit(ScreenPtr pScreen, XserverDesktop* desktop)
 #if XORG < 110
   vncHooksScreen->RestoreAreas = pScreen->RestoreAreas;
 #endif
-  vncHooksScreen->InstallColormap = pScreen->InstallColormap;
-  vncHooksScreen->StoreColors = pScreen->StoreColors;
   vncHooksScreen->DisplayCursor = pScreen->DisplayCursor;
   vncHooksScreen->BlockHandler = pScreen->BlockHandler;
 #ifdef RENDER
@@ -318,8 +316,6 @@ Bool vncHooksInit(ScreenPtr pScreen, XserverDesktop* desktop)
 #if XORG < 110
   pScreen->RestoreAreas = vncHooksRestoreAreas;
 #endif
-  pScreen->InstallColormap = vncHooksInstallColormap;
-  pScreen->StoreColors = vncHooksStoreColors;
   pScreen->DisplayCursor = vncHooksDisplayCursor;
   pScreen->BlockHandler = vncHooksBlockHandler;
 #ifdef RENDER
@@ -367,7 +363,7 @@ Bool vncHooksInit(ScreenPtr pScreen, XserverDesktop* desktop)
 // CloseScreen - unwrap the screen functions and call the original CloseScreen
 // function
 
-#if XORG < 112
+#if XORG <= 112
 static Bool vncHooksCloseScreen(int i, ScreenPtr pScreen_)
 #else
 static Bool vncHooksCloseScreen(ScreenPtr pScreen_)
@@ -381,8 +377,6 @@ static Bool vncHooksCloseScreen(ScreenPtr pScreen_)
 #if XORG < 110
   pScreen->RestoreAreas = vncHooksScreen->RestoreAreas;
 #endif
-  pScreen->InstallColormap = vncHooksScreen->InstallColormap;
-  pScreen->StoreColors = vncHooksScreen->StoreColors;
   pScreen->DisplayCursor = vncHooksScreen->DisplayCursor;
   pScreen->BlockHandler = vncHooksScreen->BlockHandler;
 #ifdef RENDER
@@ -405,7 +399,7 @@ static Bool vncHooksCloseScreen(ScreenPtr pScreen_)
 
   DBGPRINT((stderr,"vncHooksCloseScreen: unwrapped screen functions\n"));
 
-#if XORG < 112
+#if XORG <= 112
   return (*pScreen->CloseScreen)(i, pScreen);
 #else
   return (*pScreen->CloseScreen)(pScreen);
@@ -512,33 +506,6 @@ static RegionPtr vncHooksRestoreAreas(WindowPtr pWin, RegionPtr pRegion)
 }
 #endif
 
-// InstallColormap - get the new colormap
-
-static void vncHooksInstallColormap(ColormapPtr pColormap)
-{
-  SCREEN_UNWRAP(pColormap->pScreen, InstallColormap);
-
-  (*pScreen->InstallColormap) (pColormap);
-
-  vncHooksScreen->desktop->setColormap(pColormap);
-
-  SCREEN_REWRAP(InstallColormap);
-}
-
-// StoreColors - get the colormap changes
-
-static void vncHooksStoreColors(ColormapPtr pColormap, int ndef,
-                                xColorItem* pdef)
-{
-  SCREEN_UNWRAP(pColormap->pScreen, StoreColors);
-
-  (*pScreen->StoreColors) (pColormap, ndef, pdef);
-
-  vncHooksScreen->desktop->setColourMapEntries(pColormap, ndef, pdef);
-
-  SCREEN_REWRAP(StoreColors);
-}
-
 // DisplayCursor - get the cursor shape
 
 static Bool vncHooksDisplayCursor(
@@ -574,15 +541,15 @@ static Bool vncHooksDisplayCursor(
 // BlockHandler - ignore any changes during the block handler - it's likely
 // these are just drawing the cursor.
 
-#if XORG < 112
+#if XORG <= 112
 static void vncHooksBlockHandler(int i, pointer blockData, pointer pTimeout,
                                  pointer pReadmask)
 #else
-static void vncHooksBlockHandler(ScreenPtr pScreen_, pointer pTimeout,
-                                 pointer pReadmask)
+static void vncHooksBlockHandler(ScreenPtr pScreen_, void * pTimeout,
+                                 void * pReadmask)
 #endif
 {
-#if XORG < 112
+#if XORG <= 112
   SCREEN_UNWRAP(screenInfo.screens[i], BlockHandler);
 #else
   SCREEN_UNWRAP(pScreen_, BlockHandler);
@@ -590,7 +557,7 @@ static void vncHooksBlockHandler(ScreenPtr pScreen_, pointer pTimeout,
 
   vncHooksScreen->desktop->ignoreHooks(true);
 
-#if XORG < 112
+#if XORG <= 112
   (*pScreen->BlockHandler) (i, blockData, pTimeout, pReadmask);
 #else
   (*pScreen->BlockHandler) (pScreen, pTimeout, pReadmask);
@@ -914,7 +881,7 @@ static void vncHooksDestroyGC(GCPtr pGC) {
   GCFuncUnwrapper u(pGC);
   (*pGC->funcs->DestroyGC) (pGC);
 }
-static void vncHooksChangeClip(GCPtr pGC, int type, pointer pValue, int nrects)
+static void vncHooksChangeClip(GCPtr pGC, int type, void * pValue, int nrects)
 {
   GCFuncUnwrapper u(pGC);
   (*pGC->funcs->ChangeClip) (pGC, type, pValue, nrects);
@@ -954,7 +921,11 @@ public:
   }
   GCPtr pGC;
   vncHooksGCPtr vncHooksGC;
+#if XORG >= 116
+  const GCFuncs* oldFuncs;
+#else
   GCFuncs* oldFuncs;
+#endif
   ScreenPtr pScreen;
 };
 
@@ -1793,7 +1764,7 @@ static void vncHooksImageText16(DrawablePtr pDrawable, GCPtr pGC, int x, int y,
 
 static void vncHooksImageGlyphBlt(DrawablePtr pDrawable, GCPtr pGC, int x,
                                   int y, unsigned int nglyph,
-                                  CharInfoPtr *ppci, pointer pglyphBase)
+                                  CharInfoPtr *ppci, void * pglyphBase)
 {
   GC_OP_UNWRAPPER(pDrawable, pGC, ImageGlyphBlt);
 
@@ -1819,7 +1790,7 @@ static void vncHooksImageGlyphBlt(DrawablePtr pDrawable, GCPtr pGC, int x,
 
 static void vncHooksPolyGlyphBlt(DrawablePtr pDrawable, GCPtr pGC, int x,
                                  int y, unsigned int nglyph,
-                                 CharInfoPtr *ppci, pointer pglyphBase)
+                                 CharInfoPtr *ppci, void * pglyphBase)
 {
   GC_OP_UNWRAPPER(pDrawable, pGC, PolyGlyphBlt);
 

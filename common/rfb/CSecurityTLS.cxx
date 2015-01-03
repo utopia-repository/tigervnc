@@ -42,7 +42,6 @@
 #include <rdr/TLSInStream.h>
 #include <rdr/TLSOutStream.h>
 #include <os/os.h>
-#include <os/print.h>
 #include <os/tls.h>
 
 #include <gnutls/x509.h>
@@ -64,16 +63,10 @@
 
 using namespace rfb;
 
-StringParameter CSecurityTLS::x509ca("x509ca", "X509 CA certificate", "", ConfViewer);
-StringParameter CSecurityTLS::x509crl("x509crl", "X509 CRL file", "", ConfViewer);
+StringParameter CSecurityTLS::X509CA("X509CA", "X509 CA certificate", "", ConfViewer);
+StringParameter CSecurityTLS::X509CRL("X509CRL", "X509 CRL file", "", ConfViewer);
 
 static LogWriter vlog("TLS");
-static LogWriter vlog_raw("RawTLS");
-
-static void debug_log(int level, const char* str)
-{
-  vlog_raw.debug("[%d]: %s", level, str);
-}
 
 void CSecurityTLS::initGlobal()
 {
@@ -81,13 +74,6 @@ void CSecurityTLS::initGlobal()
 
   if (!globalInitDone) {
     gnutls_global_init();
-
-    /* 100 means debug log */
-    if (vlog_raw.getLevel() >= 100) {
-      gnutls_global_set_log_level(10);
-      gnutls_global_set_log_function(debug_log);
-    }
-
     globalInitDone = true;
   }
 }
@@ -95,8 +81,8 @@ void CSecurityTLS::initGlobal()
 CSecurityTLS::CSecurityTLS(bool _anon) : session(0), anon_cred(0),
 						 anon(_anon), fis(0), fos(0)
 {
-  cafile = x509ca.getData();
-  crlfile = x509crl.getData();
+  cafile = X509CA.getData();
+  crlfile = X509CRL.getData();
 }
 
 void CSecurityTLS::setDefaults()
@@ -116,9 +102,9 @@ void CSecurityTLS::setDefaults()
   delete [] homeDir;
 
  if (!fileexists(caDefault.buf))
-   x509ca.setDefaultStr(strdup(caDefault.buf));
+   X509CA.setDefaultStr(strdup(caDefault.buf));
  if (!fileexists(crlDefault.buf))
-   x509crl.setDefaultStr(strdup(crlDefault.buf));
+   X509CRL.setDefaultStr(strdup(crlDefault.buf));
 }
 
 void CSecurityTLS::shutdown(bool needbye)

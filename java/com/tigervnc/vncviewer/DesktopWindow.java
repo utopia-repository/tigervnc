@@ -2,7 +2,7 @@
  * Copyright (C) 2006 Constantin Kaplinsky.  All Rights Reserved.
  * Copyright (C) 2009 Paul Donohue.  All Rights Reserved.
  * Copyright (C) 2010, 2012-2013 D. R. Commander.  All Rights Reserved.
- * Copyright (C) 2011-2013 Brian P. Hinz
+ * Copyright (C) 2011-2014 Brian P. Hinz
  *
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,6 +35,8 @@ import java.awt.image.*;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.Clipboard;
+import java.io.BufferedReader;
+import java.nio.CharBuffer;
 import javax.swing.*;
 
 import com.tigervnc.rfb.*;
@@ -70,7 +72,7 @@ class DesktopWindow extends JPanel implements Runnable, MouseListener,
     cursorBacking = new ManagedPixelBuffer();
     Dimension bestSize = tk.getBestCursorSize(16, 16);
     BufferedImage cursorImage;
-    cursorImage = new BufferedImage(bestSize.width, bestSize.height, 
+    cursorImage = new BufferedImage(bestSize.width, bestSize.height,
                                     BufferedImage.TYPE_INT_ARGB);
     java.awt.Point hotspot = new java.awt.Point(0,0);
     nullCursor = tk.createCustomCursor(cursorImage, hotspot, "nullCursor");
@@ -83,10 +85,10 @@ class DesktopWindow extends JPanel implements Runnable, MouseListener,
     addKeyListener(this);
     addFocusListener(new FocusAdapter() {
       public void focusGained(FocusEvent e) {
-        checkClipboard();
+        cc.clipboardDialog.clientCutText();
       }
       public void focusLost(FocusEvent e) {
-        cc.releaseModifiers();
+        cc.releaseDownKeys();
       }
     });
     setFocusTraversalKeysEnabled(false);
@@ -153,12 +155,12 @@ class DesktopWindow extends JPanel implements Runnable, MouseListener,
     int ch = (int)Math.floor((float)cursor.height() * scaleHeightRatio);
     Dimension bestSize = tk.getBestCursorSize(cw, ch);
     MemoryImageSource cursorSrc;
-    cursorSrc = new MemoryImageSource(cursor.width(), cursor.height(), 
+    cursorSrc = new MemoryImageSource(cursor.width(), cursor.height(),
                                       ColorModel.getRGBdefault(),
                                       cursor.data, 0, cursor.width());
     Image srcImage = tk.createImage(cursorSrc);
     BufferedImage cursorImage;
-    cursorImage = new BufferedImage(bestSize.width, bestSize.height, 
+    cursorImage = new BufferedImage(bestSize.width, bestSize.height,
                                     BufferedImage.TYPE_INT_ARGB);
     Graphics2D g2 = cursorImage.createGraphics();
     g2.setRenderingHint(RenderingHints.KEY_RENDERING,
@@ -313,9 +315,9 @@ class DesktopWindow extends JPanel implements Runnable, MouseListener,
     if (!scaleString.equalsIgnoreCase("Auto") &&
         !scaleString.equalsIgnoreCase("FixedRatio")) {
       int scalingFactor = Integer.parseInt(scaleString);
-      scaledWidth = 
+      scaledWidth =
         (int)Math.floor((float)cc.cp.width * (float)scalingFactor/100.0);
-      scaledHeight = 
+      scaledHeight =
         (int)Math.floor((float)cc.cp.height * (float)scalingFactor/100.0);
     } else {
       if (cc.viewport == null) {
@@ -324,7 +326,7 @@ class DesktopWindow extends JPanel implements Runnable, MouseListener,
       } else {
         Dimension vpSize = cc.viewport.getSize();
         Insets vpInsets = cc.viewport.getInsets();
-        Dimension availableSize = 
+        Dimension availableSize =
           new Dimension(vpSize.width - vpInsets.left - vpInsets.right,
                         vpSize.height - vpInsets.top - vpInsets.bottom);
         if (availableSize.width == 0 || availableSize.height == 0)
@@ -355,33 +357,6 @@ class DesktopWindow extends JPanel implements Runnable, MouseListener,
       g2.drawImage(im.getImage(), 0, 0, null);
     }
     g2.dispose();
-  }
-
-  String oldContents = "";
-
-  public synchronized void checkClipboard() {
-    SecurityManager sm = System.getSecurityManager();
-    try {
-      if (sm != null) sm.checkSystemClipboardAccess();
-      Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
-      if (cb != null && cc.viewer.sendClipboard.getValue()) {
-        Transferable t = cb.getContents(null);
-        if ((t != null) && t.isDataFlavorSupported(DataFlavor.stringFlavor)) {
-          try {
-            String newContents = (String)t.getTransferData(DataFlavor.stringFlavor);
-            if (newContents != null && !newContents.equals(oldContents)) {
-              cc.writeClientCutText(newContents, newContents.length());
-              oldContents = newContents;
-              cc.clipboardDialog.setContents(newContents);
-            }
-          } catch(java.lang.Exception e) {
-            System.out.println("Exception getting clipboard data: " + e.getMessage());
-          }
-        }
-      }
-    } catch(SecurityException e) {
-      System.err.println("Cannot access the system clipboard");
-    }
   }
 
   // Mouse-Motion callback function
@@ -423,7 +398,10 @@ class DesktopWindow extends JPanel implements Runnable, MouseListener,
   public void mouseReleased(MouseEvent e) { mouseCB(e); }
   public void mousePressed(MouseEvent e) { mouseCB(e); }
   public void mouseClicked(MouseEvent e) {}
-  public void mouseEntered(MouseEvent e) {}
+  public void mouseEntered(MouseEvent e) {
+    if (cc.viewer.embed.getValue())
+      requestFocus();
+  }
   public void mouseExited(MouseEvent e) {}
 
   // MouseWheel callback function
@@ -436,20 +414,16 @@ class DesktopWindow extends JPanel implements Runnable, MouseListener,
     mouseWheelCB(e);
   }
 
+  private static final Integer keyEventLock = 0; 
+
   // Handle the key-typed event.
-  public void keyTyped(KeyEvent e) {
-    int keysym = UnicodeToKeysym.translate(e.getKeyChar());
-    if (!cc.viewer.viewOnly.getValue())
-      if (!e.isActionKey() && keysym > 0)
-        cc.writeKeyEvent(e, keysym);
-  }
+  public void keyTyped(KeyEvent e) { }
 
   // Handle the key-released event.
   public void keyReleased(KeyEvent e) {
-    int keysym = UnicodeToKeysym.translate(e.getKeyChar());
-    if (!cc.viewer.viewOnly.getValue())
-      if (e.isActionKey() || keysym < 0)
-        cc.writeKeyEvent(e);
+    synchronized(keyEventLock) {
+      cc.writeKeyEvent(e);
+    }
   }
 
   // Handle the key-pressed event.
@@ -506,10 +480,9 @@ class DesktopWindow extends JPanel implements Runnable, MouseListener,
           return;
       }
     }
-    int keysym = UnicodeToKeysym.translate(e.getKeyChar());
-    if (!cc.viewer.viewOnly.getValue())
-      if (e.isActionKey() || keysym < 0)
-        cc.writeKeyEvent(e);
+    synchronized(keyEventLock) {
+      cc.writeKeyEvent(e);
+    }
   }
 
   ////////////////////////////////////////////////////////////////////

@@ -2,19 +2,25 @@ cmake_minimum_required(VERSION 2.8)
 
 project(tigervnc-java Java)
 if(NOT VERSION)
-  set(VERSION 1.3.1)
+  set(VERSION 1.4.1)
 endif()
 
 find_package(Java)
 
-set(DEFAULT_JAVACFLAGS "-source 1.5 -target 1.5 -Xlint:all,-serial,-cast,-fallthrough,-dep-ann,-deprecation")
+set(DEFAULT_JAVACFLAGS "-source 1.5 -target 1.5 -Xlint:all,-serial,-cast,-unchecked,-fallthrough,-dep-ann,-deprecation,-rawtypes")
 set(JAVACFLAGS ${DEFAULT_JAVACFLAGS} CACHE STRING
   "Java compiler flags (Default: ${DEFAULT_JAVACFLAGS})")
 message(STATUS "Java compiler flags = ${JAVACFLAGS}")
 
 set(CLASSPATH com/tigervnc/vncviewer)
-set(JAVA_SRCDIR ${CMAKE_CURRENT_SOURCE_DIR}/${CLASSPATH})
-set(JAVA_BINDIR ${CMAKE_CURRENT_BINARY_DIR}/${CLASSPATH})
+set(SRCDIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(BINDIR ${CMAKE_CURRENT_BINARY_DIR})
+set(JAVA_KEYSTORE NOTFOUND CACHE STRING "URL of keystore location")
+set(JAVA_KEYSTORE_TYPE "jks" CACHE STRING "Type of keystore (Default: \"jks\")")
+set(JAVA_KEY_ALIAS NOTFOUND CACHE STRING "Alias for the keystore entry used to generate the signature")
+set(JAVA_STOREPASS NOTFOUND CACHE STRING "Password required to access the keystore")
+set(JAVA_KEYPASS NOTFOUND CACHE STRING "Password used to protect the private key of the specified keystore entry")
+set(JAVA_TSA_URL NOTFOUND CACHE STRING "URL of Time Stamping Authority (TSA)")
 
 if(NOT BUILD)
 	execute_process(COMMAND "date" "+%Y%m%d" OUTPUT_VARIABLE BUILD)
@@ -25,26 +31,8 @@ string(REGEX REPLACE "\n" "" JAVA_DATE ${JAVA_DATE})
 string(REGEX REPLACE "\n" "" JAVA_TIME ${JAVA_TIME})
 string(REGEX REPLACE "\n" "" BUILD ${BUILD})
 
-set(JAVA_CLASSNAMES
-  CConn
-  ClipboardDialog
-  DesktopWindow
-  Dialog
-  F8Menu
-  OptionsDialogCallback
-  PasswdDialog
-  PlatformPixelBuffer
-  OptionsDialog
-  ServerDialog
-  VncViewer)
-
 set(JAVA_SOURCES "")
-set(JAVA_CLASSES_FULL "")
-foreach(class ${JAVA_CLASSNAMES})
-  set(JAVA_SOURCES ${JAVA_SOURCES} ${JAVA_SRCDIR}/${class}.java)
-  set(JAVA_CLASSES_FULL ${JAVA_CLASSES_FULL}
-    ${CMAKE_CURRENT_BINARY_DIR}/${CLASSPATH}/${class}.class)
-endforeach()
+set(JAVA_CLASSES "")
 
 set(JSCH_CLASSNAMES
   DH
@@ -88,55 +76,61 @@ set(JSCH_CLASSNAMES
   jcraft/HMACMD5
   jcraft/HMACSHA196
   jcraft/HMACSHA1)
-set(JSCH_SRCDIR ${CMAKE_CURRENT_SOURCE_DIR}/com/jcraft/jsch)
+
 foreach(class ${JSCH_CLASSNAMES})
-  set(JAVA_SOURCES ${JAVA_SOURCES} ${JSCH_SRCDIR}/${class}.java)
-  set(JAVA_CLASSES_FULL ${JAVA_CLASSES_FULL}
-    ${CMAKE_CURRENT_BINARY_DIR}/com/jcraft/jsch/${class}.class)
+  set(JAVA_SOURCES ${JAVA_SOURCES} com/jcraft/jsch/${class}.java)
+  set(JAVA_CLASSES ${JAVA_CLASSES}
+    ${BINDIR}/com/jcraft/jsch/${class}.class)
 endforeach()
 
 file(GLOB DEPEND_SOURCES
-  ${CMAKE_CURRENT_SOURCE_DIR}/com/tigervnc/rfb/*.java
-  ${CMAKE_CURRENT_SOURCE_DIR}/com/tigervnc/rdr/*.java
-  ${CMAKE_CURRENT_SOURCE_DIR}/com/tigervnc/network/*.java
-  ${CMAKE_CURRENT_SOURCE_DIR}/com/jcraft/jsch/*.java
-  ${CMAKE_CURRENT_SOURCE_DIR}/com/jcraft/jsch/jcraft/*.java
-  ${CMAKE_CURRENT_SOURCE_DIR}/com/jcraft/jsch/jgss/*.java
-  ${CMAKE_CURRENT_SOURCE_DIR}/com/jcraft/jzlib/*.java)
+  ${SRCDIR}/${CLASSPATH}/*.java
+  ${SRCDIR}/com/tigervnc/rfb/*.java
+  ${SRCDIR}/com/tigervnc/rdr/*.java
+  ${SRCDIR}/com/tigervnc/network/*.java
+  ${SRCDIR}/com/jcraft/jsch/*.java
+  ${SRCDIR}/com/jcraft/jsch/jcraft/*.java
+  ${SRCDIR}/com/jcraft/jsch/jgss/*.java
+  ${SRCDIR}/com/jcraft/jzlib/*.java)
 
 string(REGEX REPLACE " " ";" JAVACFLAGS "${JAVACFLAGS}")
-add_custom_command(OUTPUT ${JAVA_CLASSES_FULL}
+add_custom_command(OUTPUT ${JAVA_CLASSES}
   DEPENDS ${JAVA_SOURCES} ${DEPEND_SOURCES}
   COMMAND ${JAVA_COMPILE}
-  ARGS ${JAVACFLAGS} -sourcepath ${CMAKE_CURRENT_SOURCE_DIR}
-    -d ${CMAKE_CURRENT_BINARY_DIR} ${JAVA_SOURCES})
+  ARGS ${JAVACFLAGS} -sourcepath ${SRCDIR} -d ${BINDIR} 
+    ${CLASSPATH}/VncViewer.java ${JAVA_SOURCES}
+	WORKING_DIRECTORY ${SRCDIR})
 
 configure_file(${CLASSPATH}/timestamp.in ${CLASSPATH}/timestamp)
 
-add_custom_command(OUTPUT ${JAVA_BINDIR}/tigervnc.png
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    ${JAVA_SRCDIR}/tigervnc.png ${JAVA_BINDIR}/tigervnc.png
-  DEPENDS ${JAVA_SRCDIR}/tigervnc.png)
+if(NOT "${SRCDIR}" STREQUAL "${BINDIR}")
 
-add_custom_command(OUTPUT ${JAVA_BINDIR}/tigervnc.ico
+add_custom_command(OUTPUT ${BINDIR}/${CLASSPATH}/tigervnc.png
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    ${JAVA_SRCDIR}/tigervnc.ico ${JAVA_BINDIR}/tigervnc.ico
-  DEPENDS ${JAVA_SRCDIR}/tigervnc.ico)
+    ${SRCDIR}/${CLASSPATH}/tigervnc.png ${BINDIR}/${CLASSPATH}/tigervnc.png
+  DEPENDS ${SRCDIR}/${CLASSPATH}/tigervnc.png)
+
+add_custom_command(OUTPUT ${BINDIR}/${CLASSPATH}/tigervnc.ico
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${SRCDIR}/${CLASSPATH}/tigervnc.ico ${BINDIR}/${CLASSPATH}/tigervnc.ico
+  DEPENDS ${SRCDIR}/${CLASSPATH}/tigervnc.ico)
+
+endif()
 
 string(REGEX REPLACE "jar" "" Java_PATH ${Java_JAR_EXECUTABLE})
 string(REGEX REPLACE ".exe" "" Java_PATH ${Java_PATH})
 
 add_custom_command(OUTPUT VncViewer.jar
-  DEPENDS ${JAVA_CLASSES_FULL}
-    ${JAVA_SRCDIR}/MANIFEST.MF
-    ${JAVA_BINDIR}/timestamp
-    ${JAVA_BINDIR}/tigervnc.png
-    ${JAVA_BINDIR}/tigervnc.ico
+  DEPENDS ${JAVA_CLASSES}
+    ${SRCDIR}/${CLASSPATH}/MANIFEST.MF
+    ${BINDIR}/${CLASSPATH}/timestamp
+    ${BINDIR}/${CLASSPATH}/tigervnc.png
+    ${BINDIR}/${CLASSPATH}/tigervnc.ico
   COMMAND ${JAVA_ARCHIVE}
   ARGS cfm VncViewer.jar
-    ${JAVA_SRCDIR}/MANIFEST.MF
-    com/tigervnc/vncviewer/timestamp
-    com/tigervnc/vncviewer/*.class
+    ${SRCDIR}/${CLASSPATH}/MANIFEST.MF
+    ${CLASSPATH}/timestamp
+    ${CLASSPATH}/*.class
     com/tigervnc/rfb/*.class
     com/tigervnc/rdr/*.class
     com/tigervnc/network/*.class
@@ -147,17 +141,22 @@ add_custom_command(OUTPUT VncViewer.jar
     com/tigervnc/vncviewer/tigervnc.png
     com/tigervnc/vncviewer/tigervnc.ico
   COMMAND ${CMAKE_COMMAND}
-  ARGS -DJava_PATH=${Java_PATH}
-    -DJAR_FILE=${CMAKE_CURRENT_BINARY_DIR}/VncViewer.jar
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/SignJar.cmake)
+  ARGS -DJava_PATH=${Java_PATH} -DJAR_FILE=${BINDIR}/VncViewer.jar
+    -DJAVA_KEYSTORE=${JAVA_KEYSTORE}
+    -DJAVA_KEYSTORE_TYPE=${JAVA_KEYSTORE_TYPE}
+    -DJAVA_STOREPASS=${JAVA_STOREPASS}
+    -DJAVA_KEYPASS=${JAVA_KEYPASS}
+    -DJAVA_KEY_ALIAS=${JAVA_KEY_ALIAS}
+    -DJAVA_TSA_URL=${JAVA_TSA_URL}
+    -P ${SRCDIR}/cmake/SignJar.cmake)
 
 add_custom_target(java ALL DEPENDS VncViewer.jar)
 
 if(NOT WIN32)
   install(FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/VncViewer.jar
-    ${JAVA_SRCDIR}/README
-    ${JAVA_SRCDIR}/index.vnc
-    ${JAVA_SRCDIR}/favicon.ico
+    ${BINDIR}/VncViewer.jar
+    ${SRCDIR}/${CLASSPATH}/README
+    ${SRCDIR}/${CLASSPATH}/index.vnc
+    ${SRCDIR}/${CLASSPATH}/favicon.ico
     DESTINATION ${DATA_DIR}/vnc/classes)
 endif()

@@ -39,18 +39,12 @@
 using namespace rfb;
 
 StringParameter SSecurityTLS::X509_CertFile
-("x509cert", "specifies path to the x509 certificate in PEM format", "", ConfServer);
+("X509Cert", "Path to the X509 certificate in PEM format", "", ConfServer);
 
 StringParameter SSecurityTLS::X509_KeyFile
-("x509key", "specifies path to the key of the x509 certificate in PEM format", "", ConfServer);
+("X509Key", "Path to the key of the X509 certificate in PEM format", "", ConfServer);
 
 static LogWriter vlog("TLS");
-static LogWriter vlog_raw("RawTLS");
-
-static void debug_log(int level, const char* str)
-{
-  vlog.debug("[%d]: %s", level, str);
-}
 
 void SSecurityTLS::initGlobal()
 {
@@ -59,13 +53,6 @@ void SSecurityTLS::initGlobal()
   if (!globalInitDone) {
     if (gnutls_global_init() != GNUTLS_E_SUCCESS)
       throw AuthFailureException("gnutls_global_init failed");
-
-    /* 100 means debug log */
-    if (vlog_raw.getLevel() >= 100) {
-      gnutls_global_set_log_level(10);
-      gnutls_global_set_log_function(debug_log);
-    }
-
     globalInitDone = true;
   }
 }

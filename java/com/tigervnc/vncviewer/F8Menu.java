@@ -1,16 +1,16 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
- * Copyright (C) 2011 Brian P. Hinz
- * 
+ * Copyright (C) 2011-2014 Brian P. Hinz
+ *
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This software is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this software; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
@@ -49,6 +49,7 @@ public class F8Menu extends JPopupMenu implements ActionListener {
     fullScreen.setMnemonic(KeyEvent.VK_F);
     fullScreen.setSelected(cc.fullScreen);
     fullScreen.addActionListener(this);
+    fullScreen.setEnabled(!cc.viewer.embed.getValue());
     add(fullScreen);
     addSeparator();
     clipboard  = addMenuItem("Clipboard...");
@@ -59,6 +60,7 @@ public class F8Menu extends JPopupMenu implements ActionListener {
     refresh    = addMenuItem("Refresh Screen", KeyEvent.VK_H);
     addSeparator();
     newConn    = addMenuItem("New connection...", KeyEvent.VK_W);
+    newConn.setEnabled(!cc.viewer.embed.getValue());
     options    = addMenuItem("Options...", KeyEvent.VK_O);
     save       = addMenuItem("Save connection info as...", KeyEvent.VK_S);
     info       = addMenuItem("Connection info...", KeyEvent.VK_I);

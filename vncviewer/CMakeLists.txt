@@ -3,13 +3,14 @@ include_directories(${GETTEXT_INCLUDE_DIR})
 
 include_directories(${CMAKE_SOURCE_DIR}/common)
 set(VNCVIEWER_SOURCES
-  buildTime.cxx
   menukey.cxx
   CConn.cxx
   DesktopWindow.cxx
+  FLTKPixelBuffer.cxx
   UserDialog.cxx
   ServerDialog.cxx
   OptionsDialog.cxx
+  PlatformPixelBuffer.cxx
   Viewport.cxx
   parameters.cxx
   keysym2ucs.c
@@ -39,7 +40,7 @@ else()
   set(VNCVIEWER_SOURCES ${VNCVIEWER_SOURCES} X11PixelBuffer.cxx)
 endif()
 
-if(WIN32)
+if(WIN32 AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
   add_executable(vncviewer WIN32 ${VNCVIEWER_SOURCES})
 else()
   add_executable(vncviewer ${VNCVIEWER_SOURCES})
@@ -47,11 +48,8 @@ endif()
 
 target_link_libraries(vncviewer rfb network rdr os Xregion ${FLTK_LIBRARIES} ${GETTEXT_LIBRARIES})
 
-# When building with GnuTLS, librdr depends on ws2_32, so in order to make
-# MinGW happy, we need to put ws2_32 in librdr's target_link_libraries string,
-# not here.
-if(NOT GNUTLS_FOUND AND WIN32)
-  target_link_libraries(vncviewer ws2_32)
+if(APPLE)
+  target_link_libraries(vncviewer "-framework Cocoa" "-framework Carbon")
 endif()
 
 install(TARGETS vncviewer DESTINATION ${BIN_DIR})

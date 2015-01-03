@@ -30,15 +30,15 @@
 #include <set>
 #include <rfb/SConnection.h>
 #include <rfb/SMsgWriter.h>
-#include <rfb/TransImageGetter.h>
 #include <rfb/VNCServerST.h>
 #include <rfb/Timer.h>
+#include <rfb/EncodeManager.h>
 
 struct RTTInfo;
 
 namespace rfb {
+
   class VNCSConnectionST : public SConnection,
-                           public WriteSetCursorCallback,
                            public Timer::Callback {
   public:
     VNCSConnectionST(VNCServerST* server_, network::Socket* s, bool reverse);
@@ -71,7 +71,6 @@ namespace rfb {
     // Wrappers to make these methods "safe" for VNCServerST.
     void writeFramebufferUpdateOrClose();
     void screenLayoutChangeOrClose(rdr::U16 reason);
-    void setColourMapEntriesOrClose(int firstColour, int nColours);
     void setCursorOrClose();
     void bellOrClose();
     void serverCutTextOrClose(const char *str, int len);
@@ -138,7 +137,6 @@ namespace rfb {
     virtual void framebufferUpdateRequest(const Rect& r, bool incremental);
     virtual void setDesktopSize(int fb_width, int fb_height,
                                 const ScreenSet& layout);
-    virtual void setInitialColourMap();
     virtual void fence(rdr::U32 flags, unsigned len, const char data[]);
     virtual void enableContinuousUpdates(bool enable,
                                          int x, int y, int w, int h);
@@ -151,9 +149,6 @@ namespace rfb {
     // such that the actual rights granted are the minimum of the server's
     // default access settings and the connection's access settings.
     virtual void setAccessRights(AccessRights ar) {accessRights=ar;}
-
-    // WriteSetCursorCallback
-    virtual void writeSetCursorCallback();
 
     // Timer callbacks
     virtual bool handleTimeout(Timer* t);
@@ -171,9 +166,7 @@ namespace rfb {
 
     void writeFramebufferUpdate();
 
-    void writeRenderedCursorRect();
     void screenLayoutChange(rdr::U16 reason);
-    void setColourMapEntries(int firstColour, int nColours);
     void setCursor();
     void setDesktopName(const char *name);
     void setSocketTimeouts();
@@ -199,12 +192,12 @@ namespace rfb {
 
     VNCServerST* server;
     SimpleUpdateTracker updates;
-    TransImageGetter image_getter;
     Region requested;
     bool drawRenderedCursor, removeRenderedCursor;
     Rect renderedCursorRect;
     bool continuousUpdates;
     Region cuRegion;
+    EncodeManager encodeManager;
 
     Timer updateTimer;
 
