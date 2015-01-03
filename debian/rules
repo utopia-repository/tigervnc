@@ -11,14 +11,10 @@ DEB_SRCDIR   = .
 ## Where to built tigervnc
 #DEB_BUILDDIR = $(CURDIR)/obj-$(DEB_BUILD_GNU_TYPE)
 
-# TODO: collect versions supported by current tigervnc,
-#       figure out version of xorg-server-source
-#       pick matching/closest patch (e.g. 114 seems to
-#       apply fine over 1.15)
-#VNC_PATCH = $(CURDIR)/unix/xserver114.patch
-# there is no stock patch for 1.16.  To avoid patching the patch, we
-# just carry for now a copy of adjusted patch
-VNC_PATCH = $(CURDIR)/debian/patchdir/xserver116.patch
+VNC_PATCH = $(CURDIR)/unix/xserver116.patch
+## there is no stock patch for 1.16.  To avoid patching the patch, we
+## just carry for now a copy of adjusted patch
+#VNC_PATCH = $(CURDIR)/debian/patchdir/xserver116.patch
 
 include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/class/cmake.mk
@@ -42,10 +38,6 @@ DEB_CONFIGURE_EXTRA_FLAGS += --disable-maintainer-mode
 
 DEB_CMAKE_INSTALL_PREFIX  = /usr
 DEB_CMAKE_EXTRA_FLAGS     += -DUSE_INCLUDED_ZLIB:BOOL=OFF
-# The FLTK in debian is either too old (squeeze) or is missing some extension patches (wheezy)
-# required by TigerVNC, i.e., http://www.fltk.org/strfiles/2599/fltk-1.3.x-keyboard-x11.patch.
-# Maybe some more patches are missing. I have not checked further.
-#DEB_CMAKE_EXTRA_FLAGS     += -DUSE_INCLUDED_FLTK:BOOL=ON
 DEB_CMAKE_EXTRA_FLAGS     += -DENABLE_LIBWRAP:BOOL=ON
 DEB_CMAKE_EXTRA_FLAGS     += -DENABLE_NLS:BOOL=ON
 DEB_CMAKE_EXTRA_FLAGS     += -DENABLE_GNUTLS:BOOL=ON
@@ -106,7 +98,7 @@ apply-patches-dance: apply-patches-vnc-patch-xorg
 apply-patches-vnc-patch-xorg: apply-patches-unify-xorg-and-vnc-tree
 apply-patches-unify-xorg-and-vnc-tree:
 
-reverse-patches-dance:
+reverse-patches-dance: reverse-patches-xorg
 reverse-patches-xorg: reverse-patches-remove-xorg-from-vnc-tree
 reverse-patches-remove-xorg-from-vnc-tree: reverse-patches-vnc-unpatch-xorg
 reverse-patches-vnc-unpatch-xorg: reverse-patches-deautoreconf
@@ -150,23 +142,31 @@ reverse-patches-vnc-unpatch-xorg: $(VNC_PATCH)
 apply-patches-unify-xorg-and-vnc-tree: $(DEB_SRCDIR)/unix/xserver/.apply-patches-unify-xorg-and-vnc-tree.stamp
 
 $(DEB_SRCDIR)/unix/xserver/.apply-patches-unify-xorg-and-vnc-tree.stamp:
-	cd $(DEB_SRCDIR)/unix/xserver && { \
-		tar --strip-components 1 -xJf /usr/src/xorg-server.tar.xz && \
-		find -type l > .apply-patches-unify-xorg-and-vnc-tree.stamp; \
-	}
+	cd $(DEB_SRCDIR)/unix/xserver && \
+	  { tar --strip-components 1 -xvJf /usr/src/xorg-server.tar.xz | \
+	      sed -e 's@^[^/]*/@@' > .apply-patches-unify-xorg-and-vnc-tree.files; } && \
+	  touch .apply-patches-unify-xorg-and-vnc-tree.stamp
 
 reverse-patches-remove-xorg-from-vnc-tree:
-	cd $(DEB_SRCDIR)/unix/xserver && if test -f .apply-patches-unify-xorg-and-vnc-tree.stamp; then \
-		xargs rm -f < .apply-patches-unify-xorg-and-vnc-tree.stamp; \
-		find -name ".svn" -prune -o -type d -print | sort -r | xargs rmdir; \
-		rm -f .apply-patches-unify-xorg-and-vnc-tree.stamp; \
-	fi
+	cd $(DEB_SRCDIR)/unix/xserver && \
+		if test -f .apply-patches-unify-xorg-and-vnc-tree.files; then \
+			sort -r < .apply-patches-unify-xorg-and-vnc-tree.files | \
+				while read line; do \
+					if test -d "$$line"; then \
+						rmdir "$$line"; \
+					else \
+						rm -f "$$line"; \
+					fi; \
+				done; \
+			rm -f .apply-patches-unify-xorg-and-vnc-tree.stamp \
+			      .apply-patches-unify-xorg-and-vnc-tree.files; \
+		fi
 
 configure/tigervnc-standalone-server configure/tigervnc-xorg-extension:: $(DEB_BUILDDIR)/unix/xserver/configure.stamp
 
 include /usr/share/xserver-xorg/configure_flags.mk
 
-xserver_confflags := $(shell echo '$(xserver_confflags)' | sed 's/--with-builderstring="[^"]*"//' | sed 's/--enable-xwayland/--disable-xwayland/')
+xserver_confflags := $(shell echo '$(xserver_confflags)' | sed 's/--with-builderstring="[^"]*"//')
 XORG_DEBIAN_CONFIGURE_FLAGS = \
 	$(filter-out \
 		--prefix=% \
@@ -176,6 +176,7 @@ XORG_DEBIAN_CONFIGURE_FLAGS = \
 		--localstatedir=% \
 		--build=% \
 		--host=% \
+		--enable-xwayland \
 		--enable-xfbdev \
 		--enable-dmx \
 		--enable-xvfb \
@@ -208,6 +209,7 @@ $(DEB_BUILDDIR)/unix/xserver/configure.stamp:
 		$(DEB_CONFIGURE_EXTRA_FLAGS) \
 		--disable-selective-werror \
 		--with-builderstring="tigervnc-xorg-server $(NO_EPOCH_VER) (TigerVNC Packaging Team <pkg-tigervnc-devel@lists.alioth.debian.org>)" \
+		--disable-xwayland \
 		--disable-xfbdev \
 		--disable-dmx \
 		--disable-xvfb \

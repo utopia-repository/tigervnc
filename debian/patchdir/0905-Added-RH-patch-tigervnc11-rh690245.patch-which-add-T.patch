@@ -12,11 +12,11 @@ communication between a server and a viewer. (BZ#653491)
  common/rfb/SecurityServer.cxx |    2 +-
  3 files changed, 2 insertions(+), 5 deletions(-)
 
-Index: b/common/rfb/Security.cxx
+Index: pkg-tigervnc/common/rfb/Security.cxx
 ===================================================================
---- a/common/rfb/Security.cxx
-+++ b/common/rfb/Security.cxx
-@@ -71,7 +71,6 @@ const std::list<rdr::U8> Security::GetEn
+--- pkg-tigervnc.orig/common/rfb/Security.cxx
++++ pkg-tigervnc/common/rfb/Security.cxx
+@@ -68,7 +68,6 @@ const std::list<rdr::U8> Security::GetEn
    list<rdr::U8> result;
    list<U32>::iterator i;
  
@@ -24,7 +24,7 @@ Index: b/common/rfb/Security.cxx
    for (i = enabledSecTypes.begin(); i != enabledSecTypes.end(); i++)
      if (*i < 0x100)
        result.push_back(*i);
-@@ -109,8 +108,6 @@ bool Security::IsSupported(U32 secType)
+@@ -106,8 +105,6 @@ bool Security::IsSupported(U32 secType)
    for (i = enabledSecTypes.begin(); i != enabledSecTypes.end(); i++)
      if (*i == secType)
        return true;
@@ -33,28 +33,28 @@ Index: b/common/rfb/Security.cxx
  
    return false;
  }
-Index: b/common/rfb/SecurityClient.cxx
+Index: pkg-tigervnc/common/rfb/SecurityClient.cxx
 ===================================================================
---- a/common/rfb/SecurityClient.cxx
-+++ b/common/rfb/SecurityClient.cxx
-@@ -45,7 +45,7 @@ StringParameter SecurityClient::secTypes
- ("SecurityTypes",
-  "Specify which security scheme to use (None, VncAuth)",
+--- pkg-tigervnc.orig/common/rfb/SecurityClient.cxx
++++ pkg-tigervnc/common/rfb/SecurityClient.cxx
+@@ -49,7 +49,7 @@ StringParameter SecurityClient::secTypes
+ #endif
+  ")",
  #ifdef HAVE_GNUTLS
 - "X509Plain,TLSPlain,X509Vnc,TLSVnc,X509None,TLSNone,VncAuth,None",
 + "VeNCrypt,X509Plain,TLSPlain,X509Vnc,TLSVnc,X509None,TLSNone,VncAuth,None",
  #else
   "VncAuth,None",
  #endif
-Index: b/common/rfb/SecurityServer.cxx
+Index: pkg-tigervnc/common/rfb/SecurityServer.cxx
 ===================================================================
---- a/common/rfb/SecurityServer.cxx
-+++ b/common/rfb/SecurityServer.cxx
-@@ -39,7 +39,7 @@ StringParameter SecurityServer::secTypes
- ("SecurityTypes",
-  "Specify which security scheme to use (None, VncAuth)",
+--- pkg-tigervnc.orig/common/rfb/SecurityServer.cxx
++++ pkg-tigervnc/common/rfb/SecurityServer.cxx
+@@ -43,7 +43,7 @@ StringParameter SecurityServer::secTypes
+ #endif
+  ")",
  #ifdef HAVE_GNUTLS
-- "VncAuth,TLSVnc",
+- "TLSVnc,VncAuth",
 + "VncAuth",
  #else
   "VncAuth",

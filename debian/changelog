@@ -1,3 +1,9 @@
+tigervnc (1.4.1-1) UNRELEASED; urgency=medium
+
+  * Switch to upstream version 1.4.1 of tigervnc
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Sat, 03 Jan 2015 06:47:29 +0100
+
 tigervnc (1.3.1-1) UNRELEASED; urgency=medium
 
   [ Matthias Klose ]
