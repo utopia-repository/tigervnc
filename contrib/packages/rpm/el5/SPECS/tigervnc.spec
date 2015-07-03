@@ -5,7 +5,7 @@
 
 Name: tigervnc
 Version: @VERSION@
-Release: 3%{?snap:.%{snap}}%{?dist}
+Release: 6%{?snap:.%{snap}}%{?dist}
 Summary: A TigerVNC remote display system
 
 Group: User Interface/Desktops
@@ -18,8 +18,13 @@ Source1: vncserver.service
 Source2: vncserver.sysconfig
 Source6: vncviewer.desktop
 Source9: FindX11.cmake
-Source11: http://fltk.org/pub/fltk/1.3.2/fltk-1.3.2-source.tar.gz
+Source11: http://fltk.org/pub/fltk/1.3.3/fltk-1.3.3-source.tar.gz
 Source12: http://downloads.sourceforge.net/project/libjpeg-turbo/1.3.0/libjpeg-turbo-1.3.0.tar.gz
+Source13: http://downloads.sourceforge.net/project/libpng/libpng15/older-releases/1.5.10/libpng-1.5.10.tar.bz2
+Source14: https://ftp.gnu.org/gnu/gmp/gmp-6.0.0a.tar.bz2
+Source15: http://ftp.gnu.org/gnu/libtasn1/libtasn1-4.2.tar.gz
+Source16: https://ftp.gnu.org/gnu/nettle/nettle-2.7.1.tar.gz
+Source17: ftp://ftp.gnutls.org/gcrypt/gnutls/v3.3/gnutls-3.3.13.tar.xz
 
 Source100: http://www.x.org/releases/X11R7.7/src/everything/bigreqsproto-1.1.2.tar.bz2
 Source101: http://www.x.org/releases/X11R7.7/src/everything/compositeproto-0.4.2.tar.bz2
@@ -105,7 +110,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}%{?snap:-%{snap}}-%{release}-root-%(%{_
 # xorg requires newer versions of automake, & autoconf than are available with el5. Use el6 versions.
 BuildRequires: automake >= 1.11, autoconf >= 2.60, libtool >= 1.4, gettext >= 0.14.4, gettext-devel >= 0.14.4, bison-devel, python26
 BuildRequires: desktop-file-utils, java-devel, jpackage-utils
-BuildRequires: gnutls-devel, pam-devel
+BuildRequires: pam-devel
 BuildRequires: cmake28
 BuildRequires: pkgconfig >= 0.20
 BuildRequires: gcc44, gcc44-c++
@@ -113,9 +118,8 @@ BuildRequires: glibc-devel, libstdc++-devel, libpng-devel
 BuildRequires: expat-devel
 BuildRequires: git, gperf, intltool, libtalloc-devel
 BuildRequires: kernel-headers, libatomic_ops-devel
+BuildRequires: xz
 
-BuildRequires: openmotif-devel
-Requires: openmotif, openmotif22
 Requires(post): initscripts chkconfig coreutils
 Requires(postun):coreutils
 Requires: hicolor-icon-theme
@@ -128,13 +132,10 @@ Obsoletes: tightvnc < 1.5.0-0.15.20090204svn3586
 
 # tigervnc patches
 Patch4: tigervnc-cookie.patch
-Patch10: tigervnc11-ldnow.patch
-Patch11: tigervnc11-gethomedir.patch
 Patch12: tigervnc14-static-build-fixes.patch
 
 # fltk patches
-Patch124: fltk-1.3.2-libdl.patch
-Patch125: fltk-1.3.2-static-libs.patch
+Patch15: fltk-1.3.3-static-libs.patch
 
 # freetype patches
 Patch20:  freetype-2.1.10-enable-ft2-bci.patch
@@ -182,7 +183,6 @@ Patch121:  freetype-2.3.11-CVE-2012-5669.patch
 # https://release.debian.org/proposed-updates/stable_diffs/xorg-server_1.12.4-6+deb7u5.debdiff
 Patch10000: 16_CVE-2014-mult.diff
 Patch10001: 17_CVE-regressions.diff
-Patch10002: CVE-2015-0255.patch
 
 %description
 Virtual Network Computing (VNC) is a remote display system which
@@ -269,25 +269,19 @@ cp %SOURCE9 cmake/Modules/
 sed -i -e "s#@_includedir@#%{xorg_buildroot}%{_includedir}#" cmake/Modules/FindX11.cmake
 sed -i -e "s#@_libdir@#%{xorg_buildroot}%{_libdir}#" cmake/Modules/FindX11.cmake
 %patch4 -p1 -b .cookie
-%patch10 -p1 -b .ldnow
-%patch11 -p1 -b .gethomedir
 %patch12 -p1 -b .static-build-fixes
 
 tar xzf %SOURCE11
 pushd fltk-*
-for p in `find ../contrib/fltk -maxdepth 1 -type f -name "*.patch"|sort` ;
-do
-  patch -p1 -i $p
-done
-# Search paths for X11 are hard coded into FindX11.cmake
-cp %SOURCE9 CMake/
-sed -i -e "s#@_includedir@#%{xorg_buildroot}%{_includedir}#" CMake/FindX11.cmake
-sed -i -e "s#@_libdir@#%{xorg_buildroot}%{_libdir}#" CMake/FindX11.cmake
-%patch124 -p1 -b .libdl
-%patch125 -p1 -b .static-libs
+%patch15 -p1 -b .static-libs
 popd
 
 tar xzf %SOURCE12
+tar xjf %SOURCE13
+tar xjf %SOURCE14
+tar xzf %SOURCE15
+tar xzf %SOURCE16
+xzcat %SOURCE17 | tar xf -
 
 mkdir xorg
 pushd xorg
@@ -397,7 +391,6 @@ tar xjf %SOURCE204
 pushd xorg-server-1*
 %patch10000 -p1 -b .CVE-2014-mult
 %patch10001 -p1 -b .CVE-regressions
-%patch10002 -p1 -b .CVE-2015-0255
 for f in `find . -type f -perm -000`; do
   chmod +r "$f"
 done
@@ -427,9 +420,6 @@ pushd %{xorg_buildroot}%{_libdir}
 ln -s `g++44 -print-file-name=libz.a`
 ln -s `g++44 -print-file-name=libgcc.a`
 ln -s `g++44 -print-file-name=libexpat.a`
-ln -s `g++44 -print-file-name=libgnutls.a`
-ln -s `g++44 -print-file-name=libgpg-error.a`
-ln -s `g++44 -print-file-name=libgcrypt.a`
 ln -s `g++44 -print-file-name=libcrypto.a`
 popd
 
@@ -451,13 +441,71 @@ find %{xorg_buildroot}%{_prefix} -type f -name "*.la" -delete
 find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|libdir=%{_libdir}|libdir=%{xorg_buildroot}%{_libdir}|" {} \;
 find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|prefix=%{_prefix}|prefix=%{xorg_buildroot}%{_prefix}|" {} \;
 popd
+popd
 
 export CFLAGS="$RPM_OPT_FLAGS -fPIC -I%{xorg_buildroot}%{_includedir}"
 export CXXFLAGS="$RPM_OPT_FLAGS -fPIC -I%{xorg_buildroot}%{_includedir} -static-libgcc"
 export CPPFLAGS=$CXXFLAGS
-export LDFLAGS="$LDFLAGS -L%{xorg_buildroot}%{_libdir} -L%{xorg_buildroot}%{_libdir}/tigervnc"
+export LDFLAGS="-L%{xorg_buildroot}%{_libdir} -L%{xorg_buildroot}%{_libdir}/tigervnc $LDFLAGS"
 export ACLOCAL="aclocal -I %{xorg_buildroot}%{_datadir}/aclocal"
 export PKG_CONFIG_PATH="%{xorg_buildroot}%{_libdir}/pkgconfig:%{xorg_buildroot}%{_libdir}/tigervnc/pkgconfig:%{xorg_buildroot}%{_datadir}/pkgconfig:%{_libdir}/pkgconfig:%{_datadir}/pkgconfig"
+
+echo "*** Building gmp ***"
+pushd gmp-*
+%ifarch x86_64 s390x ia64 ppc64 alpha sparc64
+LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ABI=64 ./configure --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared --enable-cxx
+%else
+LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ABI=32 ./configure --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared --enable-cxx
+%endif
+make %{?_smp_mflags} DESTDIR=%{xorg_buildroot} install
+find %{xorg_buildroot}%{_prefix} -type f -name "*.la" -delete
+find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|libdir=%{_libdir}|libdir=%{xorg_buildroot}%{_libdir}|" {} \;
+find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|prefix=%{_prefix}|prefix=%{xorg_buildroot}%{_prefix}|" {} \;
+popd
+
+echo "*** Building libtasn1 ***"
+pushd libtasn1-*
+LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared
+make %{?_smp_mflags} DESTDIR=%{xorg_buildroot} install
+find %{xorg_buildroot}%{_prefix} -type f -name "*.la" -delete
+find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|libdir=%{_libdir}|libdir=%{xorg_buildroot}%{_libdir}|" {} \;
+find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|prefix=%{_prefix}|prefix=%{xorg_buildroot}%{_prefix}|" {} \;
+popd
+
+echo "*** Building nettle ***"
+pushd nettle-*
+autoreconf -fiv
+LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared --disable-openssl
+make %{?_smp_mflags} DESTDIR=%{xorg_buildroot} install
+find %{xorg_buildroot}%{_prefix} -type f -name "*.la" -delete
+find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|libdir=%{_libdir}|libdir=%{xorg_buildroot}%{_libdir}|" {} \;
+find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|prefix=%{_prefix}|prefix=%{xorg_buildroot}%{_prefix}|" {} \;
+popd
+
+echo "*** Building gnutls ***"
+pushd gnutls-*
+LDFLAGS="-L%{xorg_buildroot}%{_libdir} -lgmp $LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure \
+  --prefix=%{_prefix} \
+  --libdir=%{_libdir} \
+  --enable-static \
+  --disable-shared \
+  --without-p11-kit \
+  --disable-guile \
+  --disable-srp-authentication \
+  --disable-libdane \
+  --disable-doc \
+  --enable-local-libopts \
+  --without-tpm \
+  --disable-dependency-tracking \
+  --disable-silent-rules \
+  --disable-heartbeat-support
+make %{?_smp_mflags} DESTDIR=%{xorg_buildroot} install
+find %{xorg_buildroot}%{_prefix} -type f -name "*.la" -delete
+find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|libdir=%{_libdir}|libdir=%{xorg_buildroot}%{_libdir}|" {} \;
+find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|prefix=%{_prefix}|prefix=%{xorg_buildroot}%{_prefix}|" {} \;
+popd
+
+pushd xorg
 
 echo "*** Building freetype ***"
 pushd freetype-*
@@ -709,21 +757,37 @@ popd
 
 popd
 
+echo "*** Building libpng ***"
+pushd libpng-*
+CFLAGS="${CFLAGS}" CXXFLAGS="${CXXFLAGS}" LDFLAGS="${LDFLAGS}" ./configure \
+  --prefix=%{_prefix} \
+  --libdir=%{_libdir} \
+  --disable-shared \
+  --enable-static
+make %{?_smp_mflags}
+make DESTDIR=%{xorg_buildroot} install
+popd
+
 echo "*** Building fltk ***"
 pushd fltk-*
 export CMAKE_PREFIX_PATH="%{xorg_buildroot}%{_prefix}:%{_prefix}"
 export CMAKE_EXE_LINKER_FLAGS=$LDFLAGS
 export PKG_CONFIG="pkg-config --static" 
-%{cmake28} -G"Unix Makefiles" \
-  -DCMAKE_INSTALL_PREFIX=%{_prefix} \
-  -DOPTION_PREFIX_LIB=%{_libdir} \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DOPTION_USE_THREADS=off \
-  -DOPTION_BUILD_EXAMPLES=off \
-  -DOPTION_USE_SYSTEM_LIBPNG=on \
-  -DPNG_LIBRARY=%{_libdir}/libpng.a \
-  -DPNG_INCLUDE_DIR=%{_includedir} \
-  -DOPTION_USE_GL=off
+CFLAGS="${CFLAGS}" CXXFLAGS="${CXXFLAGS}" LDFLAGS="${LDFLAGS}" ./configure \
+  --prefix=%{_prefix} \
+  --libdir=%{_libdir} \
+  --enable-x11 \
+  --enable-gl \
+  --disable-shared \
+  --enable-localjpeg \
+  --enable-localzlib \
+  --disable-localpng \
+  --enable-xinerama \
+  --enable-xft \
+  --enable-xdbe \
+  --enable-xfixes \
+  --enable-xcursor \
+  --with-x 
 make %{?_smp_mflags}
 make DESTDIR=%{xorg_buildroot} install
 popd
@@ -758,7 +822,7 @@ GL_LIBS='-Wl,-Bdynamic -lGL' LDFLAGS="$LDFLAGS -L%{xorg_buildroot}%{_libdir}/tig
   --with-vendor-web="http://www.tigervnc.org" \
   --disable-xorg --disable-xnest --disable-xvfb --disable-dmx \
   --disable-xwin --disable-xephyr --disable-kdrive --disable-wayland \
-  --with-pic --enable-static --disable-shared --disable-xinerama \
+  --with-pic --enable-static --disable-shared --enable-xinerama \
   --with-default-xkb-rules=base \
   --with-default-font-path="catalogue:%{_sysconfdir}/X11/fontpath.d,%{_datadir}/X11/fonts/misc,%{_datadir}/X11/fonts/OTF,%{_datadir}/X11/fonts/TTF,%{_datadir}/X11/fonts/Type1,%{_datadir}/X11/fonts/100dpi,%{_datadir}/X11/fonts/75dpi,built-ins" \
   --with-serverconfig-path=%{_libdir}/xorg \
@@ -916,8 +980,14 @@ fi
 %{_datadir}/icons/hicolor/*/apps/*
 
 %changelog
-* Fri Jan 23 2015 Brian P. Hinz <bphinz@users.sourceforge.net> 1.4.2-1
-- 1.4.2 release
+* Sat Mar 14 2015 Brian P. Hinz <bphinz@users.sourceforge.net> 1.4.80-6
+- Build static libraries to meet new minimum requirements
+
+* Sat Mar 07 2015 Brian P. Hinz <bphinz@users.sourceforge.net> 1.4.80-5
+- Don't disable xinerama extension
+
+* Thu Feb 19 2015 Brian P. Hinz <bphinz@users.sourceforge.net> 1.4.80-4
+- Bumped fltk to 1.3.3, no longer requires patching
 
 * Mon Jan 19 2015 Brian P. Hinz <bphinz@users.sourceforge.net> 1.4.0-3
 - Added default font paths to Xvnc and fontconfig

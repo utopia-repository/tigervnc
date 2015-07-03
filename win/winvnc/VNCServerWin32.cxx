@@ -43,7 +43,7 @@ static IntParameter http_port("HTTPPortNumber",
 static IntParameter port_number("PortNumber",
   "TCP/IP port on which the server will accept connections", 5900);
 static StringParameter hosts("Hosts",
-  "Filter describing which hosts are allowed access to this server", "+0.0.0.0/0.0.0.0");
+  "Filter describing which hosts are allowed access to this server", "+");
 static BoolParameter localHost("LocalHost",
   "Only accept connections from via the local loop-back network interface", false);
 static BoolParameter queryOnlyIfLoggedOn("QueryOnlyIfLoggedOn",
@@ -59,8 +59,8 @@ VNCServerWin32::VNCServerWin32()
       CreateEvent(0, FALSE, FALSE, "Global\\SessionEventTigerVNC") : 0),
     vncServer(CStr(ComputerName().buf), &desktop),
     hostThread(0), runServer(false), isDesktopStarted(false),
-    httpServer(&vncServer), config(&sockMgr), trayIcon(0),
-    rfbSock(&sockMgr), httpSock(&sockMgr),
+    httpServer(&vncServer), config(&sockMgr),
+    rfbSock(&sockMgr), httpSock(&sockMgr), trayIcon(0),
     queryConnectDialog(0)
 {
   // Initialise the desktop
@@ -90,8 +90,8 @@ VNCServerWin32::~VNCServerWin32() {
 }
 
 
-void VNCServerWin32::processAddressChange(network::SocketListener* sock_) {
-  if (!trayIcon || (sock_ != rfbSock.sock))
+void VNCServerWin32::processAddressChange() {
+  if (!trayIcon)
     return;
 
   // Tool-tip prefix depends on server mode
@@ -101,8 +101,8 @@ void VNCServerWin32::processAddressChange(network::SocketListener* sock_) {
 
   // Fetch the list of addresses
   std::list<char*> addrs;
-  if (rfbSock.sock)
-    rfbSock.sock->getMyAddresses(&addrs);
+  if (rfbSock.isListening())
+    TcpListener::getMyAddresses(&addrs);
   else
     addrs.push_front(strDup("Not accepting connections"));
 
@@ -136,7 +136,7 @@ void VNCServerWin32::regConfigChanged() {
   httpSock.setPort(http_port, localHost);
 
   // -=- Update the Java viewer's web page port number.
-  httpServer.setRFBport(rfbSock.sock ? port_number : 0);
+  httpServer.setRFBport(rfbSock.isListening() ? port_number : 0);
 
   // -=- Update the TCP address filter for both ports, if open.
   CharArray pattern(hosts.getData());
@@ -144,7 +144,7 @@ void VNCServerWin32::regConfigChanged() {
   httpSock.setFilter(pattern.buf);
 
   // -=- Update the tray icon tooltip text with IP addresses
-  processAddressChange(rfbSock.sock);
+  processAddressChange();
 }
 
 
@@ -189,10 +189,10 @@ int VNCServerWin32::run() {
 
     vlog.debug("Server exited cleanly");
   } catch (rdr::SystemException &s) {
-    vlog.error(s.str());
+    vlog.error("%s", s.str());
     result = s.err;
   } catch (rdr::Exception &e) {
-    vlog.error(e.str());
+    vlog.error("%s", e.str());
   }
 
   { Lock l(runLock);

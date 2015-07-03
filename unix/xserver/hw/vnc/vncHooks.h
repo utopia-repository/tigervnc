@@ -1,4 +1,5 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
+ * Copyright 2009-2015 Pierre Ossman for Cendio AB
  * 
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,13 +19,17 @@
 #ifndef __VNCHOOKS_H__
 #define __VNCHOOKS_H__
 
-#ifdef HAVE_DIX_CONFIG_H
-#include <dix-config.h>
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-extern "C" {
-#include <screenint.h>
-  extern Bool vncHooksInit(ScreenPtr pScreen, XserverDesktop* desktop);
+int vncHooksInit(int scrIdx);
+
+void vncGetScreenImage(int scrIdx, int x, int y, int width, int height,
+                       char *buffer, int strideBytes);
+
+#ifdef __cplusplus
 }
+#endif
 
 #endif

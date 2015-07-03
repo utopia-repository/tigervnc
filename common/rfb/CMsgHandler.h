@@ -46,7 +46,7 @@ namespace rfb {
     // methods to set the members of cp appropriately.
 
     virtual void setDesktopSize(int w, int h);
-    virtual void setExtendedDesktopSize(int reason, int result,
+    virtual void setExtendedDesktopSize(unsigned reason, unsigned result,
                                         int w, int h,
                                         const ScreenSet& layout);
     virtual void setCursor(int width, int height, const Point& hotspot,
@@ -57,8 +57,8 @@ namespace rfb {
     virtual void endOfContinuousUpdates();
     virtual void serverInit() = 0;
 
-    virtual void framebufferUpdateStart() = 0;
-    virtual void framebufferUpdateEnd() = 0;
+    virtual void framebufferUpdateStart();
+    virtual void framebufferUpdateEnd();
     virtual void dataRect(const Rect& r, int encoding) = 0;
 
     virtual void setColourMapEntries(int firstColour, int nColours,

@@ -37,7 +37,7 @@ using namespace win32;
 
 static LogWriter vlog("main");
 
-TStr rfb::win32::AppName("VNC Server");
+TStr rfb::win32::AppName("TigerVNC Server");
 
 
 extern bool runAsService;
@@ -87,7 +87,7 @@ static void MsgBoxOrLog(const char* msg, bool isError=false) {
   } else {
     if (isError) {
       try {
-        vlog.error(msg);
+        vlog.error("%s", msg);
         return;
       } catch (...) {
       }
@@ -148,11 +148,11 @@ static void processParams(int argc, char** argv) {
       } else if (strcasecmp(argv[i], "-status") == 0) {
         printf("Querying service status...\n");
         runServer = false;
+        CharArray result;
         DWORD state = rfb::win32::getServiceState(VNCServerService::Name);
-        CharArray stateStr(rfb::win32::serviceStateName(state));
-        const char* stateMsg = "The %s Service is in the %s state.";
-        CharArray result(strlen(stateStr.buf) + _tcslen(VNCServerService::Name) + strlen(stateMsg) + 1);
-        sprintf(result.buf, stateMsg, (const char*)CStr(VNCServerService::Name), stateStr.buf);
+        result.format("The %s Service is in the %s state.",
+                      (const char*)CStr(VNCServerService::Name),
+                      rfb::win32::serviceStateName(state));
         MsgBoxOrLog(result.buf);
       } else if (strcasecmp(argv[i], "-service") == 0) {
         printf("Run in service mode\n");
@@ -169,7 +169,7 @@ static void processParams(int argc, char** argv) {
         int j = i;
         i = argc;
         if (rfb::win32::registerService(VNCServerService::Name,
-                                        _T("VNC Server Version 4"),
+                                        _T("Provides remote access to this machine via the VNC/RFB protocol."),
                                         argc-(j+1), &argv[j+1]))
           MsgBoxOrLog("Registered service successfully");
       } else if (strcasecmp(argv[i], "-unregister") == 0) {
@@ -182,7 +182,7 @@ static void processParams(int argc, char** argv) {
         close_console = true;
         vlog.info("closing console");
         if (!FreeConsole())
-          vlog.info("unable to close console:%u", GetLastError());
+          vlog.info("unable to close console:%lu", GetLastError());
 
       } else if ((strcasecmp(argv[i], "-help") == 0) ||
         (strcasecmp(argv[i], "--help") == 0) ||

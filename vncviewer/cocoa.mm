@@ -57,14 +57,10 @@ int cocoa_capture_display(Fl_Window *win, bool all_displays)
       if (CGGetActiveDisplayList(16, displays, &count) != kCGErrorSuccess)
         return 1;
 
-      if (count != Fl::screen_count())
+      if (count != (unsigned)Fl::screen_count())
         return 1;
 
-#ifdef HAVE_FLTK_FULLSCREEN_SCREENS
       index = Fl::screen_num(win->x(), win->y(), win->w(), win->h());
-#else
-      index = 0;
-#endif
 
       if (CGDisplayCapture(displays[index]) != kCGErrorSuccess)
         return 1;
@@ -99,11 +95,9 @@ void cocoa_release_display(Fl_Window *win)
 
   // FIXME: Store the previous level somewhere so we don't have to hard
   //        code a level here.
-#ifdef HAVE_FLTK_FULLSCREEN
   if (win->fullscreen_active() && win->contains(Fl::focus()))
     newlevel = NSStatusWindowLevel;
   else
-#endif
     newlevel = NSNormalWindowLevel;
 
   // Only change if different as the level change also moves the window
@@ -203,7 +197,7 @@ static NSString *key_translate(UInt16 keyCode, UInt32 modifierFlags)
 
   layout = NULL;
 
-#if (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_5)
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_5) || defined(__x86_64__)
   TISInputSourceRef keyboard;
   CFDataRef uchr;
 
@@ -424,7 +418,7 @@ int cocoa_event_keysym(const void *event)
   NSEvent *nsevent;
 
   UInt16 key_code;
-  int i;
+  size_t i;
 
   NSString *chars;
   UInt32 modifiers;

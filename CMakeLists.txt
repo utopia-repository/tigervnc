@@ -18,10 +18,10 @@ include(CheckCSourceRuns)
 include(CMakeMacroLibtoolFile)
 
 project(tigervnc)
-set(VERSION 1.4.3)
+set(VERSION 1.4.90)
 
 # The RC version must always be four comma-separated numbers
-set(RCVERSION 1,4,3,0)
+set(RCVERSION 1,4,90,0)
 
 # Installation paths
 set(BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin")
@@ -67,20 +67,22 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -UNDEBUG")
 set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -UNDEBUG")
 set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -UNDEBUG")
 
+# Tell the compiler to be stringent
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wformat=2")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wformat=2")
+# Make sure we catch these issues whilst developing
+IF(CMAKE_BUILD_TYPE MATCHES Debug)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+ENDIF()
+
 if(NOT DEFINED BUILD_WINVNC)
   set(BUILD_WINVNC 1)
 endif()
 
-# Minimum version is Windows 2000 (5.0)
+# Minimum version is Windows XP SP2 (5.2)
 if(WIN32)
-  if(NOT CMAKE_SIZEOF_VOID_P MATCHES 8)
-    add_definitions(-D_WIN32_IE=0x0500 -D_WIN32_WINNT=0x0500)
-  else()
-    set(WIN64 1)
-    # Win64 doesn't like us requesting a Windows version that didn't have
-    # 64-bit support. Request XP (5.1) instead.
-    add_definitions(-D_WIN32_IE=0x0501 -D_WIN32_WINNT=0x0501)
-  endif()
+  add_definitions(-D_WIN32_IE=0x0502 -D_WIN32_WINNT=0x0502)
 endif()
 
 if(CMAKE_SIZEOF_VOID_P MATCHES 8)
@@ -116,14 +118,7 @@ if(UNIX AND NOT APPLE)
 endif()
 
 # Check for zlib
-find_package(ZLIB)
-option(USE_INCLUDED_ZLIB "Force use of the bundled zlib")
-if(NOT ZLIB_FOUND)
-  set(USE_INCLUDED_ZLIB 1)
-endif()
-if(USE_INCLUDED_ZLIB)
-  message(STATUS "Using included zlib library")
-endif()
+find_package(ZLIB REQUIRED)
 
 # Check for gettext
 option(ENABLE_NLS "Enable translation of program messages" ON)
@@ -226,41 +221,9 @@ if(UNIX AND NOT APPLE)
   if(X11_Xcursor_FOUND)
     set(FLTK_LIBRARIES ${FLTK_LIBRARIES} ${X11_Xcursor_LIB})
   endif()
-endif()
-
-if(FLTK_FOUND)
-  set(CMAKE_REQUIRED_INCLUDES ${FLTK_INCLUDE_DIR})
-  set(CMAKE_REQUIRED_LIBRARIES ${FLTK_LIBRARIES})
-
-  # FLTK STR #2636
-  check_cxx_source_compiles("#include <FL/Fl.H>\nint main(int c, char** v) { Fl::add_clipboard_notify(NULL, NULL); return 0; }" HAVE_FLTK_CLIPBOARD)
-
-  # FLTK STR #2638
-  check_cxx_source_compiles("#include <FL/Enumerations.H>\nint main(int c, char** v) { return FL_Volume_Down; }" HAVE_FLTK_MEDIAKEYS)
-
-  # FLTK STR #2641
-  check_cxx_source_compiles("#include <FL/Enumerations.H>\nint main(int c, char** v) { return FL_FULLSCREEN; }" HAVE_FLTK_FULLSCREEN)
-
-  # FLTK STR #2660
-  check_cxx_source_compiles("#include <FL/Fl_Window.H>\nint main(int c, char** v) { void (Fl_Window::*foo)(const Fl_RGB_Image*,int,int) = &Fl_Window::cursor; return 0; }" HAVE_FLTK_CURSOR)
-
-  # FLTK STR #2697
-  check_cxx_source_compiles("#include <FL/Fl.H>\nint main(int c, char** v) { int X, Y, W, H; Fl::screen_work_area(X, Y, W, H); return 0; }" HAVE_FLTK_WORK_AREA)
-
-  # FLTK STR #2816
-  check_cxx_source_compiles("#include <FL/Fl_Window.H>\nint main(int c, char** v) { Fl_Window::default_icons(0, 0); return 0; }" HAVE_FLTK_ICONS)
-
-  # FLTK STR #2860
-  check_cxx_source_compiles("#include <FL/Fl_Window.H>\nint main(int c, char** v) { void (Fl_Window::*foo)(int,int,int,int) = &Fl_Window::fullscreen_screens; return 0; }" HAVE_FLTK_FULLSCREEN_SCREENS)
-
-  # FLTK STR #xxxx
-  check_cxx_source_compiles("#include <FL/Fl.H>\nint main(int c, char** v) { Fl::add_system_handler(NULL, NULL); return 0; }" HAVE_FLTK_XHANDLERS)
-
-  # FLTK STR #xxxx
-  check_cxx_source_compiles("#include <FL/Fl.H>\nint main(int c, char** v) { Fl::disable_im(); return 0; }" HAVE_FLTK_IM)
-
-  set(CMAKE_REQUIRED_INCLUDES)
-  set(CMAKE_REQUIRED_LIBRARIES)
+  if(X11_Xrender_FOUND)
+    set(FLTK_LIBRARIES ${FLTK_LIBRARIES} ${X11_Xrender_LIB})
+  endif()
 endif()
 
 # Check for GNUTLS library
@@ -271,30 +234,6 @@ if(ENABLE_GNUTLS)
     include_directories(${GNUTLS_INCLUDE_DIR})
     add_definitions("-DHAVE_GNUTLS")
     add_definitions(${GNUTLS_DEFINITIONS})
-    
-    # Detect old version of GnuTLS
-    set(CMAKE_REQUIRED_FLAGS -I${GNUTLS_INCLUDE_DIR})
-    set(CMAKE_EXTRA_INCLUDE_FILES gnutls/gnutls.h)
-    set(CMAKE_REQUIRED_LIBRARIES ${GNUTLS_LIBRARIES})
-    if(WIN32)
-      set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ws2_32 user32)
-    endif()
-    if(ZLIB_FOUND)
-      # When we build against the static version of GnuTLS, we also use the
-      # included version of Zlib, but it isn't built yet, so we have to use the
-      # system's version (if available) to perform this test.
-      set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES};-lz)
-    endif()
-    check_function_exists(gnutls_transport_set_errno HAVE_GNUTLS_SET_ERRNO)
-    check_function_exists(gnutls_transport_set_global_errno HAVE_GNUTLS_SET_GLOBAL_ERRNO)
-    check_function_exists(gnutls_x509_crt_print HAVE_GNUTLS_X509_CRT_PRINT)
-    check_type_size(gnutls_x509_crt_t GNUTLS_X509_CRT_T)
-    check_type_size(gnutls_datum_t GNUTLS_DATUM_T)
-    check_type_size(gnutls_pk_algorithm_t GNUTLS_PK_ALGORITHM_T)
-    check_type_size(gnutls_sign_algorithm_t GNUTLS_SIGN_ALGORITHM_T)
-    set(CMAKE_REQUIRED_FLAGS)
-    set(CMAKE_EXTRA_INCLUDE_FILES) 
-    set(CMAKE_REQUIRED_LIBRARIES)
   endif()
 endif()
 
@@ -312,18 +251,6 @@ if(ENABLE_PAM)
   endif()
 endif()
 set(HAVE_PAM ${ENABLE_PAM})
-
-# Check for socket functions
-if(WIN32)
-  set(CMAKE_EXTRA_INCLUDE_FILES winsock2.h ws2tcpip.h)
-  set(CMAKE_REQUIRED_LIBRARIES ws2_32)
-else()
-  set(CMAKE_EXTRA_INCLUDE_FILES sys/socket.h)
-endif()
-check_function_exists(inet_aton HAVE_INET_ATON)
-check_function_exists(getaddrinfo HAVE_GETADDRINFO)
-set(CMAKE_EXTRA_INCLUDE_FILES) 
-set(CMAKE_REQUIRED_LIBRARIES)
 
 # Generate config.h and make sure the source finds it
 configure_file(config.h.in config.h)

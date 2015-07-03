@@ -56,6 +56,8 @@ static PixelFormat display_pf()
     if (format[i].depth == fl_visual->depth) break;
 
   if (i == nformats)
+    // TRANSLATORS: "pixmap" is an X11 concept and may not be suitable
+    // to translate.
     throw rfb::Exception(_("Display lacks pixmap format for default depth"));
 
   switch (format[i].bits_per_pixel) {
@@ -65,6 +67,8 @@ static PixelFormat display_pf()
     bpp = format[i].bits_per_pixel;
     break;
   default:
+    // TRANSLATORS: "pixmap" is an X11 concept and may not be suitable
+    // to translate.
     throw rfb::Exception(_("Couldn't find suitable pixmap format"));
   }
 
@@ -76,9 +80,7 @@ static PixelFormat display_pf()
   if (!trueColour)
     throw rfb::Exception(_("Only true colour displays supported"));
 
-  vlog.info(_("Using default colormap and visual, %sdepth %d."),
-            (fl_visual->c_class == TrueColor) ? "TrueColor, " :
-            ((fl_visual->c_class == PseudoColor) ? "PseudoColor, " : ""),
+  vlog.info(_("Using default colormap and visual, TrueColor, depth %d."),
             fl_visual->depth);
 
   redShift   = ffs(fl_visual->red_mask)   - 1;
@@ -155,7 +157,6 @@ int X11PixelBuffer::setupShm()
   int major, minor;
   Bool pixmaps;
   XErrorHandler old_handler;
-  Status status;
   const char *display_name = XDisplayName (NULL);
 
   /* Don't use MIT-SHM on remote displays */
