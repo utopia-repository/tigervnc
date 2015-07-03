@@ -3,6 +3,8 @@ tigervnc (1.4.90-1) UNRELEASED; urgency=medium
   * Fresh upstream version
   * debian/rules
     - use xserver117.patch
+  * debian/patchdir
+    - few patches dropped and some updated
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Fri, 03 Jul 2015 10:28:49 -0400
 

@@ -12,8 +12,6 @@ connections are no longer refused. (BZ#645755)
  common/rfb/SSecurityVncAuth.cxx |   16 +++++++++++++++-
  1 files changed, 15 insertions(+), 1 deletions(-)
 
-diff --git a/common/rfb/SSecurityVncAuth.cxx b/common/rfb/SSecurityVncAuth.cxx
-index ca81bf3..e50f831 100644
 --- a/common/rfb/SSecurityVncAuth.cxx
 +++ b/common/rfb/SSecurityVncAuth.cxx
 @@ -31,6 +31,7 @@
@@ -24,28 +22,3 @@ index ca81bf3..e50f831 100644
  extern "C" {
  #include <rfb/d3des.h>
  }
-@@ -119,7 +120,20 @@ char* VncAuthPasswdParameter::getVncAuthPasswd() {
- 
-       vlog.debug("reading password file");
-       obfuscated.buf = new char[128];
--      obfuscated.length = fread(obfuscated.buf, 1, 128, fp);
-+      /* Retry on SIGALRM, no infinite loop */
-+      int retries;
-+      for (retries = 32; retries > 0; retries--) {
-+        clearerr(fp);
-+        errno = 0;
-+        obfuscated.length = fread(obfuscated.buf, 1, 128, fp);
-+        if (!ferror(fp) || errno != EINTR)
-+          break;
-+      }
-+
-+      if (retries == 0 && obfuscated.length == 0) {
-+        vlog.error("reading password file '%s' failed",fname.buf);
-+      }
-+
-       fclose(fp);
-     } else {
-       vlog.info("%s parameter not set", getName());
--- 
-1.7.2.5
-
