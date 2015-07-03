@@ -11,10 +11,7 @@ DEB_SRCDIR   = .
 ## Where to built tigervnc
 #DEB_BUILDDIR = $(CURDIR)/obj-$(DEB_BUILD_GNU_TYPE)
 
-VNC_PATCH = $(CURDIR)/unix/xserver116.patch
-## there is no stock patch for 1.16.  To avoid patching the patch, we
-## just carry for now a copy of adjusted patch
-#VNC_PATCH = $(CURDIR)/debian/patchdir/xserver116.patch
+VNC_PATCH = $(CURDIR)/unix/xserver117.patch
 
 include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/class/cmake.mk
