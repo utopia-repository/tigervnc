@@ -223,16 +223,20 @@
    buildtime.c
 --- a/unix/x0vncserver/x0vncserver.cxx
 +++ b/unix/x0vncserver/x0vncserver.cxx
-@@ -494,6 +494,9 @@ int main(int argc, char** argv)
-     server.setQueryConnectionHandler(&qcHandler);
- 
-     createTcpListeners(&listeners, 0, (int)rfbport);
+@@ -501,8 +501,12 @@ int main(int argc, char** argv)
+     if (strlen(hostsData) != 0)
+       for (std::list<TcpListener>::iterator i = listeners.begin();
+            i != listeners.end();
+-           i++)
++           i++) {
+         (*i).setFilter(&fileTcpFilter);
 +#ifdef HAVE_LIBWRAP
-+    listener.setFilter(new TcpWrappersFilter("Xvnc"));
++        (*i).setFilter(new TcpWrappersFilter("Xvnc"));
 +#endif
-     vlog.info("Listening on port %d", (int)rfbport);
++      }
+     delete[] hostsData;
  
-     const char *hostsData = hostsFile.getData();
+     PollingScheduler sched((int)pollingCycle, (int)maxProcessorUsage);
 --- a/unix/xserver/hw/vnc/Makefile.am
 +++ b/unix/xserver/hw/vnc/Makefile.am
 @@ -14,6 +14,8 @@ HDRS = vncExtInit.h vncHooks.h \
