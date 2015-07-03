@@ -1,13 +1,11 @@
-Index: pkg-tigervnc/vncviewer/Viewport.cxx
-===================================================================
---- pkg-tigervnc.orig/vncviewer/Viewport.cxx
-+++ pkg-tigervnc/vncviewer/Viewport.cxx
-@@ -1115,7 +1115,7 @@ void Viewport::popupContextMenu()
+--- a/vncviewer/Viewport.cxx
++++ b/vncviewer/Viewport.cxx
+@@ -843,7 +843,7 @@ void Viewport::popupContextMenu()
+ 
    // Unfortunately FLTK doesn't reliably restore the mouse pointer for
    // menus, so we have to help it out.
- #ifdef HAVE_FLTK_CURSOR
 -  if (Fl::belowmouse() == this)
 +  if (Fl::belowmouse() == this && cursor)
      window()->cursor(FL_CURSOR_DEFAULT);
- #endif
  
+   m = contextMenu->popup();

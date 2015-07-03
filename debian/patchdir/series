@@ -15,7 +15,8 @@
 # 0903-Add-RH-patch-tigervnc11-rh628054-xorg.patch-which-fi.patch has been applied upstream
 0904-Added-RH-patch-tigervnc11-rh588342.patch-which-fixes.patch
 0905-Added-RH-patch-tigervnc11-rh690245.patch-which-add-T.patch
-0906-Added-RH-patch-tigervnc11-ldnow.patch-disabling-lazy.patch
+# applied upstream
+#0906-Added-RH-patch-tigervnc11-ldnow.patch-disabling-lazy.patch
 find-fltk-libs.diff
 fix-linking.diff
 
@@ -26,10 +27,11 @@ f/tigervnc11-gethomedir.patch
 f/tigervnc-inetd-nowait.patch
 # f/tigervnc-setcursor-crash.patch no longer applicable
 # f/tigervnc-manpages.patch # disable for now
-f/tigervnc-getmaster.patch
+# yoh: purpose is not clear and would need adjustment
+# f/tigervnc-getmaster.patch
 f/tigervnc-shebang.patch
 # f/xserver-1.15.patch # obsoleted by tigervnc 1.4.1 release
-f/tigervnc-format-security.patch
+# f/tigervnc-format-security.patch  # obsoleted by tigervnc 1.4.90
 # f/tigervnc-zrle-crash.patch # seems to be obsoleted by tigervnc 1.4.1 release
 f/tigervnc-cursor.patch
 # f/tigervnc-xstartup.patch # not required as we have our own tigervncserver start script

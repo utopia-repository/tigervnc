@@ -13,11 +13,9 @@ expected. (BZ#588342)
  unix/xserver/hw/vnc/Input.cc |    7 +++++++
  1 files changed, 7 insertions(+), 0 deletions(-)
 
-Index: b/unix/xserver/hw/vnc/Input.cc
-===================================================================
---- a/unix/xserver/hw/vnc/Input.cc
-+++ b/unix/xserver/hw/vnc/Input.cc
-@@ -139,6 +139,9 @@ void InputDevice::PointerButtonAction(in
+--- a/unix/xserver/hw/vnc/Input.c
++++ b/unix/xserver/hw/vnc/Input.c
+@@ -124,6 +124,9 @@ void vncPointerButtonAction(int buttonMa
  	ValuatorMask mask;
  #endif
  
@@ -27,13 +25,13 @@ Index: b/unix/xserver/hw/vnc/Input.cc
  	for (i = 0; i < BUTTONS; i++) {
  		if ((buttonMask ^ oldButtonMask) & (1 << i)) {
  			int action = (buttonMask & (1<<i)) ?
-@@ -176,6 +179,9 @@ void InputDevice::PointerMove(const rfb:
- 	if (pos.equals(cursorPos))
+@@ -163,6 +166,9 @@ void vncPointerMove(int x, int y)
+ 	if (cursorPosX == x && cursorPosY == y)
  		return;
  
 +	/* Flush event queue to ensure we don't flood it */
 +	mieqProcessInputEvents();
 +
- 	valuators[0] = pos.x;
- 	valuators[1] = pos.y;
+ 	valuators[0] = x;
+ 	valuators[1] = y;
  #if XORG < 110

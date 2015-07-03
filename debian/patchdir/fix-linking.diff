@@ -1,8 +1,6 @@
-Index: b/CMakeLists.txt
-===================================================================
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -304,12 +304,18 @@ if(UNIX AND NOT APPLE)
+@@ -252,12 +252,18 @@ if(UNIX AND NOT APPLE)
    if(X11_Xinerama_FOUND)
      set(FLTK_LIBRARIES ${FLTK_LIBRARIES} ${X11_Xinerama_LIB})
    endif()
@@ -18,11 +16,9 @@ Index: b/CMakeLists.txt
 +  if(X11_X11_FOUND)
 +    set(FLTK_LIBRARIES ${FLTK_LIBRARIES} ${X11_X11_LIB})
 +  endif()
- endif()
- 
- if(FLTK_FOUND)
-Index: b/unix/vncconfig/CMakeLists.txt
-===================================================================
+   if(X11_Xrender_FOUND)
+     set(FLTK_LIBRARIES ${FLTK_LIBRARIES} ${X11_Xrender_LIB})
+   endif()
 --- a/unix/vncconfig/CMakeLists.txt
 +++ b/unix/vncconfig/CMakeLists.txt
 @@ -9,7 +9,7 @@ add_executable(vncconfig
@@ -34,16 +30,14 @@ Index: b/unix/vncconfig/CMakeLists.txt
  
  install(TARGETS vncconfig DESTINATION ${BIN_DIR})
  install(FILES vncconfig.man DESTINATION ${MAN_DIR}/man1 RENAME vncconfig.1)
-Index: b/vncviewer/CMakeLists.txt
-===================================================================
 --- a/vncviewer/CMakeLists.txt
 +++ b/vncviewer/CMakeLists.txt
-@@ -46,7 +46,7 @@ else()
+@@ -47,7 +47,7 @@ else()
    add_executable(vncviewer ${VNCVIEWER_SOURCES})
  endif()
  
 -target_link_libraries(vncviewer rfb network rdr os Xregion ${FLTK_LIBRARIES} ${GETTEXT_LIBRARIES})
 +target_link_libraries(vncviewer rfb network rdr os Xregion ${FLTK_LIBRARIES} ${GETTEXT_LIBRARIES} -lX11)
  
- # When building with GnuTLS, librdr depends on ws2_32, so in order to make
- # MinGW happy, we need to put ws2_32 in librdr's target_link_libraries string,
+ if(APPLE)
+   target_link_libraries(vncviewer "-framework Cocoa" "-framework Carbon")

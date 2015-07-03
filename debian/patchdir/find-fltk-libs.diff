@@ -1,7 +1,6 @@
-diff -ru tigervnc-1.3.1+X1.15.0/CMakeLists.txt tigervnc-1.3.1+X1.15.0.new/CMakeLists.txt
---- tigervnc-1.3.1+X1.15.0/CMakeLists.txt	2014-03-19 14:03:53.000000000 +0000
-+++ tigervnc-1.3.1+X1.15.0.new/CMakeLists.txt	2014-07-31 09:27:30.480671374 +0100
-@@ -250,7 +250,8 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -238,7 +238,8 @@ endif()
  set(FLTK_SKIP_FLUID TRUE)
  set(FLTK_SKIP_OPENGL TRUE)
  set(FLTK_SKIP_FORMS TRUE)
