@@ -283,28 +283,36 @@
            {
              listeners.push_back (network::TcpListener(vncInetdSock));
 +#ifdef HAVE_LIBWRAP
-+            listener->setFilter(new network::TcpWrappersFilter("Xvnc"));
++            listeners.back().setFilter(new network::TcpWrappersFilter("Xvnc"));
 +#endif
              vlog.info("inetd wait");
            }
          } else {
-@@ -158,6 +161,9 @@ void vncExtensionInit(void)
+@@ -158,6 +161,13 @@ void vncExtensionInit(void)
            vlog.info("Listening for VNC connections on %s interface(s), port %d",
                      localhostOnly ? "local" : (const char*)interface,
                      port);
 +#ifdef HAVE_LIBWRAP
-+          listener->setFilter(new network::TcpWrappersFilter("Xvnc"));
++          for (std::list<network::TcpListener>::iterator i = listeners.begin();
++               i != listeners.end();
++               i++) {
++              (*i).setFilter(new network::TcpWrappersFilter("Xvnc"));
++          }
 +#endif
  
            CharArray httpDirStr(httpDir.getData());
            if (httpDirStr.buf[0]) {
-@@ -168,7 +174,9 @@ void vncExtensionInit(void)
+@@ -168,7 +178,13 @@ void vncExtensionInit(void)
                network::createLocalTcpListeners(&httpListeners, port);
              else
                network::createTcpListeners(&httpListeners, addr, port);
 -
 +#ifdef HAVE_LIBWRAP
-+            httpListener->setFilter(new network::TcpWrappersFilter("Xvnc"));
++            for (std::list<network::TcpListener>::iterator i = listeners.begin();
++                 i != listeners.end();
++                 i++) {
++                (*i).setFilter(new network::TcpWrappersFilter("Xvnc"));
++            }
 +#endif
              vlog.info("Listening for HTTP connections on %s interface(s), port %d",
                        localhostOnly ? "local" : (const char*)interface,
