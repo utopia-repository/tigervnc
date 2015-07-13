@@ -1,4 +1,4 @@
-0001-xorg-fix-glx-compile.patch
+# 0001-xorg-fix-glx-compile.patch
 # 0002-xorg-fix-compilation-with-werror-int-to-pointer-cast.patch has been applied upstream
 #0100-fixup-format-string-vulnerabilities-in-tigervnc.patch
 # those sources are gone in 1.17
