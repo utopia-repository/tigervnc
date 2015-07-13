@@ -5,6 +5,8 @@ tigervnc (1.4.90-1) UNRELEASED; urgency=medium
     - use xserver117.patch
   * debian/patchdir
     - few patches dropped and some updated
+  * debian/control
+    - require fltk >= 1.3.3
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Fri, 03 Jul 2015 10:28:49 -0400
 
