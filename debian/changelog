@@ -3,8 +3,10 @@ tigervnc (1.5.0-1) UNRELEASED; urgency=medium
   * Fresh upstream
   * debian/patchdir
     - dropped 0001-xorg-fix-glx-compile.patch (underlying sources are gone)
+    - disabled 0200-add-tcpwrappers-support.patch due to most probably it
+      being incorrect and leading to stalls and segfaults ATM.
 
- -- Yaroslav Halchenko <debian@onerussian.com>  Mon, 13 Jul 2015 15:56:52 -0400
+ -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 14 Jul 2015 16:12:00 -0400
 
 tigervnc (1.4.90-1) UNRELEASED; urgency=medium
 
