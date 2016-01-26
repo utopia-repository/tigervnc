@@ -5,7 +5,8 @@ Maintainer: TigerVNC Packaging Team <pkg-tigervnc-devel@lists.alioth.debian.org>
 Uploaders:
  Joachim Falk <joachim.falk@gmx.de>,
  Mike Gabriel <mike.gabriel@das-netzwerkteam.de>,
- Yaroslav Halchenko <debian@onerussian.com>
+ Yaroslav Halchenko <debian@onerussian.com>,
+ Ola Lundqvist <opal@debian.org>
 # all the Build-Depends up to x11proto-xf86-dri-dev are for the normal Xorg
 # server, and common dependencies for the DIX.
 # x11proto-xf86dri-dev and libdrm-dev are for DRI support for the Xorg server.
@@ -112,14 +113,14 @@ Depends:
 Conflicts:
  tigervnc-server (<< 1.1.90),
  tigervnc-viewer (<< 1.1.90)
-Description: Virtual network computing; Common software needed by clients and servers
+Description: Virtual network computing; Common software needed by servers
  VNC stands for Virtual Network Computing. It is, in essence, a remote
  display system which allows you to view a computing `desktop' environment
  not only on the machine where it is running, but from anywhere on the
  Internet and from a wide variety of machine architectures.
  .
  It is implemented in a client/server model. This package provides the common
- software for both client and server.
+ software for servers.
 
 Package: tigervnc-scraping-server
 Architecture: any
@@ -131,7 +132,6 @@ Depends:
  ${shlibs:Depends},
  ${misc:Depends},
 Recommends: libgl1-mesa-dri (>= 7.1~rc1)
-Suggests: xfonts-100dpi | xfonts-75dpi, xfonts-scalable
 Provides:
  vnc-server,
  ${videoabi},
@@ -160,13 +160,15 @@ Depends:
  keyboard-configuration [linux-any kfreebsd-any],
  udev (>= 149) [linux-any],
  tigervnc-common,
+ xauth,
  ${shlibs:Depends},
  ${misc:Depends},
  ${perl:Depends}
-Recommends: libgl1-mesa-dri (>= 7.1~rc1)
+Recommends: libgl1-mesa-dri (>= 7.1~rc1), xfonts-base, x11-xserver-utils
 Suggests: xfonts-100dpi | xfonts-75dpi, xfonts-scalable
 Provides:
  vnc-server,
+ xserver,
  ${videoabi},
  ${inputabi}
 Replaces: tigervnc-server (<< 1.1.90)
@@ -193,7 +195,7 @@ Depends:
  tigervnc-common,
  ${shlibs:Depends},
  ${misc:Depends},
-Recommends: libgl1-mesa-dri (>= 7.1~rc1)
+Recommends: libgl1-mesa-dri (>= 7.1~rc1), xfonts-base, x11-xserver-utils
 Suggests: xfonts-100dpi | xfonts-75dpi, xfonts-scalable
 Provides:
  vnc-server,
@@ -215,11 +217,10 @@ Package: tigervnc-viewer
 Architecture: any
 Depends:
  xserver-common (>= 2:1.7.7),
- tigervnc-common,
  ${shlibs:Depends},
  ${misc:Depends},
 Provides:
- vnc-viewer
+ vncviewer, vnc-viewer
 Description: Virtual network computing client software for X
  VNC stands for Virtual Network Computing. It is, in essence, a remote
  display system which allows you to view a computing `desktop' environment
