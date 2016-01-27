@@ -119,15 +119,16 @@ Description: Virtual network computing; Common software needed by servers
  not only on the machine where it is running, but from anywhere on the
  Internet and from a wide variety of machine architectures.
  .
- It is implemented in a client/server model. This package provides the common
- software for servers.
+ It is implemented in a client/server model. This package provides the
+ vncpasswd and vncconfig tools.
 
 Package: tigervnc-scraping-server
 Architecture: any
 Depends:
- tigervnc-common,
  ${shlibs:Depends},
  ${misc:Depends},
+Recommends:
+ tigervnc-common 
 Provides:
  vnc-server,
  ${videoabi},
@@ -157,12 +158,17 @@ Depends:
  xauth,
  keyboard-configuration [linux-any kfreebsd-any],
  udev (>= 149) [linux-any],
- tigervnc-common,
  ${shlibs:Depends},
  ${misc:Depends},
  ${perl:Depends}
-Recommends: libgl1-mesa-dri (>= 7.1~rc1), xfonts-base, x11-xserver-utils
-Suggests: xfonts-100dpi | xfonts-75dpi, xfonts-scalable
+Recommends:
+ tigervnc-common,
+ libgl1-mesa-dri (>= 7.1~rc1),
+ xfonts-base,
+ x11-xserver-utils
+Suggests:
+ xfonts-100dpi | xfonts-75dpi,
+ xfonts-scalable
 Provides:
  vnc-server,
  xserver,
@@ -187,11 +193,12 @@ Package: tigervnc-xorg-extension
 Architecture: any
 Depends:
  xserver-xorg-core (>= 2:1.7.7),
- #keyboard-configuration [linux-any kfreebsd-any], # already from xorg-core
- #udev (>= 149) [linux-any], # already from xorg-core
- tigervnc-common,
+# keyboard-configuration [linux-any kfreebsd-any], # already from xorg-core
+# udev (>= 149) [linux-any], # already from xorg-core
  ${shlibs:Depends},
  ${misc:Depends},
+Recommends:
+ tigervnc-common 
 Provides:
  vnc-server,
  vnc-xorg-extension,
@@ -213,6 +220,8 @@ Architecture: any
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
+Suggests:
+ tigervnc-common
 Provides:
  vncviewer,
  vnc-viewer
