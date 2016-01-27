@@ -125,13 +125,9 @@ Description: Virtual network computing; Common software needed by servers
 Package: tigervnc-scraping-server
 Architecture: any
 Depends:
- xserver-common (>= 2:1.7.7),
- keyboard-configuration [linux-any kfreebsd-any],
- udev (>= 149) [linux-any],
  tigervnc-common,
  ${shlibs:Depends},
  ${misc:Depends},
-Recommends: libgl1-mesa-dri (>= 7.1~rc1)
 Provides:
  vnc-server,
  ${videoabi},
@@ -156,11 +152,12 @@ Description: Virtual network computing server software
 Package: tigervnc-standalone-server
 Architecture: any
 Depends:
- xserver-common (>= 2:1.7.7),
+ xkb-data,
+ x11-xkb-utils,
+ xauth,
  keyboard-configuration [linux-any kfreebsd-any],
  udev (>= 149) [linux-any],
  tigervnc-common,
- xauth,
  ${shlibs:Depends},
  ${misc:Depends},
  ${perl:Depends}
@@ -189,14 +186,12 @@ Description: Virtual network computing server software
 Package: tigervnc-xorg-extension
 Architecture: any
 Depends:
- xserver-common (>= 2:1.7.7),
- keyboard-configuration [linux-any kfreebsd-any],
- udev (>= 149) [linux-any],
+ xserver-xorg-core (>= 2:1.7.7),
+ #keyboard-configuration [linux-any kfreebsd-any], # already from xorg-core
+ #udev (>= 149) [linux-any], # already from xorg-core
  tigervnc-common,
  ${shlibs:Depends},
  ${misc:Depends},
-Recommends: libgl1-mesa-dri (>= 7.1~rc1), xfonts-base, x11-xserver-utils
-Suggests: xfonts-100dpi | xfonts-75dpi, xfonts-scalable
 Provides:
  vnc-server,
  vnc-xorg-extension,
@@ -216,11 +211,11 @@ Description: Virtual network computing server software
 Package: tigervnc-viewer
 Architecture: any
 Depends:
- xserver-common (>= 2:1.7.7),
  ${shlibs:Depends},
  ${misc:Depends},
 Provides:
- vncviewer, vnc-viewer
+ vncviewer,
+ vnc-viewer
 Description: Virtual network computing client software for X
  VNC stands for Virtual Network Computing. It is, in essence, a remote
  display system which allows you to view a computing `desktop' environment
