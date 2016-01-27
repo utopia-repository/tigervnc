@@ -13,6 +13,7 @@ tigervnc (1.5.0-1) UNRELEASED; urgency=medium
     - Changed some dependencies to recommendations.
     - Changed some dependencies to suggestions.
     - Package description updates.
+   * Updated standards version to 3.9.6.
 
  -- Ola Lundqvist <opal@debian.org>  Wed, 27 Jan 2016 20:23:47 +0100
 
