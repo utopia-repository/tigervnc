@@ -100,6 +100,7 @@ Build-Depends:
 # getpeereid()
  libbsd-dev [kfreebsd-any],
  libepoxy-dev [linux-any kfreebsd-any],
+# openjdk-7-jdk
 Standards-Version: 3.9.6
 Vcs-Git: git://git.debian.org/git/pkg-tigervnc/pkg-tigervnc.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-tigervnc/pkg-tigervnc.git 
@@ -235,3 +236,21 @@ Description: Virtual network computing client software for X
  for X, with this you can connect to a vncserver somewhere in the network
  and display its content in a window. There are vncservers available for other
  operating systems.
+
+#Package: tigervnc-java
+#Architecture: all
+#Depends:
+# openjdk-7-jre
+#Provides:
+# vnc-java-viewer
+#Enhances:
+# tigervnc-standalone-server
+#Description: Virtual network computing java applet and command line program
+# VNC stands for Virtual Network Computing. It is, in essence, a remote
+# display system which allows you to view a computing `desktop' environment
+# not only on the machine where it is running, but from anywhere on the
+# Internet and from a wide variety of machine architectures.
+# .
+# It contains a java viewer implementation that can either be used as an applet,
+# typically served by the built in web server provided by Xvnc
+# (tigervnc-standalone-server) or from command line using a Java JRE.

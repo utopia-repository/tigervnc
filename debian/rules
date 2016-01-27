@@ -39,6 +39,7 @@ DEB_CMAKE_EXTRA_FLAGS     += -DENABLE_LIBWRAP:BOOL=ON
 DEB_CMAKE_EXTRA_FLAGS     += -DENABLE_NLS:BOOL=ON
 DEB_CMAKE_EXTRA_FLAGS     += -DENABLE_GNUTLS:BOOL=ON
 DEB_CMAKE_EXTRA_FLAGS     += -DENABLE_PAM:BOOL=ON
+#DEB_CMAKE_EXTRA_FLAGS     += -DBUILD_JAVA=1
 
 CFLAGS   += $(shell dpkg-buildflags --get CFLAGS)
 CXXFLAGS += $(shell dpkg-buildflags --get CXXFLAGS)
@@ -234,7 +235,9 @@ install/tigervnc-viewer::
 install/tigervnc-standalone-server install/tigervnc-xorg-extension::
 	$(MAKE) -C $(DEB_BUILDDIR)/unix/xserver/hw/vnc DESTDIR=$(DEB_DESTDIR) install
 
-common-binary-arch common-binary-indep:: debian/tmp/common-binary-impl.stamp
+common-binary-arch:: debian/tmp/common-binary-impl.stamp
+
+common-binary-indep::
 
 debian/tmp/common-binary-impl.stamp:
 	cd $(DEB_DESTDIR) && find usr/bin usr/share/man -name "*vnc*" | while read line; do \
