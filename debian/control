@@ -131,9 +131,7 @@ Depends:
 Recommends:
  tigervnc-common 
 Provides:
- vnc-server,
- ${videoabi},
- ${inputabi}
+ vnc-server
 Replaces: tigervnc-server (<< 1.1.90)
 Breaks: tigervnc-server (<< 1.1.90)
 Description: Virtual network computing server software
@@ -157,8 +155,6 @@ Depends:
  xkb-data,
  x11-xkb-utils,
  xauth,
- keyboard-configuration [linux-any kfreebsd-any],
- udev (>= 149) [linux-any],
  ${shlibs:Depends},
  ${misc:Depends},
  ${perl:Depends}
@@ -172,9 +168,7 @@ Suggests:
  xfonts-scalable
 Provides:
  vnc-server,
- xserver,
- ${videoabi},
- ${inputabi}
+ xserver
 Replaces: tigervnc-server (<< 1.1.90)
 Breaks: tigervnc-server (<< 1.1.90)
 Description: Virtual network computing server software
@@ -194,17 +188,13 @@ Package: tigervnc-xorg-extension
 Architecture: any
 Depends:
  xserver-xorg-core (>= 2:1.7.7),
-# keyboard-configuration [linux-any kfreebsd-any], # already from xorg-core
-# udev (>= 149) [linux-any], # already from xorg-core
  ${shlibs:Depends},
  ${misc:Depends},
 Recommends:
  tigervnc-common 
 Provides:
  vnc-server,
- vnc-xorg-extension,
- ${videoabi},
- ${inputabi}
+ vnc-xorg-extension
 Replaces: tigervnc-server (<< 1.1.90)
 Breaks: tigervnc-server (<< 1.1.90)
 Description: Virtual network computing server software
