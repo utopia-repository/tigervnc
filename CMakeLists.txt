@@ -18,10 +18,10 @@ include(CheckCSourceRuns)
 include(CMakeMacroLibtoolFile)
 
 project(tigervnc)
-set(VERSION 1.5.0)
+set(VERSION 1.6.0)
 
 # The RC version must always be four comma-separated numbers
-set(RCVERSION 1,5,0,0)
+set(RCVERSION 1,6,0,0)
 
 # Installation paths
 set(BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin")
@@ -39,12 +39,9 @@ if(MSVC)
   message(FATAL_ERROR "TigerVNC cannot be built with Visual Studio.  Please use MinGW")
 endif()
 
-set(BUILD_TIMESTAMP "")
-execute_process(COMMAND "date" "+%Y-%m-%d %H:%M" OUTPUT_VARIABLE BUILD_TIMESTAMP)
-
 if(NOT BUILD_TIMESTAMP)
   set(BUILD_TIMESTAMP "")
-else()
+  execute_process(COMMAND "date" "+%Y-%m-%d %H:%M" OUTPUT_VARIABLE BUILD_TIMESTAMP)
   string(REGEX REPLACE "\n" "" BUILD_TIMESTAMP ${BUILD_TIMESTAMP})
 endif()
 
@@ -57,6 +54,7 @@ endif()
 message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
 
 message(STATUS "VERSION = ${VERSION}")
+message(STATUS "BUILD_TIMESTAMP = ${BUILD_TIMESTAMP}")
 add_definitions(-DBUILD_TIMESTAMP="${BUILD_TIMESTAMP}")
 
 # We want to keep our asserts even in release builds so remove NDEBUG
@@ -75,6 +73,12 @@ IF(CMAKE_BUILD_TYPE MATCHES Debug)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 ENDIF()
+
+option(ENABLE_ASAN "Enable address sanitizer support" OFF)
+if(ENABLE_ASAN AND NOT WIN32 AND NOT APPLE)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+endif()
 
 if(NOT DEFINED BUILD_WINVNC)
   set(BUILD_WINVNC 1)
@@ -192,6 +196,8 @@ set(CMAKE_REQUIRED_DEFINITIONS)
 if(NOT FOUND_LIBJPEG_TURBO)
   message(STATUS "WARNING: You are not using libjpeg-turbo. Performance will suffer.")
 endif()
+
+include_directories(${JPEG_INCLUDE_DIR})
 
 option(BUILD_JAVA "Build Java version of the TigerVNC Viewer" FALSE)
 if(BUILD_JAVA)

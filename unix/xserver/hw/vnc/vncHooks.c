@@ -44,13 +44,6 @@
 
 #define DBGPRINT(x) //(fprintf x)
 
-// REGION_NULL was introduced in the Xorg tree as the way to initialise an
-// empty region.  If it's not already defined do it the old way.  Note that the
-// old way causes a segfault in the new tree...
-#ifndef REGION_NULL
-#define REGION_NULL(pScreen,pReg) REGION_INIT(pScreen,pReg,NullBox,0)
-#endif
-
 // MAX_RECTS_PER_OP is the maximum number of rectangles we generate from
 // operations like Polylines and PolySegment.  If the operation is more complex
 // than this, we simply use the bounding box.  Ideally it would be a
@@ -680,6 +673,8 @@ static Bool vncHooksDisplayCursor(DeviceIntPtr pDev,
 #endif
 
     vncSetCursor(pScreen->myNum, width, height, hotX, hotY, rgbaData);
+
+    free(rgbaData);
   }
 
 out:
@@ -722,7 +717,7 @@ static void vncHooksBlockHandler(ScreenPtr pScreen_, void * pTimeout,
 
 // Composite - The core of XRENDER
 
-void vncHooksComposite(CARD8 op, PicturePtr pSrc, PicturePtr pMask, 
+static void vncHooksComposite(CARD8 op, PicturePtr pSrc, PicturePtr pMask,
 		       PicturePtr pDst, INT16 xSrc, INT16 ySrc, INT16 xMask, 
 		       INT16 yMask, INT16 xDst, INT16 yDst, CARD16 width, CARD16 height)
 {
@@ -735,13 +730,23 @@ void vncHooksComposite(CARD8 op, PicturePtr pSrc, PicturePtr pMask,
   if (pDst->pDrawable->type == DRAWABLE_WINDOW &&
       ((WindowPtr) pDst->pDrawable)->viewable) {
     BoxRec box;
+    RegionRec fbreg;
 
     box.x1 = max(pDst->pDrawable->x + xDst, 0);
     box.y1 = max(pDst->pDrawable->y + yDst, 0);
-    box.x2 = min(box.x1 + width, pScreen->width);
-    box.y2 = min(box.y1 + height, pScreen->height);
-
+    box.x2 = box.x1 + width;
+    box.y2 = box.y1 + height;
     REGION_INIT(pScreen, &changed, &box, 0);
+
+    box.x1 = 0;
+    box.y1 = 0;
+    box.x2 = pScreen->width;
+    box.y2 = pScreen->height;
+    REGION_INIT(pScreen, &fbreg, &box, 0);
+
+    REGION_INTERSECT(pScreen, &changed, &changed, &fbreg);
+
+    REGION_UNINIT(pScreen, &fbreg);
   } else {
     REGION_NULL(pScreen, &changed);
   }
@@ -808,7 +813,7 @@ GlyphsToRegion(ScreenPtr pScreen, int nlist, GlyphListPtr list, GlyphPtr *glyphs
 
 // Glyphs - Glyph specific version of Composite (caches and whatnot)
 
-void vncHooksGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst, 
+static void vncHooksGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst,
            PictFormatPtr maskFormat, INT16 xSrc, INT16 ySrc, int nlists, 
            GlyphListPtr lists, GlyphPtr * glyphs)
 {
@@ -1106,19 +1111,26 @@ static RegionPtr vncHooksCopyArea(DrawablePtr pSrc, DrawablePtr pDst,
                                   GCPtr pGC, int srcx, int srcy, int w, int h,
                                   int dstx, int dsty)
 {
-  BoxRec box;
   RegionRec dst, src, changed;
 
   RegionPtr ret;
 
   GC_OP_PROLOGUE(pGC, CopyArea);
 
-  box.x1 = dstx + pDst->x;
-  box.y1 = dsty + pDst->y;
-  box.x2 = box.x1 + w;
-  box.y2 = box.y1 + h;
+  // Apparently this happens now and then...
+  if ((w == 0) || (h == 0))
+    REGION_NULL(pGC->pScreen, &dst);
+  else {
+    BoxRec box;
 
-  REGION_INIT(pGC->pScreen, &dst, &box, 0);
+    box.x1 = dstx + pDst->x;
+    box.y1 = dsty + pDst->y;
+    box.x2 = box.x1 + w;
+    box.y2 = box.y1 + h;
+
+    REGION_INIT(pGC->pScreen, &dst, &box, 0);
+  }
+
   REGION_INTERSECT(pGC->pScreen, &dst, &dst, pGC->pCompositeClip);
 
   // The source of the data has to be something that's on screen.
@@ -1126,6 +1138,8 @@ static RegionPtr vncHooksCopyArea(DrawablePtr pSrc, DrawablePtr pDst,
   if ((pSrc->pScreen == pGC->pScreen) &&
       ((pSrc->type == DRAWABLE_WINDOW) ||
        (pSrc == &pGC->pScreen->GetScreenPixmap(pGC->pScreen)->drawable))) {
+    BoxRec box;
+
     box.x1 = srcx + pSrc->x;
     box.y1 = srcy + pSrc->y;
     box.x2 = box.x1 + w;

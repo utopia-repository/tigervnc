@@ -3,7 +3,8 @@
  * Copyright (C) 2005 Martin Koegler
  * Copyright (C) 2010 m-privacy GmbH
  * Copyright (C) 2010 TigerVNC Team
- * Copyright (C) 2011-2012,2014 Brian P. Hinz
+ * Copyright (C) 2011-2015 Brian P. Hinz
+ * Copyright (C) 2015 D. R. Commander.  All Rights Reserved.
  *
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,16 +25,32 @@
 package com.tigervnc.rfb;
 
 import javax.net.ssl.*;
-import java.security.*;
-import java.security.cert.*;
+import java.security.KeyManagementException;
 import java.security.KeyStore;
+import java.security.NoSuchAlgorithmException;
+import java.security.MessageDigest;
+import java.security.cert.*;
+import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStream;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.InputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import javax.naming.InvalidNameException;
+import javax.naming.ldap.LdapName;
+import javax.naming.ldap.Rdn;
+import javax.net.ssl.HostnameVerifier;
 import javax.swing.JOptionPane;
+import javax.xml.bind.DatatypeConverter;
 
 import com.tigervnc.rdr.*;
 import com.tigervnc.network.*;
@@ -50,23 +67,17 @@ public class CSecurityTLS extends CSecurity {
 
   private void initGlobal()
   {
-    boolean globalInitDone = false;
-
-    if (!globalInitDone) {
-      try {
-        ctx = SSLContext.getInstance("TLS");
-      } catch(NoSuchAlgorithmException e) {
-        throw new Exception(e.toString());
-      }
-
-      globalInitDone = true;
+    try {
+      ctx = SSLContext.getInstance("TLS");
+    } catch(NoSuchAlgorithmException e) {
+      throw new Exception(e.toString());
     }
   }
 
   public CSecurityTLS(boolean _anon)
   {
     anon = _anon;
-    session = null;
+    manager = null;
 
     setDefaults();
     cafile = x509ca.getData();
@@ -106,7 +117,7 @@ public class CSecurityTLS extends CSecurity {
 
     initGlobal();
 
-    if (session == null) {
+    if (manager == null) {
       if (!is.checkNoWait(1))
         return false;
 
@@ -122,17 +133,14 @@ public class CSecurityTLS extends CSecurity {
       }
 
       setParam();
-
     }
 
     try {
       manager = new SSLEngineManager(engine, is, os);
       manager.doHandshake();
     } catch(java.lang.Exception e) {
-      throw new Exception(e.toString());
+      throw new SystemException(e.toString());
     }
-
-    //checkSession();
 
     cc.setStreams(new TLSInStream(is, manager),
 		              new TLSOutStream(os, manager));
@@ -186,13 +194,6 @@ public class CSecurityTLS extends CSecurity {
 
   }
 
-  class MyHandshakeListener implements HandshakeCompletedListener {
-   public void handshakeCompleted(HandshakeCompletedEvent e) {
-     vlog.info("Handshake succesful!");
-     vlog.info("Using cipher suite: " + e.getCipherSuite());
-   }
-  }
-
   class MyX509TrustManager implements X509TrustManager
   {
 
@@ -200,19 +201,41 @@ public class CSecurityTLS extends CSecurity {
 
     MyX509TrustManager() throws java.security.GeneralSecurityException
     {
-      TrustManagerFactory tmf =
-        TrustManagerFactory.getInstance("PKIX");
       KeyStore ks = KeyStore.getInstance("JKS");
       CertificateFactory cf = CertificateFactory.getInstance("X.509");
       try {
         ks.load(null, null);
+        String a = TrustManagerFactory.getDefaultAlgorithm();
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(a);
+        tmf.init((KeyStore)null);
+        for (TrustManager m : tmf.getTrustManagers())
+          if (m instanceof X509TrustManager)
+            for (X509Certificate c : ((X509TrustManager)m).getAcceptedIssuers())
+              ks.setCertificateEntry(c.getSubjectX500Principal().getName(), c);
+        File castore = new File(FileUtils.getVncHomeDir()+"x509_savedcerts.pem");
+        if (castore.exists() && castore.canRead()) {
+          InputStream caStream = new MyFileInputStream(castore);
+          Collection<? extends Certificate> cacerts =
+            cf.generateCertificates(caStream);
+          for (Certificate cert : cacerts) {
+            String dn =
+              ((X509Certificate)cert).getSubjectX500Principal().getName();
+            ks.setCertificateEntry(dn, (X509Certificate)cert);
+          }
+        }
         File cacert = new File(cafile);
-        if (!cacert.exists() || !cacert.canRead())
-          return;
-        InputStream caStream = new FileInputStream(cafile);
-        X509Certificate ca = (X509Certificate)cf.generateCertificate(caStream);
-        ks.setCertificateEntry("CA", ca);
-        PKIXBuilderParameters params = new PKIXBuilderParameters(ks, new X509CertSelector());
+        if (cacert.exists() && cacert.canRead()) {
+          InputStream caStream = new MyFileInputStream(cacert);
+          Collection<? extends Certificate> cacerts =
+            cf.generateCertificates(caStream);
+          for (Certificate cert : cacerts) {
+            String dn =
+              ((X509Certificate)cert).getSubjectX500Principal().getName();
+            ks.setCertificateEntry(dn, (X509Certificate)cert);
+          }
+        }
+        PKIXBuilderParameters params =
+          new PKIXBuilderParameters(ks, new X509CertSelector());
         File crlcert = new File(crlfile);
         if (!crlcert.exists() || !crlcert.canRead()) {
           params.setRevocationEnabled(false);
@@ -224,13 +247,12 @@ public class CSecurityTLS extends CSecurity {
           params.addCertStore(store);
           params.setRevocationEnabled(true);
         }
+        tmf = TrustManagerFactory.getInstance("PKIX");
         tmf.init(new CertPathTrustManagerParameters(params));
-      } catch (java.io.FileNotFoundException e) {
-        vlog.error(e.toString());
-      } catch (java.io.IOException e) {
-        vlog.error(e.toString());
+        tm = (X509TrustManager)tmf.getTrustManagers()[0];
+      } catch (java.lang.Exception e) {
+        throw new Exception(e.getMessage());
       }
-      tm = (X509TrustManager)tmf.getTrustManagers()[0];
     }
 
     public void checkClientTrusted(X509Certificate[] chain, String authType)
@@ -242,20 +264,85 @@ public class CSecurityTLS extends CSecurity {
     public void checkServerTrusted(X509Certificate[] chain, String authType)
       throws CertificateException
     {
+      MessageDigest md = null;
       try {
-	      tm.checkServerTrusted(chain, authType);
-      } catch (CertificateException e) {
-        Object[] answer = {"Proceed", "Exit"};
-        int ret = JOptionPane.showOptionDialog(null,
-          e.getCause().getLocalizedMessage()+"\n"+
-          "Continue connecting to this host?",
-          "Confirm certificate exception?",
-          JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
-          null, answer, answer[0]);
-        if (ret == JOptionPane.NO_OPTION)
-          System.exit(1);
+        md = MessageDigest.getInstance("SHA-1");
+        verifyHostname(chain[0]);
+        tm.checkServerTrusted(chain, authType);
       } catch (java.lang.Exception e) {
-        throw new Exception(e.toString());
+        if (e.getCause() instanceof CertPathBuilderException) {
+          Object[] answer = {"YES", "NO"};
+          X509Certificate cert = chain[0];
+          md.update(cert.getEncoded());
+          String thumbprint =
+            DatatypeConverter.printHexBinary(md.digest());
+          thumbprint = thumbprint.replaceAll("..(?!$)", "$0 ");
+          int ret = JOptionPane.showOptionDialog(null,
+            "This certificate has been signed by an unknown authority\n"+
+            "\n"+
+            "  Subject: "+cert.getSubjectX500Principal().getName()+"\n"+
+            "  Issuer: "+cert.getIssuerX500Principal().getName()+"\n"+
+            "  Serial Number: "+cert.getSerialNumber()+"\n"+
+            "  Version: "+cert.getVersion()+"\n"+
+            "  Signature Algorithm: "+cert.getPublicKey().getAlgorithm()+"\n"+
+            "  Not Valid Before: "+cert.getNotBefore()+"\n"+
+            "  Not Valid After: "+cert.getNotAfter()+"\n"+
+            "  SHA1 Fingerprint: "+thumbprint+"\n"+
+            "\n"+
+            "Do you want to save it and continue?",
+            "Certificate Issuer Unknown",
+            JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
+            null, answer, answer[0]);
+          if (ret == JOptionPane.YES_OPTION) {
+            Collection<? extends X509Certificate> cacerts = null;
+            File vncDir = new File(FileUtils.getVncHomeDir());
+            File caFile = new File(vncDir, "x509_savedcerts.pem");
+            try {
+              if (!vncDir.exists())
+                vncDir.mkdir();
+              if (!caFile.createNewFile()) {
+                vlog.error("Certificate save failed.");
+                return;
+              }
+            } catch (java.lang.Exception ioe) {
+              // skip save if security settings prohibit access to filesystem
+              vlog.error("Certificate save failed: "+ioe.getMessage());
+              return;
+            }
+            InputStream caStream = new MyFileInputStream(caFile);
+            CertificateFactory cf =
+              CertificateFactory.getInstance("X.509");
+            cacerts =
+              (Collection <? extends X509Certificate>)cf.generateCertificates(caStream);
+            for (int i = 0; i < chain.length; i++) {
+              if (cacerts == null || !cacerts.contains(chain[i])) {
+                byte[] der = chain[i].getEncoded();
+                String pem = DatatypeConverter.printBase64Binary(der);
+                pem = pem.replaceAll("(.{64})", "$1\n");
+                FileWriter fw = null;
+                try {
+                  fw = new FileWriter(caFile.getAbsolutePath(), true);
+                  fw.write("-----BEGIN CERTIFICATE-----\n");
+                  fw.write(pem+"\n");
+                  fw.write("-----END CERTIFICATE-----\n");
+                } catch (IOException ioe) {
+                  throw new Exception(ioe.getMessage());
+                } finally {
+                  try {
+                    if (fw != null)
+                      fw.close();
+                  } catch(IOException ioe2) {
+                    throw new Exception(ioe2.getMessage());
+                  }
+                }
+              }
+            }
+          } else {
+            throw new WarningException("Peer certificate verification failed.");
+          }
+        } else {
+          throw new SystemException(e.getMessage());
+        }
       }
     }
 
@@ -263,19 +350,118 @@ public class CSecurityTLS extends CSecurity {
     {
       return tm.getAcceptedIssuers();
     }
+
+    private void verifyHostname(X509Certificate cert)
+      throws CertificateParsingException
+    {
+      try {
+        Collection sans = cert.getSubjectAlternativeNames();
+        if (sans == null) {
+          String dn = cert.getSubjectX500Principal().getName();
+          LdapName ln = new LdapName(dn);
+          for (Rdn rdn : ln.getRdns()) {
+            if (rdn.getType().equalsIgnoreCase("CN")) {
+              String peer =
+                ((CConn)client).getSocket().getPeerName().toLowerCase();
+              if (peer.equals(((String)rdn.getValue()).toLowerCase()))
+                return;
+            }
+          }
+        } else {
+          Iterator i = sans.iterator();
+          while (i.hasNext()) {
+            List nxt = (List)i.next();
+            if (((Integer)nxt.get(0)).intValue() == 2) {
+              String peer =
+                ((CConn)client).getSocket().getPeerName().toLowerCase();
+              if (peer.equals(((String)nxt.get(1)).toLowerCase()))
+                return;
+            } else if (((Integer)nxt.get(0)).intValue() == 7) {
+              String peer = ((CConn)client).getSocket().getPeerAddress();
+              if (peer.equals(((String)nxt.get(1)).toLowerCase()))
+                return;
+            }
+          }
+        }
+        Object[] answer = {"YES", "NO"};
+        int ret = JOptionPane.showOptionDialog(null,
+          "Hostname verification failed. Do you want to continue?",
+          "Hostname Verification Failure",
+          JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
+          null, answer, answer[0]);
+        if (ret != JOptionPane.YES_OPTION)
+          throw new WarningException("Hostname verification failed.");
+      } catch (CertificateParsingException e) {
+        throw new SystemException(e.getMessage());
+      } catch (InvalidNameException e) {
+        throw new SystemException(e.getMessage());
+      }
+    }
+
+    private class MyFileInputStream extends InputStream {
+      // Blank lines in a certificate file will cause Java 6 to throw a
+      // "DerInputStream.getLength(): lengthTag=127, too big" exception.
+      ByteBuffer buf;
+
+      public MyFileInputStream(String name) {
+        this(new File(name));
+      }
+
+      public MyFileInputStream(File file) {
+        StringBuffer sb = new StringBuffer();
+        BufferedReader reader = null;
+        try {
+          reader = new BufferedReader(new FileReader(file));
+          String l;
+          while ((l = reader.readLine()) != null) {
+            if (l.trim().length() > 0 )
+              sb.append(l+"\n");
+          }
+        } catch (java.lang.Exception e) {
+          throw new Exception(e.toString());
+        } finally {
+          try {
+            if (reader != null)
+              reader.close();
+          } catch(IOException ioe) {
+            throw new Exception(ioe.getMessage());
+          }
+        }
+        Charset utf8 = Charset.forName("UTF-8");
+        buf = ByteBuffer.wrap(sb.toString().getBytes(utf8));
+        buf.limit(buf.capacity());
+      }
+
+      @Override
+      public int read(byte[] b) throws IOException {
+        return this.read(b, 0, b.length);
+      }
+
+      @Override
+      public int read(byte[] b, int off, int len) throws IOException {
+        if (!buf.hasRemaining())
+          return -1;
+        len = Math.min(len, buf.remaining());
+        buf.get(b, off, len);
+        return len;
+      }
+
+      @Override
+      public int read() throws IOException {
+        if (!buf.hasRemaining())
+          return -1;
+        return buf.get() & 0xFF;
+      }
+    }
   }
 
   public final int getType() { return anon ? Security.secTypeTLSNone : Security.secTypeX509None; }
   public final String description()
     { return anon ? "TLS Encryption without VncAuth" : "X509 Encryption without VncAuth"; }
 
-  //protected void checkSession();
   protected CConnection client;
 
-
-
   private SSLContext ctx;
-  private SSLSession session;
   private SSLEngine engine;
   private SSLEngineManager manager;
   private boolean anon;

@@ -23,12 +23,13 @@ if (GETTEXT_XGETTEXT_EXECUTABLE)
       "--output=${CMAKE_CURRENT_SOURCE_DIR}/tigervnc.pot"
       --default-domain=tigervnc
       --keyword=_
+      --keyword=p_:1c,2
       --keyword=N_
       "--copyright-holder=TigerVNC Team and many others \(see README.txt\)"
       --msgid-bugs-address=tigervnc-devel@googlegroups.com
       --sort-by-file
       --add-location
-      --add-comments
+      --add-comments=TRANSLATORS
       ${po_source}
     COMMENT "Updating tigervnc.pot"
     VERBATIM

@@ -1,11 +1,18 @@
 %define _default_patch_fuzz 2
 %define tigervnc_src_dir %{_builddir}/%{name}-%{version}%{?snap:-%{snap}}
-%define xorg_buildroot %{tigervnc_src_dir}/xorg.build
 %{!?_self_signed: %define _self_signed 1}
+%{!?_bootstrap: %define _bootstrap 1}
+#%global scl_name %{name}$(echo %version | sed -e 's/\\.//;s/\\..*//')
+%define scl_name %{name}16
+%if %{_bootstrap}
+%define xorg_buildroot $RPM_BUILD_ROOT/opt/%{name}/%{scl_name}
+%else
+%define xorg_buildroot /opt/%{name}/%{scl_name}
+%endif
 
 Name: tigervnc
 Version: @VERSION@
-Release: 6%{?snap:.%{snap}}%{?dist}
+Release: 1%{?snap:.%{snap}}%{?dist}
 Summary: A TigerVNC remote display system
 
 Group: User Interface/Desktops
@@ -19,12 +26,12 @@ Source2: vncserver.sysconfig
 Source6: vncviewer.desktop
 Source9: FindX11.cmake
 Source11: http://fltk.org/pub/fltk/1.3.3/fltk-1.3.3-source.tar.gz
-Source12: http://downloads.sourceforge.net/project/libjpeg-turbo/1.3.0/libjpeg-turbo-1.3.0.tar.gz
-Source13: http://downloads.sourceforge.net/project/libpng/libpng15/older-releases/1.5.10/libpng-1.5.10.tar.bz2
+Source12: http://downloads.sourceforge.net/project/libjpeg-turbo/1.4.2/libjpeg-turbo-1.4.2.tar.gz
+Source13: http://downloads.sourceforge.net/project/libpng/libpng15/1.5.24/libpng-1.5.24.tar.bz2
 Source14: https://ftp.gnu.org/gnu/gmp/gmp-6.0.0a.tar.bz2
-Source15: http://ftp.gnu.org/gnu/libtasn1/libtasn1-4.2.tar.gz
+Source15: http://ftp.gnu.org/gnu/libtasn1/libtasn1-4.7.tar.gz
 Source16: https://ftp.gnu.org/gnu/nettle/nettle-2.7.1.tar.gz
-Source17: ftp://ftp.gnutls.org/gcrypt/gnutls/v3.3/gnutls-3.3.13.tar.xz
+Source17: ftp://ftp.gnutls.org/gcrypt/gnutls/v3.3/gnutls-3.3.19.tar.xz
 
 Source100: http://www.x.org/releases/X11R7.7/src/everything/bigreqsproto-1.1.2.tar.bz2
 Source101: http://www.x.org/releases/X11R7.7/src/everything/compositeproto-0.4.2.tar.bz2
@@ -100,12 +107,12 @@ Source203: http://dri.freedesktop.org/libdrm/libdrm-2.4.52.tar.bz2
 Source204: ftp://ftp.freedesktop.org/pub/mesa/older-versions/9.x/9.2.5/MesaLib-9.2.5.tar.bz2
 # NOTE:
 #   libgcrypt from el5 is not new enough to satisfy newer Xorg requirements for --with-sha1,
-#   which causes Xorg to link against libssl.so and introduce about 10 dynamic dependencies. 
+#   which causes Xorg to link against libssl.so and introduce about 10 dynamic dependencies.
 #   to prevent this, build a static libsha1 and link against that.
 # NOTE:
 Source205: https://github.com/dottedmag/libsha1/archive/0.3.tar.gz
 
-BuildRoot: %{_tmppath}/%{name}-%{version}%{?snap:-%{snap}}-%{release}-root-%(%{__id_u} -n)
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 # xorg requires newer versions of automake, & autoconf than are available with el5. Use el6 versions.
 BuildRequires: automake >= 1.11, autoconf >= 2.60, libtool >= 1.4, gettext >= 0.14.4, gettext-devel >= 0.14.4, bison-devel, python26
@@ -119,6 +126,9 @@ BuildRequires: expat-devel
 BuildRequires: git, gperf, intltool, libtalloc-devel
 BuildRequires: kernel-headers, libatomic_ops-devel
 BuildRequires: xz
+%if !%{_bootstrap}
+BuildRequires: %{name}-static-devel == %{version}
+%endif
 
 Requires(post): initscripts chkconfig coreutils
 Requires(postun):coreutils
@@ -133,6 +143,8 @@ Obsoletes: tightvnc < 1.5.0-0.15.20090204svn3586
 # tigervnc patches
 Patch4: tigervnc-cookie.patch
 Patch12: tigervnc14-static-build-fixes.patch
+Patch13: tigervnc14-Add-dridir-param.patch
+Patch14: tigervnc14-Add-xkbcompdir-param.patch
 
 # fltk patches
 Patch15: fltk-1.3.3-static-libs.patch
@@ -183,6 +195,14 @@ Patch121:  freetype-2.3.11-CVE-2012-5669.patch
 # https://release.debian.org/proposed-updates/stable_diffs/xorg-server_1.12.4-6+deb7u5.debdiff
 Patch10000: 16_CVE-2014-mult.diff
 Patch10001: 17_CVE-regressions.diff
+# http://www.x.org/wiki/Development/Security/Advisory-2015-02-10/
+Patch10002: CVE-2015-0255.diff
+# http://www.x.org/wiki/Development/Security/Advisory-2015-03-17/
+Patch10003: CVE-2015-1802.diff
+Patch10004: CVE-2015-1803.diff
+Patch10005: CVE-2015-1804.diff
+# http://lists.x.org/archives/xorg-announce/2015-April/002561.html
+Patch10006: CVE-2013-7439.diff
 
 %description
 Virtual Network Computing (VNC) is a remote display system which
@@ -260,7 +280,17 @@ BuildArch: noarch
 %description icons
 This package contains icons for TigerVNC viewer
 
+%if %{_bootstrap}
+%package static-devel
+Summary: Static development files necessary to build TigerVNC
+Group: Development/Libraries
+
+%description static-devel
+This package contains static development files necessary to build TigerVNC
+%endif
+
 %prep
+rm -rf $RPM_BUILD_ROOT
 rm -rf %{_builddir}/%{name}-%{version}%{?snap:-%{snap}}
 %setup -q -n %{name}-%{version}%{?snap:-%{snap}}
 
@@ -271,6 +301,7 @@ sed -i -e "s#@_libdir@#%{xorg_buildroot}%{_libdir}#" cmake/Modules/FindX11.cmake
 %patch4 -p1 -b .cookie
 %patch12 -p1 -b .static-build-fixes
 
+%if %{_bootstrap}
 tar xzf %SOURCE11
 pushd fltk-*
 %patch15 -p1 -b .static-libs
@@ -282,9 +313,11 @@ tar xjf %SOURCE14
 tar xzf %SOURCE15
 tar xzf %SOURCE16
 xzcat %SOURCE17 | tar xf -
+%endif
 
 mkdir xorg
 pushd xorg
+%if %{_bootstrap}
 tar xjf %SOURCE100
 tar xjf %SOURCE101
 tar xjf %SOURCE102
@@ -299,6 +332,9 @@ tar xjf %SOURCE110
 tar xjf %SOURCE111
 tar xjf %SOURCE112
 tar xjf %SOURCE113
+pushd libX11-*
+%patch10006 -p1 -b .CVE-2013-7439
+popd
 tar xjf %SOURCE114
 tar xjf %SOURCE115
 tar xjf %SOURCE116
@@ -309,6 +345,11 @@ tar xjf %SOURCE120
 tar xjf %SOURCE121
 tar xjf %SOURCE122
 tar xjf %SOURCE123
+pushd libXfont-*
+%patch10003 -p1 -b .CVE-2015-1802
+%patch10004 -p1 -b .CVE-2015-1803
+%patch10005 -p1 -b .CVE-2015-1804
+popd
 tar xjf %SOURCE124
 tar xjf %SOURCE125
 tar xjf %SOURCE126
@@ -344,7 +385,9 @@ tar xjf %SOURCE155
 tar xjf %SOURCE156
 tar xjf %SOURCE157
 tar xjf %SOURCE158
+%endif
 tar xjf %SOURCE159
+%if %{_bootstrap}
 tar xjf %SOURCE160
 tar xjf %SOURCE161
 tar xjf %SOURCE162
@@ -388,14 +431,18 @@ popd
 tar xjf %SOURCE202
 tar xjf %SOURCE203
 tar xjf %SOURCE204
+%endif
 pushd xorg-server-1*
 %patch10000 -p1 -b .CVE-2014-mult
 %patch10001 -p1 -b .CVE-regressions
+%patch10002 -p1 -b .CVE-2015-0255
 for f in `find . -type f -perm -000`; do
   chmod +r "$f"
 done
 popd
+%if %{_bootstrap}
 tar xzf %SOURCE205
+%endif
 popd
 
 cp -a xorg/xorg-server-1*/* unix/xserver
@@ -405,6 +452,8 @@ for all in `find . -type f -perm -001`; do
   chmod -x "$all"
 done
 patch -p1 < %{_builddir}/%{name}-%{version}%{?snap:-%{snap}}/unix/xserver112.patch
+%patch13 -p1 -b .dridir
+%patch14 -p1 -b .xkbcompdir
 
 popd
 
@@ -415,17 +464,18 @@ export CFLAGS="$RPM_OPT_FLAGS -fPIC"
 export CXXFLAGS="$CFLAGS -static-libgcc"
 export PYTHON=python26
 
+%if %{_bootstrap}
 mkdir -p %{xorg_buildroot}%{_libdir}
 pushd %{xorg_buildroot}%{_libdir}
-ln -s `g++44 -print-file-name=libz.a`
-ln -s `g++44 -print-file-name=libgcc.a`
-ln -s `g++44 -print-file-name=libexpat.a`
-ln -s `g++44 -print-file-name=libcrypto.a`
+ln -s `g++44 -print-file-name=libz.a` .
+ln -s `g++44 -print-file-name=libgcc.a` .
+ln -s `g++44 -print-file-name=libexpat.a` .
+ln -s `g++44 -print-file-name=libcrypto.a` .
 popd
 
 echo "*** Building libjpeg-turbo ***"
 pushd libjpeg-turbo-*
-LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --prefix=%{_prefix} --libdir=%{_libdir} --disable-nls --enable-static --disable-shared
+LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} --disable-nls --enable-static --disable-shared
 make %{?_smp_mflags} DESTDIR=%{xorg_buildroot} install
 popd
 
@@ -435,13 +485,14 @@ pushd xorg
 echo "*** Building libsha1 ***"
 pushd libsha1-*
 autoreconf -fiv
-LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --prefix=%{_prefix} --libdir=%{_libdir} --disable-nls --enable-static --disable-shared
+LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} --disable-nls --enable-static --disable-shared
 make %{?_smp_mflags} DESTDIR=%{xorg_buildroot} install
 find %{xorg_buildroot}%{_prefix} -type f -name "*.la" -delete
 find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|libdir=%{_libdir}|libdir=%{xorg_buildroot}%{_libdir}|" {} \;
 find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|prefix=%{_prefix}|prefix=%{xorg_buildroot}%{_prefix}|" {} \;
 popd
 popd
+%endif
 
 export CFLAGS="$RPM_OPT_FLAGS -fPIC -I%{xorg_buildroot}%{_includedir}"
 export CXXFLAGS="$RPM_OPT_FLAGS -fPIC -I%{xorg_buildroot}%{_includedir} -static-libgcc"
@@ -450,12 +501,13 @@ export LDFLAGS="-L%{xorg_buildroot}%{_libdir} -L%{xorg_buildroot}%{_libdir}/tige
 export ACLOCAL="aclocal -I %{xorg_buildroot}%{_datadir}/aclocal"
 export PKG_CONFIG_PATH="%{xorg_buildroot}%{_libdir}/pkgconfig:%{xorg_buildroot}%{_libdir}/tigervnc/pkgconfig:%{xorg_buildroot}%{_datadir}/pkgconfig:%{_libdir}/pkgconfig:%{_datadir}/pkgconfig"
 
+%if %{_bootstrap}
 echo "*** Building gmp ***"
 pushd gmp-*
 %ifarch x86_64 s390x ia64 ppc64 alpha sparc64
-LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ABI=64 ./configure --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared --enable-cxx
+LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ABI=64 ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared --enable-cxx
 %else
-LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ABI=32 ./configure --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared --enable-cxx
+LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ABI=32 ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared --enable-cxx
 %endif
 make %{?_smp_mflags} DESTDIR=%{xorg_buildroot} install
 find %{xorg_buildroot}%{_prefix} -type f -name "*.la" -delete
@@ -465,7 +517,7 @@ popd
 
 echo "*** Building libtasn1 ***"
 pushd libtasn1-*
-LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared
+LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared
 make %{?_smp_mflags} DESTDIR=%{xorg_buildroot} install
 find %{xorg_buildroot}%{_prefix} -type f -name "*.la" -delete
 find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|libdir=%{_libdir}|libdir=%{xorg_buildroot}%{_libdir}|" {} \;
@@ -475,7 +527,7 @@ popd
 echo "*** Building nettle ***"
 pushd nettle-*
 autoreconf -fiv
-LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared --disable-openssl
+LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared --disable-openssl
 make %{?_smp_mflags} DESTDIR=%{xorg_buildroot} install
 find %{xorg_buildroot}%{_prefix} -type f -name "*.la" -delete
 find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|libdir=%{_libdir}|libdir=%{xorg_buildroot}%{_libdir}|" {} \;
@@ -485,6 +537,8 @@ popd
 echo "*** Building gnutls ***"
 pushd gnutls-*
 LDFLAGS="-L%{xorg_buildroot}%{_libdir} -lgmp $LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure \
+  --host=%{_host} \
+  --build=%{_build} \
   --prefix=%{_prefix} \
   --libdir=%{_libdir} \
   --enable-static \
@@ -509,7 +563,7 @@ pushd xorg
 
 echo "*** Building freetype ***"
 pushd freetype-*
-LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" CFLAGS="$CFLAGS -fno-strict-aliasing" ./configure --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared
+LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" CFLAGS="$CFLAGS -fno-strict-aliasing" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' builds/unix/libtool
 sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' builds/unix/libtool
 make DESTDIR=%{xorg_buildroot} install
@@ -540,14 +594,14 @@ cat >%{xorg_buildroot}%{_includedir}/freetype2/freetype/config/ftconfig.h <<EOF
 # error "unexpected value for __WORDSIZE macro"
 #endif
 
-#endif 
+#endif
 EOF
 popd
 
 echo "*** Building fontconfig ***"
 pushd fontconfig-*
 autoreconf -fiv
-LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" HASDOCBOOK=no ./configure --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared --with-confdir=%{_sysconfdir}/fonts --with-cache-dir=%{_localstatedir}/cache/fontconfig --with-default-fonts=%{_datadir}/fonts --with-add-fonts="%{_datadir}/X11/fonts/Type1,%{_datadir}/X11/fonts/OTF,%{_datadir}/X11/fonts/TTF,%{_datadir}/X11/fonts/misc,%{_datadir}/X11/fonts/100dpi,%{_datadir}/X11/fonts/75dpi,%{_prefix}/local/share/fonts,~/.fonts"
+LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" HASDOCBOOK=no ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared --with-confdir=%{_sysconfdir}/fonts --with-cache-dir=%{_localstatedir}/cache/fontconfig --with-default-fonts=%{_datadir}/fonts --with-add-fonts="%{_datadir}/X11/fonts/Type1,%{_datadir}/X11/fonts/OTF,%{_datadir}/X11/fonts/TTF,%{_datadir}/X11/fonts/misc,%{_datadir}/X11/fonts/100dpi,%{_datadir}/X11/fonts/75dpi,%{_prefix}/local/share/fonts,~/.fonts"
 make %{?_smp_mflags}
 make DESTDIR=%{xorg_buildroot} install
 find %{xorg_buildroot}%{_prefix} -type f -name "*.la" -delete
@@ -557,7 +611,7 @@ popd
 
 pushd util-macros-*
 echo "Building macros"
-LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared
+LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} --enable-static --disable-shared
 make DESTDIR=%{xorg_buildroot} install
 find %{xorg_buildroot}%{_prefix} -type f -name "*.la" -delete
 find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|libdir=%{_libdir}|libdir=%{xorg_buildroot}%{_libdir}|" {} \;
@@ -674,21 +728,21 @@ for module in ${modules}; do
     extraoptions="${extraoptions} --with-freetype-config=%{xorg_buildroot}%{_bindir}/freetype-config"
   fi
   if [ "${module}" = "libXScrnSaver" ]; then
-    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" CFLAGS="$CFLAGS -fno-strict-aliasing" ./configure --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
+    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" CFLAGS="$CFLAGS -fno-strict-aliasing" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
   elif [ "${module}" = "libxkbfile" ]; then
-    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" CFLAGS="$CFLAGS -fno-strict-aliasing" ./configure --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
+    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" CFLAGS="$CFLAGS -fno-strict-aliasing" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
   elif [ "${module}" = "pixman" ]; then
-    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" CFLAGS="$CFLAGS -fno-strict-aliasing" ./configure --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
+    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" CFLAGS="$CFLAGS -fno-strict-aliasing" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
   elif [ "${module}" = "libXt" ]; then
-    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" CFLAGS="$CFLAGS -fno-strict-aliasing" ./configure --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic --with-xfile-search-path="%{_sysconfdir}/X11/%%L/%%T/%%N%%C%%S:%{_sysconfdir}/X11/%%l/%%T/\%%N%%C%%S:%{_sysconfdir}/X11/%%T/%%N%%C%%S:%{_sysconfdir}/X11/%%L/%%T/%%N%%S:%{_sysconfdir}/X\11/%%l/%%T/%%N%%S:%{_sysconfdir}/X11/%%T/%%N%%S:%{_datadir}/X11/%%L/%%T/%%N%%C%%S:%{_datadir}/X1\1/%%l/%%T/%%N%%C%%S:%{_datadir}/X11/%%T/%%N%%C%%S:%{_datadir}/X11/%%L/%%T/%%N%%S:%{_datadir}/X11/%%\l/%%T/%%N%%S:%{_datadir}/X11/%%T/%%N%%S"
+    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" CFLAGS="$CFLAGS -fno-strict-aliasing" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic --with-xfile-search-path="%{_sysconfdir}/X11/%%L/%%T/%%N%%C%%S:%{_sysconfdir}/X11/%%l/%%T/\%%N%%C%%S:%{_sysconfdir}/X11/%%T/%%N%%C%%S:%{_sysconfdir}/X11/%%L/%%T/%%N%%S:%{_sysconfdir}/X\11/%%l/%%T/%%N%%S:%{_sysconfdir}/X11/%%T/%%N%%S:%{_datadir}/X11/%%L/%%T/%%N%%C%%S:%{_datadir}/X1\1/%%l/%%T/%%N%%C%%S:%{_datadir}/X11/%%T/%%N%%C%%S:%{_datadir}/X11/%%L/%%T/%%N%%S:%{_datadir}/X11/%%\l/%%T/%%N%%S:%{_datadir}/X11/%%T/%%N%%S"
   elif [ "${module}" = "libX11" ]; then
-    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
+    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
   elif [ "${module}" = "libXtst" ]; then
-    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
+    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
   elif [ "${module}" = "libXpm" ]; then
-    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
+    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
   else
-    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
+    LDFLAGS="$LDFLAGS -static" PKG_CONFIG="pkg-config --static" ./configure --host=%{_host} --build=%{_build} --prefix=%{_prefix} --libdir=%{_libdir} ${extraoptions} --enable-static --disable-shared --with-pic
   fi
   echo ======================
   echo building ${module}
@@ -704,17 +758,21 @@ for module in ${modules}; do
   find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|prefix=%{_prefix}|prefix=%{xorg_buildroot}%{_prefix}|" {} \;
   if [ "${module}" = "libxcb" ]; then
     sed 's,@libdir@,%{xorg_buildroot}%{_libdir},;s,@prefix@,%{xorg_buildroot}%{_prefix},;s,@exec_prefix@,%{xorg_buildroot}%{_exec_prefix},' %{SOURCE140} > %{xorg_buildroot}%{_libdir}/pkgconfig/pthread-stubs.pc
-    sed -i -e 's/^\(Libs.private:.*\)$/\1 -L${libdir} -lXdmcp -lXau/' %{xorg_buildroot}%{_libdir}/pkgconfig/xcb.pc 
+    sed -i -e 's/^\(Libs.private:.*\)$/\1 -L${libdir} -lXdmcp -lXau/' %{xorg_buildroot}%{_libdir}/pkgconfig/xcb.pc
   elif [ "${module}" = "libX11" ]; then
-    sed -i -e 's/^\(Libs:.*\)$/\1 -ldl/' %{xorg_buildroot}%{_libdir}/pkgconfig/x11.pc 
-    sed -i -e 's/^\(Libs.private:.*\)$/\1 -L${libdir} -lxcb/' %{xorg_buildroot}%{_libdir}/pkgconfig/x11.pc 
+    sed -i -e 's/^\(Libs:.*\)$/\1 -ldl/' %{xorg_buildroot}%{_libdir}/pkgconfig/x11.pc
+    sed -i -e 's/^\(Libs.private:.*\)$/\1 -L${libdir} -lxcb/' %{xorg_buildroot}%{_libdir}/pkgconfig/x11.pc
   elif [ "${module}" = "libSM" ]; then
     echo 'Libs.private: -L${libdir} -lICE' >> %{xorg_buildroot}%{_libdir}/pkgconfig/sm.pc
   fi
 
   popd
 done
+%else
+pushd xorg
+%endif
 
+%if %{_bootstrap}
 # build mesa
 echo "*** Building Mesa ***"
 pushd Mesa-*
@@ -731,8 +789,10 @@ autoreconf -fiv
 %endif
 
 # link libGL statically against any xorg libraries built above
-LDFLAGS="$LDFLAGS -Wl,-Bstatic -lxcb -lX11 -lXdmcp -lXau -lXext -lXxf86vm -ldrm -Wl,-Bdynamic -Wl,-rpath,%{_libdir}/tigervnc:%{_libdir}" \
+LDFLAGS="$LDFLAGS -Wl,-Bstatic -lxcb -lX11 -lXdmcp -lXau -lXext -lXxf86vm -ldrm -Wl,-Bdynamic -Wl,-rpath,"'\$$'"ORIGIN/../..%{_libdir}/tigervnc:%{_libdir}/tigervnc:%{_libdir}" \
 PKG_CONFIG="pkg-config --static" ./configure %{common_flags} \
+    --host=%{_host} \
+    --build=%{_build} \
     --prefix=%{_prefix} \
     --libdir=%{_libdir}/tigervnc \
     --disable-osmesa \
@@ -754,12 +814,16 @@ find %{xorg_buildroot}%{_prefix} -type f -name "*.la" -delete
 find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|libdir=%{_libdir}|libdir=%{xorg_buildroot}%{_libdir}|" {} \;
 find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|prefix=%{_prefix}|prefix=%{xorg_buildroot}%{_prefix}|" {} \;
 popd
+%endif
 
 popd
 
+%if %{_bootstrap}
 echo "*** Building libpng ***"
 pushd libpng-*
 CFLAGS="${CFLAGS}" CXXFLAGS="${CXXFLAGS}" LDFLAGS="${LDFLAGS}" ./configure \
+  --host=%{_host} \
+  --build=%{_build} \
   --prefix=%{_prefix} \
   --libdir=%{_libdir} \
   --disable-shared \
@@ -770,10 +834,14 @@ popd
 
 echo "*** Building fltk ***"
 pushd fltk-*
+%endif
 export CMAKE_PREFIX_PATH="%{xorg_buildroot}%{_prefix}:%{_prefix}"
 export CMAKE_EXE_LINKER_FLAGS=$LDFLAGS
-export PKG_CONFIG="pkg-config --static" 
-CFLAGS="${CFLAGS}" CXXFLAGS="${CXXFLAGS}" LDFLAGS="${LDFLAGS}" ./configure \
+export PKG_CONFIG="pkg-config --static"
+%if %{_bootstrap}
+./configure \
+  --host=%{_host} \
+  --build=%{_build} \
   --prefix=%{_prefix} \
   --libdir=%{_libdir} \
   --enable-x11 \
@@ -787,10 +855,11 @@ CFLAGS="${CFLAGS}" CXXFLAGS="${CXXFLAGS}" LDFLAGS="${LDFLAGS}" ./configure \
   --enable-xdbe \
   --enable-xfixes \
   --enable-xcursor \
-  --with-x 
+  --with-x
 make %{?_smp_mflags}
 make DESTDIR=%{xorg_buildroot} install
 popd
+%endif
 
 echo "*** Building VNC ***"
 export CFLAGS="$CFLAGS -fPIC"
@@ -811,10 +880,10 @@ make %{?_smp_mflags}
 pushd unix/xserver
 export PIXMANINCDIR=%{xorg_buildroot}%{_includedir}/pixman-1
 sed -i -e 's/^\(\s*WAYLAND_SCANNER_RULES.*\)/dnl\1/' configure.ac
-autoreconf -fiv 
+autoreconf -fiv
 chmod +x ./configure
 # create a relocatable Xvnc so that we can bundle the custom libGL & swrast w/o overwriting existing libs
-GL_LIBS='-Wl,-Bdynamic -lGL' LDFLAGS="$LDFLAGS -L%{xorg_buildroot}%{_libdir}/tigervnc -Wl,-rpath,%{_libdir}/tigervnc:%{_libdir}" \
+GL_LIBS='-Wl,-Bdynamic -lGL' LDFLAGS="$LDFLAGS -Wl,-rpath,"'\$$'"ORIGIN/../..%{_libdir}/tigervnc:%{_libdir}/tigervnc:%{_libdir}" \
 %configure \
   --prefix=%{_prefix} --libdir=%{_libdir} --mandir=%{_datadir}/man \
   --sysconfdir=%{_sysconfdir} --localstatedir=%{_localstatedir} \
@@ -865,16 +934,17 @@ JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF8" make
 popd
 
 %install
-rm -rf $RPM_BUILD_ROOT
 make install DESTDIR=$RPM_BUILD_ROOT
 
 pushd unix/xserver/hw/vnc
 make install DESTDIR=$RPM_BUILD_ROOT
 popd
 
-pushd xorg/Mesa-*
-make install DESTDIR=$RPM_BUILD_ROOT
-popd
+mkdir -p $RPM_BUILD_ROOT%{_libdir}/tigervnc/dri
+install -m644 -p %{xorg_buildroot}%{_libdir}/tigervnc/dri/swrast_dri.so $RPM_BUILD_ROOT%{_libdir}/tigervnc/dri
+for f in `find %{xorg_buildroot}%{_libdir}/tigervnc -name "lib*" -print` ; do
+cp -a $f $RPM_BUILD_ROOT%{_libdir}/tigervnc
+done
 
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/init.d
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig
@@ -904,6 +974,12 @@ install -m644 com/tigervnc/vncviewer/index.vnc $RPM_BUILD_ROOT%{_datadir}/vnc/cl
 popd
 
 %find_lang %{name} %{name}.lang
+
+%if %{_bootstrap}
+find %{xorg_buildroot}%{_prefix} -type f -name "*.la" -delete
+find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|libdir=%{xorg_buildroot}%{_libdir}|libdir=/opt/%{name}/%{scl_name}%{_libdir}|" {} \;
+find %{xorg_buildroot}%{_prefix} -type f -name "*.pc" -exec sed -i -e "s|prefix=%{xorg_buildroot}%{_prefix}|prefix=/opt/%{name}/%{scl_name}%{_prefix}|" {} \;
+%endif
 
 # remove unwanted files
 rm -rf $RPM_BUILD_ROOT%{_libdir}/tigervnc/pkgconfig
@@ -979,7 +1055,38 @@ fi
 %defattr(-,root,root,-)
 %{_datadir}/icons/hicolor/*/apps/*
 
+%if %{_bootstrap}
+%files static-devel
+%defattr(-,root,root,-)
+/opt/%{name}/%{scl_name}%{_sysconfdir}/*
+/opt/%{name}/%{scl_name}%{_bindir}/*
+/opt/%{name}/%{scl_name}%{_datadir}/*
+/opt/%{name}/%{scl_name}%{_includedir}/*
+/opt/%{name}/%{scl_name}%{_libdir}/*
+%ifarch x86_64 s390x ia64 ppc64 alpha sparc64
+/opt/%{name}/%{scl_name}%{_prefix}/lib/python2.6/*
+%endif
+%endif
+
 %changelog
+* Fri Dec 11 2015 Brian P. Hinz <bphinz@users.sourceforge.net> 1.6.80-3
+- Configure with --host and --build to avoid build host-specific compiler opts
+
+* Fri Nov 27 2015 Brian P. Hinz <bphinz@users.sourceforge.net> 1.6.80-2
+- Split static pre-reqs into separate package
+
+* Thu Nov 26 2015 Brian P. Hinz <bphinz@users.sourceforge.net> 1.6.80-1
+- Version bump for 1.6 release
+- Update libjpeg-turbo, gnutls, libtasn1, libpng to latest upstream versions.
+
+* Sun Sep 12 2015 Brian P. Hinz <bphinz@users.sourceforge.net> 1.5.80-8
+- Build Xvnc with link path relative to $ORIGIN and apply dridir patch
+  to make it portable.
+
+* Sun Aug 09 2015 Brian P. Hinz <bphinz@users.sourceforge.net> 1.5.80-7
+- Patch Xorg sources with latest relevant CVE patches.
+- Update libjpeg-turbo, gnutls, libtasn1 to latest upstream versions.
+
 * Sat Mar 14 2015 Brian P. Hinz <bphinz@users.sourceforge.net> 1.4.80-6
 - Build static libraries to meet new minimum requirements
 
@@ -1027,11 +1134,11 @@ fi
 * Sat Mar 30 2013 Brian P. Hinz <bphinz@users.sourceforge.net> 1.2.0-11.20130330svn5066
 - Updated to TigerVNC svn 5066
 - Updated fltk to 1.3.2 and updated fltk patches per BUILDING.txt
-- Fixed vncserver init script & config file which had been overwritten by 
+- Fixed vncserver init script & config file which had been overwritten by
   systemd versions.
 
 * Wed Nov 28 2012 Brian P. Hinz <bphinz@users.sourceforge.net> 1.2.0-7.20120915svn4999
-- Changed BuildRequires to cmake28 
+- Changed BuildRequires to cmake28
 - Set PIXMANINCDIR when building Xvnc
 
 * Tue Sep 18 2012 Brian P. Hinz <bphinz@users.sourceforge.net> 1.2.0-6.20120915svn4999
