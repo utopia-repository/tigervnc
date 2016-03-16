@@ -10,8 +10,13 @@
 option(BUILD_STATIC
     "Link statically against most libraries, if possible" OFF)
 
+option(BUILD_STATIC_GCC
+    "Link statically against only libgcc and libstdc++" OFF)
+
 if(BUILD_STATIC)
   message(STATUS "Attempting to link static binaries...")
+
+  set(BUILD_STATIC_GCC 1)
 
   set(JPEG_LIBRARIES "-Wl,-Bstatic -ljpeg -Wl,-Bdynamic")
 
@@ -105,10 +110,15 @@ if(BUILD_STATIC)
       set(X11_Xdamage_LIB "-Wl,-Bstatic -lXdamage -Wl,-Bdynamic")
     endif()
   endif()
+endif()
 
+if(BUILD_STATIC_GCC)
   # This ensures that we don't depend on libstdc++ or libgcc_s
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -nodefaultlibs")
   set(STATIC_BASE_LIBRARIES "-Wl,-Bstatic -lstdc++ -Wl,-Bdynamic")
+  if(ENABLE_ASAN AND NOT WIN32 AND NOT APPLE)
+    set(STATIC_BASE_LIBRARIES "${STATIC_BASE_LIBRARIES} -Wl,-Bstatic -lasan -Wl,-Bdynamic -ldl -lm -lpthread")
+  endif()
   if(WIN32)
     set(STATIC_BASE_LIBRARIES "${STATIC_BASE_LIBRARIES} -lmingw32 -lgcc_eh -lgcc -lmoldname -lmingwex -lmsvcrt")
     set(STATIC_BASE_LIBRARIES "${STATIC_BASE_LIBRARIES} -luser32 -lkernel32 -ladvapi32 -lshell32")
@@ -119,5 +129,4 @@ if(BUILD_STATIC)
     set(STATIC_BASE_LIBRARIES "${STATIC_BASE_LIBRARIES} -lgcc -lgcc_eh -lc")
   endif()
   set(CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} ${STATIC_BASE_LIBRARIES}")
-
 endif()

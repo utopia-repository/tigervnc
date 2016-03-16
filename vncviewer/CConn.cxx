@@ -133,6 +133,7 @@ CConn::CConn(const char* vncServerName, network::Socket* socket=NULL)
 CConn::~CConn()
 {
   OptionsDialog::removeCallback(handleOptions);
+  Fl::remove_timeout(handleUpdateTimeout, this);
 
   for (size_t i = 0; i < sizeof(decoders)/sizeof(decoders[0]); i++)
     delete decoders[i];
@@ -239,6 +240,9 @@ void CConn::blockCallback()
     next_timer = INT_MAX;
 
   Fl::wait((double)next_timer / 1000.0);
+
+  if (should_exit())
+    throw rdr::Exception("Termination requested");
 }
 
 void CConn::socketEvent(FL_SOCKET fd, void *data)
@@ -266,7 +270,10 @@ void CConn::socketEvent(FL_SOCKET fd, void *data)
     exit_vncviewer();
   } catch (rdr::Exception& e) {
     vlog.error("%s", e.str());
-    exit_vncviewer(e.str());
+    // Somebody might already have requested us to terminate, and
+    // might have already provided an error message.
+    if (!should_exit())
+      exit_vncviewer(e.str());
   }
 
   recursing = false;
@@ -344,6 +351,9 @@ void CConn::framebufferUpdateStart()
   pendingUpdate = false;
 
   requestNewUpdate();
+
+  // Update the screen prematurely for very slow updates
+  Fl::add_timeout(1.0, handleUpdateTimeout, this);
 }
 
 // framebufferUpdateEnd() is called at the end of an update.
@@ -352,6 +362,7 @@ void CConn::framebufferUpdateStart()
 // appropriately, and then request another incremental update.
 void CConn::framebufferUpdateEnd()
 {
+  Fl::remove_timeout(handleUpdateTimeout, this);
   desktop->updateWindow();
 
   if (firstUpdate) {
@@ -691,4 +702,15 @@ void CConn::handleOptions(void *data)
     if (self->supportsSyncFence)
       self->requestNewUpdate();
   }
+}
+
+void CConn::handleUpdateTimeout(void *data)
+{
+  CConn *self = (CConn *)data;
+
+  assert(self);
+
+  self->desktop->updateWindow();
+
+  Fl::repeat_timeout(1.0, handleUpdateTimeout, data);
 }

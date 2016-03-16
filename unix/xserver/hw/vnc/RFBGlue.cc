@@ -190,11 +190,14 @@ int vncIsTCPPortUsed(int port)
 {
   try {
     // Attempt to create TCPListeners on that port.
-    // They go out of scope immediately and are destroyed.
-    std::list<network::TcpListener> dummy;
+    std::list<network::TcpListener*> dummy;
     network::createTcpListeners (&dummy, 0, port);
+    while (!dummy.empty()) {
+      delete dummy.back();
+      dummy.pop_back();
+    }
   } catch (rdr::Exception& e) {
-    return 0;
+    return 1;
   }
-  return 1;
+  return 0;
 }

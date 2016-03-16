@@ -134,13 +134,13 @@ void vncExtensionInit(void)
     for (int scr = 0; scr < vncGetScreenCount(); scr++) {
 
       if (!desktop[scr]) {
-        std::list<network::TcpListener> listeners;
-        std::list<network::TcpListener> httpListeners;
+        std::list<network::TcpListener*> listeners;
+        std::list<network::TcpListener*> httpListeners;
         if (scr == 0 && vncInetdSock != -1) {
           if (network::TcpSocket::isSocket(vncInetdSock) &&
               !network::TcpSocket::isConnected(vncInetdSock))
           {
-            listeners.push_back (network::TcpListener(vncInetdSock));
+            listeners.push_back(new network::TcpListener(vncInetdSock));
             vlog.info("inetd wait");
           }
         } else {
@@ -203,6 +203,11 @@ void vncExtensionInit(void)
   }
 
   vncRegisterBlockHandlers();
+}
+
+int vncExtensionIsActive(int scrIdx)
+{
+  return (desktop[scrIdx] != NULL);
 }
 
 void vncCallReadBlockHandlers(fd_set * fds, struct timeval ** timeout)
@@ -324,8 +329,8 @@ void vncAddChanged(int scrIdx, const struct UpdateRect *extents,
 {
   Region reg;
 
-  reg.setExtentsAndOrderedRects((ShortRect*)extents,
-                                nRects, (ShortRect*)rects);
+  reg.setExtentsAndOrderedRects((const ShortRect*)extents,
+                                nRects, (const ShortRect*)rects);
   desktop[scrIdx]->add_changed(reg);
 }
 
@@ -335,8 +340,8 @@ void vncAddCopied(int scrIdx, const struct UpdateRect *extents,
 {
   Region reg;
 
-  reg.setExtentsAndOrderedRects((ShortRect*)extents,
-                                nRects, (ShortRect*)rects);
+  reg.setExtentsAndOrderedRects((const ShortRect*)extents,
+                                nRects, (const ShortRect*)rects);
   desktop[scrIdx]->add_copied(reg, rfb::Point(dx, dy));
 }
 

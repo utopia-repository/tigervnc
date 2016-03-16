@@ -1,5 +1,5 @@
 /* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
- * Copyright (C) 2011-2014 Brian P. Hinz
+ * Copyright (C) 2011-2015 Brian P. Hinz
  *
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,8 @@ package com.tigervnc.vncviewer;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
+import java.text.Format;
+import java.text.NumberFormat;
 import javax.swing.*;
 import javax.swing.border.*;
 
@@ -32,12 +34,27 @@ class OptionsDialog extends Dialog implements
                             ItemListener
 {
 
+  private class IntegerTextField extends JFormattedTextField {
+    public IntegerTextField(Format format) {
+      super(format);
+    }
+    @Override
+    protected void processFocusEvent(final FocusEvent e) {
+      if (e.isTemporary())
+        return;
+      if (e.getID() == FocusEvent.FOCUS_LOST)
+        if (getText() == null || getText().isEmpty())
+          setValue(null);
+      super.processFocusEvent(e);
+    }
+  }
+
   // Constants
   // Static variables
   static LogWriter vlog = new LogWriter("OptionsDialog");
 
   CConn cc;
-  JPanel FormatPanel, InputsPanel, MiscPanel, DefaultsPanel, SecPanel;
+  JPanel FormatPanel, InputsPanel, MiscPanel, DefaultsPanel, SecPanel, ScreenPanel;
   JCheckBox autoSelect, customCompressLevel, noJpeg;
   @SuppressWarnings({"rawtypes"})
   JComboBox menuKey, compressLevel, qualityLevel, scalingFactor;
@@ -45,12 +62,13 @@ class OptionsDialog extends Dialog implements
   JRadioButton zrle, hextile, tight, raw;
   JRadioButton fullColour, mediumColour, lowColour, veryLowColour;
   JCheckBox viewOnly, acceptClipboard, sendClipboard, acceptBell;
-  JCheckBox fullScreen, shared, useLocalCursor;
+  JCheckBox desktopSize, fullScreen, fullScreenAllMonitors, shared, useLocalCursor;
   JCheckBox secVeNCrypt, encNone, encTLS, encX509;
   JCheckBox secNone, secVnc, secPlain, secIdent, sendLocalUsername;
   JButton okButton, cancelButton;
   JButton ca, crl;
   JButton cfLoadButton, cfSaveAsButton, defSaveButton, defReloadButton, defClearButton;
+  JTextField desktopWidth, desktopHeight;
 
   @SuppressWarnings({"rawtypes","unchecked"})
   public OptionsDialog(CConn cc_) {
@@ -63,11 +81,12 @@ class OptionsDialog extends Dialog implements
       new BoxLayout(getContentPane(), BoxLayout.PAGE_AXIS));
 
     JTabbedPane tabPane = new JTabbedPane();
+    tabPane.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
 
     ButtonGroup encodingGroup = new ButtonGroup();
     ButtonGroup colourGroup = new ButtonGroup();
 
-    // Colour & Encoding tab
+    // Compression tab
     FormatPanel=new JPanel(new GridBagLayout());
 
     autoSelect = new JCheckBox("Auto Select");
@@ -75,9 +94,9 @@ class OptionsDialog extends Dialog implements
 
     JPanel encodingPanel = new JPanel(new GridBagLayout());
     encodingPanel.setBorder(BorderFactory.createTitledBorder("Preferred encoding"));
+    tight = addRadioCheckbox("Tight", encodingGroup, encodingPanel);
     zrle = addRadioCheckbox("ZRLE", encodingGroup, encodingPanel);
     hextile = addRadioCheckbox("Hextile", encodingGroup, encodingPanel);
-    tight = addRadioCheckbox("Tight", encodingGroup, encodingPanel);
     raw = addRadioCheckbox("Raw", encodingGroup, encodingPanel);
 
     JPanel tightPanel = new JPanel(new GridBagLayout());
@@ -90,7 +109,7 @@ class OptionsDialog extends Dialog implements
     noJpeg.addItemListener(this);
     Object[] qualityLevels = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
     qualityLevel  = new JComboBox(qualityLevels);
-    JLabel qualityLabel = new JLabel("Level (0=poor, 9=best)");
+    JLabel qualityLabel = new JLabel("Quality (0=poor, 9=best)");
     // Hack to set the left inset on editable JComboBox
     if (UIManager.getLookAndFeel().getID() == "Windows") {
       compressLevel.setBorder(BorderFactory.createCompoundBorder(compressLevel.getBorder(),
@@ -112,18 +131,18 @@ class OptionsDialog extends Dialog implements
 
 
     JPanel colourPanel = new JPanel(new GridBagLayout());
-    colourPanel.setBorder(BorderFactory.createTitledBorder("Colour level"));
-    fullColour = addRadioCheckbox("Full (all available colours)", colourGroup, colourPanel);
-    mediumColour = addRadioCheckbox("Medium (256 colours)", colourGroup, colourPanel);
+    colourPanel.setBorder(BorderFactory.createTitledBorder("Color level"));
+    fullColour = addRadioCheckbox("Full (all available colors)", colourGroup, colourPanel);
+    mediumColour = addRadioCheckbox("Medium (256 colors)", colourGroup, colourPanel);
     lowColour = addRadioCheckbox("Low (64 colours)", colourGroup, colourPanel);
-    veryLowColour = addRadioCheckbox("Very low(8 colours)", colourGroup, colourPanel);
+    veryLowColour = addRadioCheckbox("Very low(8 colors)", colourGroup, colourPanel);
 
     addGBComponent(autoSelect,FormatPanel,    0, 0, 2, 1, 2, 2, 1, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.FIRST_LINE_START, new Insets(4,5,0,5));
     addGBComponent(encodingPanel,FormatPanel, 0, 1, 1, 1, 2, 2, 3, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.LINE_START, new Insets(0,5,0,5));
     addGBComponent(colourPanel,FormatPanel,   1, 1, 1, 1, 2, 2, 1, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.LINE_END, new Insets(0,0,0,5));
     addGBComponent(tightPanel,FormatPanel,    0, 2, 2, GridBagConstraints.REMAINDER, 2, 2, 1, 1, GridBagConstraints.HORIZONTAL, GridBagConstraints.FIRST_LINE_START, new Insets(0,5,0,5));
 
-    // Inputs tab
+    // Input tab
     InputsPanel=new JPanel(new GridBagLayout());
 
     viewOnly = new JCheckBox("View Only (ignore mouse & keyboard)");
@@ -144,18 +163,32 @@ class OptionsDialog extends Dialog implements
     addGBComponent(menuKeyLabel,InputsPanel,    0, 3, 1, GridBagConstraints.REMAINDER, 2, 2, 1, 1, GridBagConstraints.NONE, GridBagConstraints.FIRST_LINE_START, new Insets(8,8,0,5));
     addGBComponent(menuKey,InputsPanel,         1, 3, 1, GridBagConstraints.REMAINDER, 2, 2, 25, 1, GridBagConstraints.NONE, GridBagConstraints.FIRST_LINE_START, new Insets(4,5,0,5));
 
-    // Misc tab
-    MiscPanel=new JPanel(new GridBagLayout());
-
+    // Screen tab
+    ScreenPanel=new JPanel(new GridBagLayout());
+    desktopSize = new JCheckBox("Resize remote session on connect");
+    desktopSize.addItemListener(this);
+    desktopSize.setEnabled(!cc.viewer.embed.getValue() &&
+                           (cc.viewer.desktopSize.getValue() != null));
+    NumberFormat format = NumberFormat.getIntegerInstance();
+    format.setMaximumIntegerDigits(5);
+    format.setMinimumIntegerDigits(0);
+    format.setGroupingUsed(false);
+    desktopWidth = new IntegerTextField(format);
+    desktopWidth.setColumns(4);
+    desktopWidth.setEnabled(desktopSize.isSelected());
+    desktopHeight = new IntegerTextField(format);
+    desktopHeight.setColumns(4);
+    desktopHeight.setEnabled(desktopSize.isSelected());
+    JPanel desktopSizePanel = new JPanel();
+    desktopSizePanel.add(desktopWidth);
+    desktopSizePanel.add(new JLabel("x"));
+    desktopSizePanel.add(desktopHeight);
     fullScreen = new JCheckBox("Full-screen mode");
     fullScreen.addItemListener(this);
     fullScreen.setEnabled(!cc.viewer.embed.getValue());
-    shared = new JCheckBox("Shared connection (do not disconnect other viewers)");
-    shared.addItemListener(this);
-    useLocalCursor = new JCheckBox("Render cursor locally");
-    useLocalCursor.addItemListener(this);
-    acceptBell = new JCheckBox("Beep when requested by the server");
-    acceptBell.addItemListener(this);
+    fullScreenAllMonitors = new JCheckBox("Enable full-screen mode over all monitors");
+    fullScreenAllMonitors.addItemListener(this);
+    fullScreenAllMonitors.setEnabled(!cc.viewer.embed.getValue());
     JLabel scalingFactorLabel = new JLabel("Scaling Factor");
     Object[] scalingFactors = {
       "Auto", "Fixed Aspect Ratio", "50%", "75%", "95%", "100%", "105%",
@@ -174,12 +207,25 @@ class OptionsDialog extends Dialog implements
     scalingFactor.setEditable(true);
     scalingFactor.addItemListener(this);
     scalingFactor.setEnabled(!cc.viewer.embed.getValue());
-    addGBComponent(fullScreen,MiscPanel,     0, 0, 2, 1, 2, 2, 1, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.LINE_START, new Insets(4,5,0,5));
-    addGBComponent(shared,MiscPanel,         0, 1, 2, 1, 2, 2, 1, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.LINE_START, new Insets(4,5,0,5));
-    addGBComponent(useLocalCursor,MiscPanel, 0, 2, 2, 1, 2, 2, 1, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.LINE_START, new Insets(4,5,0,5));
-    addGBComponent(acceptBell,MiscPanel,     0, 3, 2, 1, 2, 2, 1, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.FIRST_LINE_START, new Insets(4,5,0,5));
-    addGBComponent(scalingFactorLabel,MiscPanel, 0, 4, 1, GridBagConstraints.REMAINDER, 2, 2, 1, 1, GridBagConstraints.NONE, GridBagConstraints.FIRST_LINE_START, new Insets(8,8,0,5));
-    addGBComponent(scalingFactor,MiscPanel, 1, 4, 1, GridBagConstraints.REMAINDER, 2, 2, 25, 1, GridBagConstraints.NONE, GridBagConstraints.FIRST_LINE_START, new Insets(4,5,0,5));
+    addGBComponent(desktopSize,ScreenPanel, 0, 0, 2, 1, 2, 2, 1, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.LINE_START, new Insets(4,5,0,5));
+    addGBComponent(desktopSizePanel,ScreenPanel, 0, 1, 2, 1, 2, 2, 1, 0, GridBagConstraints.REMAINDER, GridBagConstraints.LINE_START, new Insets(0,20,0,0));
+    addGBComponent(fullScreen,ScreenPanel, 0, 2, 2, 1, 2, 2, 1, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.LINE_START, new Insets(0,5,0,5));
+    addGBComponent(fullScreenAllMonitors,ScreenPanel, 0, 3, 4, 1, 2, 2, 1, 0, GridBagConstraints.REMAINDER, GridBagConstraints.LINE_START, new Insets(4,25,0,5));
+    addGBComponent(scalingFactorLabel,ScreenPanel, 0, 4, 1, GridBagConstraints.REMAINDER, 2, 2, 1, 1, GridBagConstraints.NONE, GridBagConstraints.FIRST_LINE_START, new Insets(8,8,0,5));
+    addGBComponent(scalingFactor,ScreenPanel, 1, 4, 1, GridBagConstraints.REMAINDER, 2, 2, 25, 1, GridBagConstraints.NONE, GridBagConstraints.FIRST_LINE_START, new Insets(4,5,0,5));
+
+    // Misc tab
+    MiscPanel=new JPanel(new GridBagLayout());
+
+    shared = new JCheckBox("Shared connection (do not disconnect other viewers)");
+    shared.addItemListener(this);
+    useLocalCursor = new JCheckBox("Render cursor locally");
+    useLocalCursor.addItemListener(this);
+    acceptBell = new JCheckBox("Beep when requested by the server");
+    acceptBell.addItemListener(this);
+    addGBComponent(shared,MiscPanel,         0, 0, 2, 1, 2, 2, 1, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.LINE_START, new Insets(4,5,0,5));
+    addGBComponent(useLocalCursor,MiscPanel, 0, 1, 2, 1, 2, 2, 1, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.LINE_START, new Insets(4,5,0,5));
+    addGBComponent(acceptBell,MiscPanel,     0, 2, 2, 1, 2, 2, 1, 1, GridBagConstraints.HORIZONTAL, GridBagConstraints.FIRST_LINE_START, new Insets(4,5,0,5));
 
     // load/save tab
     DefaultsPanel=new JPanel(new GridBagLayout());
@@ -212,19 +258,17 @@ class OptionsDialog extends Dialog implements
     SecPanel=new JPanel(new GridBagLayout());
 
     JPanel encryptionPanel = new JPanel(new GridBagLayout());
-    encryptionPanel.setBorder(BorderFactory.createTitledBorder("Session Encryption"));
+    encryptionPanel.setBorder(BorderFactory.createTitledBorder("Encryption"));
     encNone = addCheckbox("None", null, encryptionPanel);
     encTLS = addCheckbox("Anonymous TLS", null, encryptionPanel);
-    encX509 = addJCheckBox("TLS with X.509 certificates", null, encryptionPanel, new GridBagConstraints(0,2,1,1,1,1,GridBagConstraints.LINE_START,GridBagConstraints.REMAINDER,new Insets(0,0,0,60),0,0));
+    encX509 = addJCheckBox("TLS with X.509 certificates", null, encryptionPanel, new GridBagConstraints(0,2,3,1,1,1,GridBagConstraints.LINE_START,GridBagConstraints.REMAINDER,new Insets(0,0,0,0),0,0));
 
-    JPanel x509Panel = new JPanel(new GridBagLayout());
-    x509Panel.setBorder(BorderFactory.createTitledBorder("X.509 certificates"));
     ca = new JButton("Load CA certificate");
     ca.addActionListener(this);
     crl = new JButton("Load CRL certificate");
     crl.addActionListener(this);
-    addGBComponent(ca, x509Panel,  0, 0, 1, 1, 2, 2, 1, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.FIRST_LINE_START, new Insets(2,2,2,2));
-    addGBComponent(crl, x509Panel, 1, 0, 1, 1, 2, 2, 1, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.LINE_START, new Insets(2,2,2,2));
+    addGBComponent(ca, encryptionPanel,  0, 3, 1, 1, 2, 2, 1, 0, GridBagConstraints.NONE, GridBagConstraints.LINE_START, new Insets(2,20,2,2));
+    addGBComponent(crl, encryptionPanel, 1, 3, 1, 1, 2, 2, 1, 0, GridBagConstraints.NONE, GridBagConstraints.LINE_START, new Insets(2,2,2,2));
 
     JPanel authPanel = new JPanel(new GridBagLayout());
     authPanel.setBorder(BorderFactory.createTitledBorder("Authentication"));
@@ -240,19 +284,20 @@ class OptionsDialog extends Dialog implements
     secVeNCrypt.addItemListener(this);
     addGBComponent(secVeNCrypt,SecPanel,     0, 0, 1, 1, 2, 2, 1, 0, GridBagConstraints.HORIZONTAL, GridBagConstraints.FIRST_LINE_START, new Insets(4,5,0,30));
     addGBComponent(encryptionPanel,SecPanel, 0, 1, 1, 1, 2, 2, 1, 0, GridBagConstraints.NONE, GridBagConstraints.LINE_START, new Insets(0,10,2,5));
-    addGBComponent(x509Panel,SecPanel,       0, 2, 1, 1, 2, 2, 1, 0, GridBagConstraints.NONE, GridBagConstraints.LINE_START, new Insets(2,10,2,5));
     addGBComponent(authPanel,SecPanel,       0, 3, 1, 1, 2, 2, 1, 1, GridBagConstraints.NONE, GridBagConstraints.FIRST_LINE_START, new Insets(2,10,2,5));
 
     tabPane.add(FormatPanel);
+    tabPane.add(ScreenPanel);
     tabPane.add(InputsPanel);
     tabPane.add(MiscPanel);
     tabPane.add(DefaultsPanel);
     tabPane.add(SecPanel);
-    tabPane.addTab("Colour & Encoding", FormatPanel);
-    tabPane.addTab("Inputs", InputsPanel);
+    tabPane.addTab("Compression", FormatPanel);
+    tabPane.addTab("Security", SecPanel);
+    tabPane.addTab("Input", InputsPanel);
+    tabPane.addTab("Screen", ScreenPanel);
     tabPane.addTab("Misc", MiscPanel);
     tabPane.addTab("Load / Save", DefaultsPanel);
-    tabPane.addTab("Security", SecPanel);
     tabPane.setBorder(BorderFactory.createEmptyBorder(0,0,0,0));
 
     okButton = new JButton("OK");
@@ -330,7 +375,11 @@ class OptionsDialog extends Dialog implements
     UserPreferences.set("global", "SendClipboard", sendClipboard.isSelected());
     String menuKeyStr = MenuKey.getMenuKeySymbols()[menuKey.getSelectedIndex()].name;
     UserPreferences.set("global", "MenuKey", menuKeyStr);
+    String desktopSizeString =
+      desktopSize.isSelected() ? desktopWidth.getText() + "x" + desktopHeight.getText() : "";
+    UserPreferences.set("global", "DesktopSize", desktopSizeString);
     UserPreferences.set("global", "FullScreen", fullScreen.isSelected());
+    UserPreferences.set("global", "FullScreenAllMonitors", fullScreenAllMonitors.isSelected());
     UserPreferences.set("global", "Shared", shared.isSelected());
     UserPreferences.set("global", "UseLocalCursor", useLocalCursor.isSelected());
     UserPreferences.set("global", "AcceptBell", acceptBell.isSelected());
@@ -401,7 +450,14 @@ class OptionsDialog extends Dialog implements
     acceptClipboard.setSelected(UserPreferences.getBool("global", "AcceptClipboard"));
     sendClipboard.setSelected(UserPreferences.getBool("global", "SendClipboard"));
     menuKey.setSelectedItem(UserPreferences.get("global", "MenuKey"));
+    desktopSize.setSelected(UserPreferences.get("global", "DesktopSize") != null);
+    if (desktopSize.isSelected()) {
+      String desktopSizeString = UserPreferences.get("global", "DesktopSize");
+      desktopWidth.setText(desktopSizeString.split("x")[0]);
+      desktopHeight.setText(desktopSizeString.split("x")[1]);
+    }
     fullScreen.setSelected(UserPreferences.getBool("global", "FullScreen"));
+    fullScreenAllMonitors.setSelected(UserPreferences.getBool("global", "FullScreenAllMonitors"));
     if (shared.isEnabled())
       shared.setSelected(UserPreferences.getBool("global", "Shared"));
     useLocalCursor.setSelected(UserPreferences.getBool("global", "UseLocalCursor"));
@@ -550,6 +606,10 @@ class OptionsDialog extends Dialog implements
     }
     if (s instanceof JCheckBox && (JCheckBox)s == customCompressLevel) {
       compressLevel.setEnabled(customCompressLevel.isSelected());
+    }
+    if (s instanceof JCheckBox && (JCheckBox)s == desktopSize) {
+      desktopWidth.setEnabled(desktopSize.isSelected());
+      desktopHeight.setEnabled(desktopSize.isSelected());
     }
     if (s instanceof JCheckBox && (JCheckBox)s == noJpeg) {
       qualityLevel.setEnabled(noJpeg.isSelected());

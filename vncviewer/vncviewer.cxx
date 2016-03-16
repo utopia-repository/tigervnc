@@ -117,6 +117,11 @@ void exit_vncviewer(const char *error)
   exitMainloop = true;
 }
 
+bool should_exit()
+{
+  return exitMainloop;
+}
+
 void about_vncviewer()
 {
   fl_message_title(_("About TigerVNC Viewer"));
@@ -287,9 +292,11 @@ static void init_fltk()
   menubar = new Fl_Sys_Menu_Bar(0, 0, 500, 25);
   // Fl_Sys_Menu_Bar overrides methods without them being virtual,
   // which means we cannot use our generic Fl_Menu_ helpers.
-  if (fltk_menu_escape(_("&File"), buffer, sizeof(buffer)) < sizeof(buffer))
+  if (fltk_menu_escape(p_("SysMenu|", "&File"),
+                       buffer, sizeof(buffer)) < sizeof(buffer))
       menubar->add(buffer, 0, 0, 0, FL_SUBMENU);
-  if (fltk_menu_escape(_("&New Connection"), buffer, sizeof(buffer)) < sizeof(buffer))
+  if (fltk_menu_escape(p_("SysMenu|File|", "&New Connection"),
+                       buffer, sizeof(buffer)) < sizeof(buffer))
       menubar->insert(1, buffer, FL_COMMAND | 'n', new_connection_cb);
 #endif
 }
@@ -518,7 +525,7 @@ int main(int argc, char** argv)
 #endif
 
   if (listenMode) {
-    std::list<TcpListener> listeners;
+    std::list<TcpListener*> listeners;
     try {
       int port = 5500;
       if (isdigit(vncServerName[0]))
@@ -532,10 +539,10 @@ int main(int argc, char** argv)
       while (sock == NULL) {
         fd_set rfds;
         FD_ZERO(&rfds);
-        for (std::list<TcpListener>::iterator i = listeners.begin();
+        for (std::list<TcpListener*>::iterator i = listeners.begin();
              i != listeners.end();
              i++)
-          FD_SET((*i).getFd(), &rfds);
+          FD_SET((*i)->getFd(), &rfds);
 
         int n = select(FD_SETSIZE, &rfds, 0, 0, 0);
         if (n < 0) {
@@ -547,11 +554,11 @@ int main(int argc, char** argv)
           }
         }
 
-        for (std::list<TcpListener>::iterator i = listeners.begin ();
+        for (std::list<TcpListener*>::iterator i = listeners.begin ();
              i != listeners.end();
              i++)
-          if (FD_ISSET((*i).getFd(), &rfds)) {
-            sock = (*i).accept();
+          if (FD_ISSET((*i)->getFd(), &rfds)) {
+            sock = (*i)->accept();
             if (sock)
               /* Got a connection */
               break;
@@ -564,6 +571,10 @@ int main(int argc, char** argv)
       return 1; 
     }
 
+    while (!listeners.empty()) {
+      delete listeners.back();
+      listeners.pop_back();
+    }
   } else {
     if (vncServerName[0] == '\0') {
       ServerDialog::run(defaultServerName, vncServerName);

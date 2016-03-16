@@ -118,23 +118,6 @@ static void initSockets() {
 }
 
 
-// -=- Socket duplication help for Windows
-static int dupsocket(int fd)
-{
-#ifdef WIN32
-  int ret;
-  WSAPROTOCOL_INFO info;
-  ret = WSADuplicateSocket(fd, GetCurrentProcessId(), &info);
-  if (ret != 0)
-    throw SocketException("unable to duplicate socket", errorNumber);
-  return WSASocket(info.iAddressFamily, info.iSocketType, info.iProtocol,
-                   &info, 0, 0);
-#else
-  return dup(fd);
-#endif
-}
-
-
 // -=- TcpSocket
 
 TcpSocket::TcpSocket(int sock, bool close)
@@ -145,9 +128,7 @@ TcpSocket::TcpSocket(int sock, bool close)
 TcpSocket::TcpSocket(const char *host, int port)
   : closeFd(true)
 {
-  int sock, err, result, family;
-  vnc_sockaddr_t sa;
-  socklen_t salen;
+  int sock, err, result;
   struct addrinfo *ai, *current, hints;
 
   // - Create a socket
@@ -165,11 +146,14 @@ TcpSocket::TcpSocket(const char *host, int port)
                     gai_strerror(result));
   }
 
-  // This logic is too complex for the compiler to determine if
-  // sock is properly assigned or not.
   sock = -1;
-
+  err = 0;
   for (current = ai; current != NULL; current = current->ai_next) {
+    int family;
+    vnc_sockaddr_t sa;
+    socklen_t salen;
+    char ntop[NI_MAXHOST];
+
     family = current->ai_family;
 
     switch (family) {
@@ -193,6 +177,9 @@ TcpSocket::TcpSocket(const char *host, int port)
     else
       sa.u.sin6.sin6_port = htons(port);
 
+    getnameinfo(&sa.u.sa, salen, ntop, sizeof(ntop), NULL, 0, NI_NUMERICHOST);
+    vlog.debug("Connecting to %s [%s] port %d", host, ntop, port);
+
     sock = socket (family, SOCK_STREAM, 0);
     if (sock == -1) {
       err = errorNumber;
@@ -207,7 +194,10 @@ TcpSocket::TcpSocket(const char *host, int port)
       if (err == EINTR)
         continue;
 #endif
+      vlog.debug("Failed to connect to address %s port %d: %d",
+                 ntop, port, err);
       closesocket(sock);
+      sock = -1;
       break;
     }
 
@@ -217,11 +207,12 @@ TcpSocket::TcpSocket(const char *host, int port)
 
   freeaddrinfo(ai);
 
-  if (current == NULL)
-    throw Exception("No useful address for host");
-
-  if (result == -1)
-    throw SocketException("unable connect to socket", err);
+  if (sock == -1) {
+    if (err == 0)
+      throw Exception("No useful address for host");
+    else
+      throw SocketException("unable connect to socket", err);
+  }
 
 #ifndef WIN32
   // - By default, close the socket on exec()
@@ -403,23 +394,6 @@ TcpListener::TcpListener(int sock)
   fd = sock;
 }
 
-TcpListener::TcpListener(const TcpListener& other)
-{
-  fd = dupsocket (other.fd);
-  // Hope TcpListener::shutdown(other) doesn't get called...
-}
-
-TcpListener& TcpListener::operator= (const TcpListener& other)
-{
-  if (this != &other)
-  {
-    closesocket (fd);
-    fd = dupsocket (other.fd);
-    // Hope TcpListener::shutdown(other) doesn't get called...
-  }
-  return *this;
-}
-
 TcpListener::TcpListener(const struct sockaddr *listenaddr,
                          socklen_t listenaddrlen)
 {
@@ -435,8 +409,11 @@ TcpListener::TcpListener(const struct sockaddr *listenaddr,
   memcpy (&sa, listenaddr, listenaddrlen);
 #ifdef IPV6_V6ONLY
   if (listenaddr->sa_family == AF_INET6) {
-    if (setsockopt (sock, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&one, sizeof(one)))
-      throw SocketException("unable to set IPV6_V6ONLY", errorNumber);
+    if (setsockopt (sock, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&one, sizeof(one))) {
+      int e = errorNumber;
+      closesocket(sock);
+      throw SocketException("unable to set IPV6_V6ONLY", e);
+    }
   }
 #endif /* defined(IPV6_V6ONLY) */
 
@@ -458,8 +435,9 @@ TcpListener::TcpListener(const struct sockaddr *listenaddr,
 #endif
 
   if (bind(sock, &sa.u.sa, listenaddrlen) == -1) {
+    int e = errorNumber;
     closesocket(sock);
-    throw SocketException("failed to bind socket", errorNumber);
+    throw SocketException("failed to bind socket", e);
   }
 
   // - Set it to be a listening socket
@@ -558,57 +536,41 @@ int TcpListener::getMyPort() {
 }
 
 
-void network::createLocalTcpListeners(std::list<TcpListener> *listeners,
+void network::createLocalTcpListeners(std::list<TcpListener*> *listeners,
                                       int port)
 {
-  std::list<TcpListener> new_listeners;
-  vnc_sockaddr_t sa;
+  struct addrinfo ai[2];
+  vnc_sockaddr_t sa[2];
 
-  initSockets();
+  memset(ai, 0, sizeof(ai));
+  memset(sa, 0, sizeof(sa));
 
-  if (UseIPv6) {
-    sa.u.sin6.sin6_family = AF_INET6;
-    sa.u.sin6.sin6_port = htons (port);
-    sa.u.sin6.sin6_addr = in6addr_loopback;
-    try {
-      new_listeners.push_back (TcpListener (&sa.u.sa, sizeof (sa.u.sin6)));
-    } catch (SocketException& e) {
-      // Ignore this if it is due to lack of address family support on
-      // the interface or on the system
-      if (e.err != EADDRNOTAVAIL && e.err != EAFNOSUPPORT)
-        // Otherwise, report the error
-        throw;
-    }
-  }
-  if (UseIPv4) {
-    sa.u.sin.sin_family = AF_INET;
-    sa.u.sin.sin_port = htons (port);
-    sa.u.sin.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
-    try {
-      new_listeners.push_back (TcpListener (&sa.u.sa, sizeof (sa.u.sin)));
-    } catch (SocketException& e) {
-      // Ignore this if it is due to lack of address family support on
-      // the interface or on the system
-      if (e.err != EADDRNOTAVAIL && e.err != EAFNOSUPPORT)
-        // Otherwise, report the error
-        throw;
-    }
-  }
+  sa[0].u.sin.sin_family = AF_INET;
+  sa[0].u.sin.sin_port = htons (port);
+  sa[0].u.sin.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
 
-  if (new_listeners.empty ())
-    throw SocketException("createLocalTcpListeners: no addresses available",
-                          EADDRNOTAVAIL);
+  ai[0].ai_family = sa[0].u.sin.sin_family;
+  ai[0].ai_addr = &sa[0].u.sa;
+  ai[0].ai_addrlen = sizeof(sa[0].u.sin);
+  ai[0].ai_next = &ai[1];
 
-  listeners->splice (listeners->end(), new_listeners);
+  sa[1].u.sin6.sin6_family = AF_INET6;
+  sa[1].u.sin6.sin6_port = htons (port);
+  sa[1].u.sin6.sin6_addr = in6addr_loopback;
+
+  ai[1].ai_family = sa[1].u.sin6.sin6_family;
+  ai[1].ai_addr = &sa[1].u.sa;
+  ai[1].ai_addrlen = sizeof(sa[1].u.sin6);
+  ai[1].ai_next = NULL;
+
+  createTcpListeners(listeners, ai);
 }
 
-void network::createTcpListeners(std::list<TcpListener> *listeners,
+void network::createTcpListeners(std::list<TcpListener*> *listeners,
                                  const char *addr,
                                  int port)
 {
-  std::list<TcpListener> new_listeners;
-
-  struct addrinfo *ai, *current, hints;
+  struct addrinfo *ai, hints;
   char service[16];
   int result;
 
@@ -628,6 +590,22 @@ void network::createTcpListeners(std::list<TcpListener> *listeners,
     throw rdr::Exception("unable to resolve listening address: %s",
                          gai_strerror(result));
 
+  try {
+    createTcpListeners(listeners, ai);
+  } catch(...) {
+    freeaddrinfo(ai);
+    throw;
+  }
+}
+
+void network::createTcpListeners(std::list<TcpListener*> *listeners,
+                                 const struct addrinfo *ai)
+{
+  const struct addrinfo *current;
+  std::list<TcpListener*> new_listeners;
+
+  initSockets();
+
   for (current = ai; current != NULL; current = current->ai_next) {
     switch (current->ai_family) {
     case AF_INET:
@@ -645,19 +623,21 @@ void network::createTcpListeners(std::list<TcpListener> *listeners,
     }
 
     try {
-      new_listeners.push_back(TcpListener (current->ai_addr,
-                                           current->ai_addrlen));
+      new_listeners.push_back(new TcpListener(current->ai_addr,
+                                              current->ai_addrlen));
     } catch (SocketException& e) {
       // Ignore this if it is due to lack of address family support on
       // the interface or on the system
       if (e.err != EADDRNOTAVAIL && e.err != EAFNOSUPPORT) {
         // Otherwise, report the error
-        freeaddrinfo(ai);
+        while (!new_listeners.empty()) {
+          delete new_listeners.back();
+          new_listeners.pop_back();
+        }
         throw;
       }
     }
   }
-  freeaddrinfo(ai);
 
   if (new_listeners.empty ())
     throw SocketException("createTcpListeners: no addresses available",
@@ -772,6 +752,8 @@ TcpFilter::Pattern TcpFilter::parsePattern(const char* p) {
   rfb::CharArray addr, pref;
   bool prefix_specified;
   int family;
+
+  initSockets();
 
   prefix_specified = rfb::strSplit(&p[1], '/', &addr.buf, &pref.buf);
   if (addr.buf[0] == '\0') {
