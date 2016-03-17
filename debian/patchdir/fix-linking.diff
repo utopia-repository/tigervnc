@@ -1,6 +1,6 @@
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -252,12 +252,18 @@ if(UNIX AND NOT APPLE)
+@@ -228,12 +228,18 @@
    if(X11_Xinerama_FOUND)
      set(FLTK_LIBRARIES ${FLTK_LIBRARIES} ${X11_Xinerama_LIB})
    endif()
@@ -21,7 +21,7 @@
    endif()
 --- a/unix/vncconfig/CMakeLists.txt
 +++ b/unix/vncconfig/CMakeLists.txt
-@@ -9,7 +9,7 @@ add_executable(vncconfig
+@@ -9,7 +9,7 @@
    vncconfig.cxx
    QueryConnectDialog.cxx)
  
@@ -32,7 +32,7 @@
  install(FILES vncconfig.man DESTINATION ${MAN_DIR}/man1 RENAME vncconfig.1)
 --- a/vncviewer/CMakeLists.txt
 +++ b/vncviewer/CMakeLists.txt
-@@ -47,7 +47,7 @@ else()
+@@ -46,7 +46,7 @@
    add_executable(vncviewer ${VNCVIEWER_SOURCES})
  endif()
  

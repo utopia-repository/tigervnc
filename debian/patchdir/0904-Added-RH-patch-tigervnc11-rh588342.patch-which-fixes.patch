@@ -15,7 +15,7 @@ expected. (BZ#588342)
 
 --- a/unix/xserver/hw/vnc/Input.c
 +++ b/unix/xserver/hw/vnc/Input.c
-@@ -124,6 +124,9 @@ void vncPointerButtonAction(int buttonMa
+@@ -124,6 +124,9 @@
  	ValuatorMask mask;
  #endif
  
@@ -25,7 +25,7 @@ expected. (BZ#588342)
  	for (i = 0; i < BUTTONS; i++) {
  		if ((buttonMask ^ oldButtonMask) & (1 << i)) {
  			int action = (buttonMask & (1<<i)) ?
-@@ -163,6 +166,9 @@ void vncPointerMove(int x, int y)
+@@ -163,6 +166,9 @@
  	if (cursorPosX == x && cursorPosY == y)
  		return;
  

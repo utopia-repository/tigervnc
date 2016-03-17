@@ -1,6 +1,6 @@
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -238,7 +238,8 @@ endif()
+@@ -214,7 +214,8 @@
  set(FLTK_SKIP_FLUID TRUE)
  set(FLTK_SKIP_OPENGL TRUE)
  set(FLTK_SKIP_FORMS TRUE)

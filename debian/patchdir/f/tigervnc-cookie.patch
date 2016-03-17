@@ -1,6 +1,6 @@
 --- a/unix/vncserver
 +++ b/unix/vncserver
-@@ -221,27 +221,12 @@ $vncPort = 5900 + $displayNumber;
+@@ -240,27 +240,12 @@
  $desktopLog = "$vncUserDir/$host:$displayNumber.log";
  unlink($desktopLog);
  

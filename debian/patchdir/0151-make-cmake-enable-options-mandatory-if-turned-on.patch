@@ -1,6 +1,6 @@
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -121,8 +121,8 @@ endif()
+@@ -125,8 +125,8 @@
  find_package(ZLIB REQUIRED)
  
  # Check for gettext
@@ -11,7 +11,7 @@
    # Tools
    find_package(Gettext)
  
-@@ -152,8 +152,14 @@ if(ENABLE_NLS)
+@@ -156,8 +156,14 @@
    endif()
  
    if(NOT GETTEXT_FOUND OR NOT ICONV_FOUND)
@@ -28,7 +28,7 @@
    endif()
  endif()
  
-@@ -227,13 +233,19 @@ if(UNIX AND NOT APPLE)
+@@ -233,13 +239,19 @@
  endif()
  
  # Check for GNUTLS library
@@ -50,7 +50,7 @@
    endif()
  endif()
  
-@@ -247,7 +259,12 @@ if(ENABLE_PAM)
+@@ -253,7 +265,12 @@
    if(HAVE_PAM_H AND HAVE_PAM_START)
      set(PAM_LIBS pam)
    else()
