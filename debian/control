@@ -102,7 +102,7 @@ Build-Depends:
  libepoxy-dev [linux-any kfreebsd-any],
 # openjdk-7-jdk,
  libsystemd-dev,
-Standards-Version: 3.9.6
+Standards-Version: 3.9.7
 Vcs-Git: git://git.debian.org/git/pkg-tigervnc/pkg-tigervnc.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-tigervnc/pkg-tigervnc.git 
 Homepage: http://www.tigervnc.org
