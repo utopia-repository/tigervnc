@@ -1,11 +1,13 @@
 tigervnc (1.6.0-1) UNRELEASED; urgency=medium
 
+  [ Liang Guo ]
   [Liang Guo]
   * New upstrem release 
   * debian/patchdir
     - Refresh all patches
     - add fix-build-error-with-xserver-1.18.patch
   * Updated standards version to 3.9.7
+  * Switch to canonical URI
 
  -- Liang Guo <guoliang@debian.org>  Wed, 16 Mar 2016 22:16:47 +0800
 
