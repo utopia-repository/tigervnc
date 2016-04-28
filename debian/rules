@@ -22,7 +22,6 @@ unpatch: reverse-patches-dance
 apply-patches: apply-patches-dance
 reverse-patches-dance: reverse-patches
 
-QUILT_PATCH_DIR = $(CURDIR)/debian/patchdir
 include /usr/share/cdbs/1/rules/patchsys-quilt.mk
 
 DEB_DH_AUTORECONF_ARGS       = $(CURDIR)/debian/xorg-autoreconf.sh
