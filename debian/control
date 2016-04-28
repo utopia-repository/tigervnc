@@ -7,6 +7,7 @@ Uploaders:
  Mike Gabriel <mike.gabriel@das-netzwerkteam.de>,
  Yaroslav Halchenko <debian@onerussian.com>,
  Ola Lundqvist <opal@debian.org>
+ Liang Guo <guoliang@debian.org>
 # all the Build-Depends up to x11proto-xf86-dri-dev are for the normal Xorg
 # server, and common dependencies for the DIX.
 # x11proto-xf86dri-dev and libdrm-dev are for DRI support for the Xorg server.
@@ -102,7 +103,7 @@ Build-Depends:
  libepoxy-dev [linux-any kfreebsd-any],
 # openjdk-7-jdk,
  libsystemd-dev,
-Standards-Version: 3.9.7
+Standards-Version: 3.9.8
 Vcs-Git: https://anonscm.debian.org/git/pkg-tigervnc/pkg-tigervnc.git
 Vcs-Browser: https://anonscm.debian.org/gitweb/?p=pkg-tigervnc/pkg-tigervnc.git
 Homepage: http://www.tigervnc.org
