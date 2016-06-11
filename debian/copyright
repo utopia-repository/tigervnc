@@ -36,7 +36,7 @@ Copyright: Copyright (C) 1999 AT&T Laboratories Cambridge
 	   Copyright (C) 2001 Markus G. Kuhn, University of Cambridge
 	   Copyright (C) 2009 Paul Donohue.
       	   Copyright (C) 2011-2015 Brian P. Hinz
-License: GPLv2+
+License: GPL-2+
  This program is free software; you can redistribute it
  and/or modify it under the terms of the GNU General Public
  License as published by the Free Software Foundation; either
@@ -60,7 +60,7 @@ License: GPLv2+
 
 Files: vncviewer/gettext.h
 Copyright: Copyright (C) 1995-2011 Free Software Foundation, Inc.
-License: GPLv3+
+License: GPL-3+
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation; either version 3 of the License, or
@@ -78,26 +78,7 @@ License: GPLv3+
  License version 3 can be found in the file
  '/usr/share/common-licenses/GPL-3'.
 
-Files: common/zlib
-Copyright: 1995-2010 Jean-loup Gailly and Mark Adler
-License: BSD-3-like
- This software is provided 'as-is', without any express or implied
- warranty.  In no event will the authors be held liable for any damages
- arising from the use of this software.
- .
- Permission is granted to anyone to use this software for any purpose,
- including commercial applications, and to alter it and redistribute it
- freely, subject to the following restrictions:
- .
- 1. The origin of this software must not be misrepresented; you must not
-    claim that you wrote the original software. If you use this software
-    in a product, an acknowledgment in the product documentation would be
-    appreciated but is not required.
- 2. Altered source versions must be plainly marked as such, and must not be
-    misrepresented as being the original software.
- 3. This notice may not be removed or altered from any source distribution.
-
-Files: java/com/jcraft
+Files: java/com/jcraft/*
 Copyright: 2000-2012 ymnk, JCraft,Inc. All rights reserved.
 License: BSD-3
  Redistribution and use in source and binary forms, with or without
@@ -124,30 +105,10 @@ License: BSD-3
  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Files: common/fltk/*
-Copyright: 1998-2011 (C) Bill Spitzak <spitzak@users.sourceforge.net> and others
-License: LGPLv2+
- This library is free software; you can redistribute it
- and/or modify it under the terms of the GNU Library General
- Public License as published by the Free Software Foundation;
- either version 2 of the License, or (at your option) any
- later version.
- .
- This library is distributed in the hope that it will be
- useful, but WITHOUT ANY WARRANTY; without even the implied
- warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
- PURPOSE.  See the GNU Library General Public License for
- more details.
- .
- You should have received a copy of the GNU Library General
- Public License along with this library; if not, write to the
- Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
- Boston, MA  02110-1301 USA
-
 Files: java/com/tigervnc/network/SSLEngineManager.java
 COpyright: Copyright (C) 2012,2014 Brian P. Hinz
  	   Copyright (C) 2012 D. R. Commander. 
-License: LGPLv2.1+
+License: LGPL-2.1+
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public
  License as published by the Free Software Foundation; either
@@ -298,7 +259,7 @@ License:
 Files: vncviewer/keysym2ucs.*
 Copyright:Markus G. Kuhn <http://www.cl.cam.ac.uk/~mgk25/>,
                 University of Cambridge, April 2001 
-License:Public domain
+License:
  This software is in the public domain. Share and enjoy!
 
 
