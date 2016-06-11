@@ -1,14 +1,16 @@
-tigervnc (1.6.0-1) unstable; urgency=medium
+tigervnc (1.6.0+dfsg-1) unstable; urgency=medium
 
   * Fresh attempt to upload to unstable
   * New upstrem release
   * All active patches placed under debian/patches
     - Refresh all patches
     - add fix-build-error-with-xserver-1.18.patch
-  * Updated standards version to 3.9.7
+  * Updated standards version to 3.9.8
   * Switch to canonical URI for Vcs- fields
+  * Remove win directory for DFSG-compatible
+  * Bump compat to version 9
 
- -- Liang Guo <guoliang@debian.org>  Thu, 28 Apr 2016 23:38:56 +0800
+ -- Liang Guo <guoliang@debian.org>  Sat, 11 Jun 2016 11:43:28 +0800
 
 tigervnc (1.5.0-1) UNRELEASED; urgency=medium
 
