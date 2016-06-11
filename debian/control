@@ -136,7 +136,7 @@ Provides:
  vnc-server
 Replaces: tigervnc-server (<< 1.1.90)
 Breaks: tigervnc-server (<< 1.1.90)
-Description: Virtual network computing server software
+Description: VNC server uses screen scraping of an already running X server
  VNC stands for Virtual Network Computing. It is, in essence, a remote
  display system which allows you to view a computing `desktop' environment
  not only on the machine where it is running, but from anywhere on the
@@ -173,7 +173,7 @@ Provides:
  xserver
 Replaces: tigervnc-server (<< 1.1.90)
 Breaks: tigervnc-server (<< 1.1.90)
-Description: Virtual network computing server software
+Description: Standalone VNC server 
  VNC stands for Virtual Network Computing. It is, in essence, a remote
  display system which allows you to view a computing `desktop' environment
  not only on the machine where it is running, but from anywhere on the
@@ -199,7 +199,7 @@ Provides:
  vnc-xorg-extension
 Replaces: tigervnc-server (<< 1.1.90)
 Breaks: tigervnc-server (<< 1.1.90)
-Description: Virtual network computing server software
+Description: X server vnc extension
  VNC stands for Virtual Network Computing. It is, in essence, a remote
  display system which allows you to view a computing `desktop' environment
  not only on the machine where it is running, but from anywhere on the
