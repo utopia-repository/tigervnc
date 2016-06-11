@@ -10,10 +10,6 @@ Files: java/com/tigervnc/*
        unix/vncserver
        unix/x*server/*
        vncviewer/*
-       win/rfb_win32/*
-       win/vncconfig/*
-       win/winvnc/*
-       win/wm_hooks/*
        common/os/*
        common/network/*
        common/rdr/*
@@ -208,7 +204,7 @@ Files: common/rfb/keysymdef.h
 Copyright: Copyright 1987-1998  The Open Group
 	   Copyright 1987-1988 by Digital Equipment Corporation, 
 				  Maynard, Massachusetts
-LICENSE: MIT/X11-style
+LICENSE: 
  Permission to use, copy, modify, distribute, and sell this software and its
  documentation for any purpose is hereby granted without fee, provided that
  the above copyright notice appear in all copies and that both that
@@ -251,7 +247,7 @@ Files: java/com/tigervnc/rfb/DesCipher.java
 Copyright: Copyright (C) 1999 AT&T Laboratories Cambridge.
            Copyright (c) 1996 Widget Workshop
 	   Copyright (C) 1996 by Jef Poskanzer <jef@acme.com>
-License: MIT/X11-style
+License: 
  This software is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
