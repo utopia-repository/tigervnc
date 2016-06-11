@@ -69,7 +69,6 @@ Build-Depends:
  libpciaccess-dev (>= 0.12.901),
  libgcrypt-dev,
  nettle-dev,
- libdbus-1-dev [kfreebsd-any],
  libhal-dev [kfreebsd-any],
  libudev-dev (>= 151-3) [linux-any],
  libselinux1-dev (>= 2.0.80) [linux-any],
@@ -103,6 +102,7 @@ Build-Depends:
  libepoxy-dev [linux-any kfreebsd-any],
 # openjdk-7-jdk,
  libsystemd-dev,
+ libdbus-1-dev,
 Standards-Version: 3.9.8
 Vcs-Git: https://anonscm.debian.org/git/pkg-tigervnc/pkg-tigervnc.git
 Vcs-Browser: https://anonscm.debian.org/gitweb/?p=pkg-tigervnc/pkg-tigervnc.git
