@@ -38,4 +38,3 @@ f/tigervnc-cursor.patch
 # f/xserver-1.16.patch # obsoleted by tigervnc 1.4.1 release
 # f/tigervnc-inputreset.patch # already applied
 # f/tigervnc-pointersync.patch # needs fixing
-fix-build-error-with-xserver-1.18.patch
