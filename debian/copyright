@@ -3,17 +3,7 @@ Upstream-Name: tigervnc
 Upstream-Contact: Peter Åstrand, Pierre Ossman, Adam Tkac
 Source: http://sourceforge.net/apps/mediawiki/tigervnc/index.php
 
-Files: java/com/tigervnc/*
-       unix/tx/*
-       unix/vncconfig/*
-       unix/vncpasswd/*
-       unix/vncserver
-       unix/x*server/*
-       vncviewer/*
-       common/os/*
-       common/network/*
-       common/rdr/*
-       common/rfb/*
+Files: *
 Copyright: Copyright (C) 1999 AT&T Laboratories Cambridge
            Copyright (C) 2002-2005 RealVNC Ltd.
            Copyright (C) 2000-2010 TightVNC Group
@@ -26,7 +16,7 @@ Copyright: Copyright (C) 1999 AT&T Laboratories Cambridge
            Copyright (C) 2010 m-privacy GmbH
            Copyright (C) 2009-2015 D. R. Commander
            Copyright (C) 2004-2011 Red Hat, Inc.
-           Copyright (C) 2009-2014 TigerVNC Team
+           Copyright (C) 2009-2015 TigerVNC Team
 	   Copyright (C) 2004-2005 Cendio AB
            Copyright (C) 2004-2009 Peter Astrand for Cendio AB
            Copyright (C) 2009-2015 Pierre Ossman <ossman@cendio.se> for Cendio AB
@@ -155,7 +145,7 @@ License: MIT/X11-style
 Files: common/rfb/d3des.*
 Copyright: Copyright (C) 1999 AT&T Laboratories Cambridge. 
 	   Copyright (c) 1988-1992 by Richard Outerbridge.
-LICENSE:
+LICENSE: public-domain
  This software is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -165,7 +155,7 @@ Files: common/rfb/keysymdef.h
 Copyright: Copyright 1987-1998  The Open Group
 	   Copyright 1987-1988 by Digital Equipment Corporation, 
 				  Maynard, Massachusetts
-LICENSE: 
+LICENSE: BSD-style
  Permission to use, copy, modify, distribute, and sell this software and its
  documentation for any purpose is hereby granted without fee, provided that
  the above copyright notice appear in all copies and that both that
@@ -208,7 +198,7 @@ Files: java/com/tigervnc/rfb/DesCipher.java
 Copyright: Copyright (C) 1999 AT&T Laboratories Cambridge.
            Copyright (c) 1996 Widget Workshop
 	   Copyright (C) 1996 by Jef Poskanzer <jef@acme.com>
-License: 
+License: BSD-style
  This software is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -259,7 +249,5 @@ License:
 Files: vncviewer/keysym2ucs.*
 Copyright:Markus G. Kuhn <http://www.cl.cam.ac.uk/~mgk25/>,
                 University of Cambridge, April 2001 
-License:
+License: public-domain
  This software is in the public domain. Share and enjoy!
-
-
