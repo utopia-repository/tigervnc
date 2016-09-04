@@ -150,7 +150,7 @@ reverse-patches-remove-xorg-from-vnc-tree:
 			sort -r < .apply-patches-unify-xorg-and-vnc-tree.files | \
 				while read line; do \
 					if test -d "$$line"; then \
-						rmdir "$$line"; \
+						rmdir "$$line" || true; \
 					else \
 						rm -f "$$line"; \
 					fi; \
