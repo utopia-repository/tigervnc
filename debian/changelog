@@ -1,14 +1,17 @@
-tigervnc (1.6.0+dfsg-2) UNRELEASED; urgency=medium
+tigervnc (1.6.0+dfsg-2) unstable; urgency=medium
 
-  [Ola Lundqvist]
+  [ Ola Lundqvist ]
   * Corrected debian/copyright to fix all lintian warnings.
   * Fixed a clean problem in debian/rules that prevented dh_clean from
     being run.
   * Adjusted one of the patch files to allow building also on jessie.
 
- -- Ola Lundqvist <opal@debian.org>  Sun, 04 Sep 2016 22:51:37 +0200
+  [ Yaroslav Halchenko ]
+  * In hope again to provide acceptable Debian package (Closes: #650394)
 
-tigervnc (1.6.0+dfsg-1) unstable; urgency=medium
+ -- Yaroslav Halchenko <debian@onerussian.com>  Sun, 04 Sep 2016 22:34:45 -0400
+
+tigervnc (1.6.0+dfsg-1) UNRELEASED; urgency=medium
 
   * Fresh attempt to upload to unstable
   * New upstrem release
@@ -88,7 +91,7 @@ tigervnc (1.3.1-1) UNRELEASED; urgency=medium
     - many patches updated, some removed, and bulk added
 
   [ Yaroslav Halchenko ]
-  * Second re-upload to Debian proper (Closes: #650394)
+  * Second re-upload to Debian proper
   * debian/gbp.conf
     - filter out contrib/packages which now carries copies of xorg-server
     - use pristine-tar
