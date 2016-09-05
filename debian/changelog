@@ -8,6 +8,9 @@ tigervnc (1.6.0+dfsg-2) unstable; urgency=medium
 
   [ Yaroslav Halchenko ]
   * In hope again to provide acceptable Debian package (Closes: #650394)
+  * debian/copyright
+    - minor reformatting to avoid spurious tabs, trailing spaces
+    - disambiguate short license names for two pieces with BSD-style licenses
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Sun, 04 Sep 2016 22:34:45 -0400
 
