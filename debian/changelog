@@ -1,3 +1,10 @@
+tigervnc (1.6.0+dfsg-3) UNRELEASED; urgency=medium
+
+  * Vncviewer alternatives are not correctly removed at package removal.
+    Closes: #840828.
+
+ -- Ola Lundqvist <opal@debian.org>  Sat, 15 Oct 2016 22:42:51 +0200
+
 tigervnc (1.6.0+dfsg-2) unstable; urgency=medium
 
   [ Ola Lundqvist ]
