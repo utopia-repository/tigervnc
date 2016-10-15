@@ -1,4 +1,4 @@
-tigervnc (1.6.0+dfsg-3) UNRELEASED; urgency=medium
+tigervnc (1.6.0+dfsg-3) unstable; urgency=medium
 
   * Vncviewer alternatives are not correctly removed at package removal.
     Closes: #840828.
