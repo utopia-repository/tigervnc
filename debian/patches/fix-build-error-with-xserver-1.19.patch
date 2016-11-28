@@ -1,3 +1,7 @@
+Description: Fix build error with xorg xserver 1.19.
+ Ideas were taken from
+ https://lists.x.org/archives/xorg-devel/2016-October/051495.html
+Author: Ola Lundqvist <opal@debian.org>
 Index: pkg-tigervnc/unix/xserver/hw/vnc/xorg-version.h
 ===================================================================
 --- pkg-tigervnc.orig/unix/xserver/hw/vnc/xorg-version.h
@@ -23,10 +27,6 @@ Index: pkg-tigervnc/unix/xserver117.patch
       {ShapeExtensionInit, "SHAPE", NULL},
   #ifdef MITSHM
 -diff -up xorg-server-1.17.1/os/WaitFor.c.vnc xorg-server-1.17.1/os/WaitFor.c
-Description: Fix build error with xorg xserver 1.19.
- Ideas were taken from
- https://lists.x.org/archives/xorg-devel/2016-October/051495.html
-Author: Ola Lundqvist <opal@debian.org>
 ---- xorg-server-1.17.1/os/WaitFor.c.vnc	2015-01-26 18:40:30.000000000 +0000
 -+++ xorg-server-1.17.1/os/WaitFor.c	2015-02-13 16:14:05.132516837 +0000
 -@@ -125,6 +125,9 @@ static void DoTimer(OsTimerPtr timer, CA
