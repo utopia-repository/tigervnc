@@ -1,3 +1,9 @@
+tigervnc (1.6.0+dfsg-5) unstable; urgency=high
+
+  * Correction to make it build against xorg source 1.19. Closes: #843543
+
+ -- Ola Lundqvist <opal@debian.org>  Mon, 28 Nov 2016 23:20:20 +0100
+
 tigervnc (1.6.0+dfsg-4) unstable; urgency=medium
 
   * Re-build to solve library dependency problem. Closes: #841288.
