@@ -1,13 +1,6 @@
-tigervnc (1.7.0-2) unstable; urgency=high
+tigervnc (1.7.0+dfsg-1) unstable; urgency=medium
 
-  * Most of CVE-2014-8241 was already corrected but this update correct
-    one missing part of that CVE. Closes: #849478.
-  * Added a versioned dependency on xorg source.
-
- -- Ola Lundqvist <opal@debian.org>  Thu, 29 Dec 2016 22:04:35 +0000
-
-tigervnc (1.7.0-1) unstable; urgency=high
-
+  [ Ola Lundqvist ] 
   * Fresh upstream that help to solve #843543.
    - Modified a special patch for VeNCrypt support as it all parts that made
      sense is already in there.
@@ -17,8 +10,15 @@ tigervnc (1.7.0-1) unstable; urgency=high
   * Security correction for CVE-2014-8240 that corrects an integer overflow
     flaw, leading to a heap-based buffer overflow in screen size handling.
     Closes: #849479.
+  * Most of CVE-2014-8241 was already corrected but this update correct
+    one missing part of that CVE. Closes: #849478.
+  * Added a versioned dependency on xorg source.
 
- -- Ola Lundqvist <opal@debian.org>  Mon, 28 Nov 2016 23:20:20 +0100
+  [ Liang Guo ]
+  * Generate 1.7.0+dfsg.orig
+  * Refresh d/copyright
+
+ -- Liang Guo <guoliang@debian.org>  Fri, 30 Dec 2016 13:48:36 +0800
 
 tigervnc (1.6.0+dfsg-4) unstable; urgency=medium
 
