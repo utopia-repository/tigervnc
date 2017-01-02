@@ -730,7 +730,7 @@ sub startXvncServer {
     STDERR->autoflush(1);
     STDOUT->autoflush(1);
     if ($options->{'fg'} || $options->{'autokill'}) {
-      system $cmd[0] (@cmd);
+      system {$cmd[0]} (@cmd);
       if (kill(0, $xvncServerPid)) {
         &killXvncServer($options, $runningUserVncservers, [$options->{'displayNumber'}]);
       } else {

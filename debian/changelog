@@ -1,3 +1,16 @@
+tigervnc (1.7.0+dfsg-2) unstable; urgency=medium
+
+  [ Joachim Falk ]
+  * Fixed syntax error in tigervncserver wrapper script. Closes: #849963.
+  * Fixed stale pidfile condition detection and cleanup in tigervncserver
+    wrapper script.
+  * Make include /usr/share/xserver-xorg/configure_flags.mk optional.
+                  
+    This change enables the creation of a source deb without having all the
+    build dependencies installed, i.e., dpkg-buildpackage -d -S.
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Mon, 02 Jan 2017 21:03:55 +0100
+
 tigervnc (1.7.0+dfsg-1) unstable; urgency=medium
 
   [ Ola Lundqvist ] 
