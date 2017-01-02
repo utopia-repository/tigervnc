@@ -612,7 +612,8 @@ sub startXvncServer {
       print $sf $options->{'defaultVncStartup'};
       $sf->close;
     }
-  } elsif (!(-x $vncStartup)) {
+  }
+  if (!(-x $vncStartup)) {
     unless ($options->{'dry-run'} || chmod 0755, $vncStartup) {
       print STDERR "$PROG: Can't fixup permissions of startup script '$vncStartup': $!\n";
       exit 1;
@@ -832,13 +833,19 @@ sub main {
       xauthorityFile		=>
         $ENV{XAUTHORITY} ||
         File::Spec->catfile($ENV{HOME}, ".Xauthority"),
-      defaultVncStartup         =>
-        "#! /bin/sh\n\n".
-        "vncconfig -iconic &\n".
-        "\$SHELL -l <<EOF\n".
-        "exec /etc/X11/Xsession \$@\n".
-        "EOF\n".
-        "vncserver -kill \$DISPLAY\n",
+      defaultVncStartup         => <<SCRIPTEOF
+#! /bin/sh
+
+test x"\$SHELL" = x"" && SHELL=/bin/bash
+test x"\$1"     = x"" && set -- default
+
+vncconfig -iconic &
+\$SHELL -l <<EOF
+exec /etc/X11/Xsession "\$@"
+EOF
+vncserver -kill \$DISPLAY
+SCRIPTEOF
+,
       vncUserDir		=>
         File::Spec->catfile($ENV{HOME}, ".vnc"),
       vncPasswdFile		=>
