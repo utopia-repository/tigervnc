@@ -15,7 +15,10 @@ tigervnc (1.7.0+dfsg-1) unstable; urgency=high
   * Generate 1.7.0+dfsg.orig
   * Refresh d/copyright
 
- -- Joachim Falk <joachim.falk@gmx.de>  Mon, 02 Jan 2017 21:03:55 +0100
+  [ Ola Lundqvist ]
+  * Updated the package descriptions.
+
+ -- Ola Lundqvist <opal@debian.org>  Mon, 02 Jan 2017 22:51:08 +0100
 
 tigervnc (1.7.0-2) unstable; urgency=high
 
@@ -40,7 +43,7 @@ tigervnc (1.7.0-1) unstable; urgency=high
     flaw, leading to a heap-based buffer overflow in screen size handling.
     Closes: #849479.
 
-  -- Ola Lundqvist <opal@debian.org>  Mon, 28 Nov 2016 23:20:20 +0100
+ -- Ola Lundqvist <opal@debian.org>  Mon, 28 Nov 2016 23:20:20 +0100
 
 tigervnc (1.6.0+dfsg-4) unstable; urgency=medium
 
