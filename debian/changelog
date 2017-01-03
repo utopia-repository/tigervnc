@@ -9,6 +9,9 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
     /usr/bin/tigervncserver line 493.
     Can't kill a non-numeric process ID at /usr/bin/tigervncserver line 495.
     Killing Xtigervnc process ID ...
+  * Fixed bug in tigervncserver wrapper script. An option -localhost without
+    an argument is true, i.e., only listen on localhost for vnc connections,
+    not false!
 
 tigervnc (1.7.0+dfsg-1) unstable; urgency=high
 

@@ -954,7 +954,13 @@ SCRIPTEOF
       'baseHttpPort=i'    => sub {
         $options->{'baseHttpPort'} = $_[1];
         undef $options->{'httpPort'}; },
-      'localhost:s'       => \$options->{'localhost'},
+      'localhost:s'       =>  sub {
+          if ($_[1] eq '') {
+            $options->{'localhost'} = 1;
+          } else {
+            $options->{'localhost'} = $_[1];
+          }
+        },
       'useold'            => \$opts{'useold'},
       'cleanstale'        => \$options->{'cleanstale'},
       'clean'             => \$options->{'clean'},
