@@ -90,7 +90,12 @@ use vars qw($HOST $HOSTFQDN $PROG %CMDS);
 $PROG = basename($0);
 
 sub installTigerVNCCommon {
-  print STDERR "\tPlease install the tigervnc-common package!\n";
+  print STDERR "\tPlease install the tigervnc-common package, i.e., sudo apt-get install tigervnc-common.\n";
+  exit 1;
+}
+
+sub installOpenSSL {
+  print STDERR "\tPlease install the openssl package, i.e., sudo apt-get install openssl.\n";
   exit 1;
 }
 
@@ -98,7 +103,9 @@ sub getCommand {
   my ($cmd) = @_;
   return $CMDS{$cmd} if defined $CMDS{$cmd};
   print STDERR "$PROG: Couldn't find \"$cmd\" on your PATH.\n";
-  &installTigerVNCCommon();
+  &installTigerVNCCommon() if $cmd eq 'tigervncpasswd';
+  &installOpenSSL() if $cmd eq 'openssl';
+  exit 1;
 }
 
 #
@@ -124,8 +131,8 @@ cmd:
     print STDERR "$PROG: Couldn't find \"$cmd\" on your PATH.\n";
     exit 1;
   }
-  # These commands are from the tigervnc-common package which is optional.
-  foreach my $cmd ("tigervncpasswd") {
+  # These commands are optional.
+  foreach my $cmd ("tigervncpasswd", "openssl") {
     foreach my $dir ($binbase, split(/:/,$ENV{PATH})) {
       my $fqcmd = File::Spec->catfile($dir, $cmd);
       if (-x $fqcmd) {
@@ -408,6 +415,13 @@ sub pidFile {
   return "$options->{'vncUserDir'}/$HOSTFQDN:$usedDisplay.pid";
 }
 
+sub x509CertFiles {
+  my ($options) = @_;
+  return (
+    "$options->{'vncUserDir'}/${HOSTFQDN}-SrvCert.pem",
+    "$options->{'vncUserDir'}/${HOSTFQDN}-SrvKey.pem");
+}
+
 sub desktopLog {
   my ($options,$usedDisplay) = @_;
   $usedDisplay = $options->{'displayNumber'} unless defined $usedDisplay;
@@ -597,6 +611,59 @@ sub CreateVNCPasswd {
   }
 }
 
+# Make sure the user has a x509 certificate.
+sub CreateX509Cert {
+  my ( $options ) = @_;
+  
+  # Check whether X509 encryption is enabled, and if so, create
+  # a self signed certificate if not already present or specified
+  # on the command line.
+  return if !$options->{'x509CertRequired'} ||
+            defined $options->{'X509Cert'} ||
+            defined $options->{'X509Key'};
+  ($options->{'X509Cert'}, $options->{'X509Key'}) = 
+    &x509CertFiles($options);
+  
+  my $st = stat($options->{'X509Key'});
+  if (!defined($st) || ($st->mode & 077) || !-f $options->{'X509Cert'}) {
+    print "\nYou will require a certificate to use X509None, X509Vnc, or X509Plain.\n";
+    print "I will generate a self signed certificate for you in $options->{'X509Cert'}.\n\n";
+    unless (unlink($options->{'X509Cert'}) || $! == &ENOENT) {
+      print STDERR "Can't remove old X509Cert file '$options->{'X509Cert'}': $!!\n";
+      exit 1;
+    }
+    unless (unlink($options->{'X509Key'}) || $! == &ENOENT) {
+      print STDERR "Can't remove old X509Key file '$options->{'X509Key'}': $!!\n";
+      exit 1;
+    }
+    my $toSSLFh;
+    unless (defined open($toSSLFh, "|-",
+	getCommand("openssl"), "req", "-newkey", "ec:/usr/share/tigervnc/ecparams.pem",
+	"-config", "-", "-x509", "-days", "2190", "-nodes",
+	"-out", $options->{'X509Cert'}, "-keyout", $options->{'X509Key'})) {
+      print STDERR "Can't start openssl pipe: $!!\n";
+      exit 1;
+    }
+    my $configSSLFh;
+    unless (defined open($configSSLFh, "<", "/usr/share/tigervnc/ssleay.cnf")) {
+      print STDERR "Can't open openssl configuration template /usr/share/tigervnc/ssleay.cnf: $!\n";
+      exit 1;
+    }
+    while (my $line = <$configSSLFh>) {
+      $line =~ s/\@HostName\@/$HOSTFQDN/;
+      print $toSSLFh $line;
+    }
+    close $configSSLFh;
+    close $toSSLFh;
+    if ($? != 0) {
+      unlink $options->{'X509Cert'};
+      unlink $options->{'X509Key'};
+      print STDERR "The openssl command failed: $?\n";
+      exit 1;
+    }
+  }
+}
+
 # Now start the X VNC Server
 sub startXvncServer {
   my ($options) = @_;
@@ -605,8 +672,10 @@ sub startXvncServer {
   my $desktopLog = &desktopLog($options);
   my $pidFile    = &pidFile($options);
   
-  # Make sure the user has a password.
+  # Make sure the user has a password if required.
   &CreateVNCPasswd($options);
+  # Make sure the user has a x509 certificate if required.
+  &CreateX509Cert($options);
   &CreateMITCookie($options);
   
   # Create the user's vncStartup script if necessary.
@@ -667,6 +736,10 @@ sub startXvncServer {
     if ($options->{'vncPlainEnabled'}) {
       push @cmd, "-PAMService", $options->{'PAMService'} if defined $options->{'PAMService'};
       push @cmd, "-PlainUsers", $options->{'PlainUsers'} if defined $options->{'PlainUsers'};
+    }
+    if ($options->{'x509CertRequired'}) {
+      push @cmd, "-X509Cert", $options->{'X509Cert'} if defined $options->{'X509Cert'};
+      push @cmd, "-X509Key", $options->{'X509Key'} if defined $options->{'X509Key'};
     }
     push @cmd, @ARGV;
 
@@ -762,6 +835,19 @@ sub startXvncServer {
     print STDERR "$PROG: failed to fork: $!\n";
   }
   # I am the parent
+
+  {
+    my @cmd = ("xtigervncviewer");
+    push @cmd, "-SecurityTypes", $options->{'SecurityTypes'};
+    push @cmd, "-X509CA", $options->{'X509Cert'} if $options->{'x509CertRequired'};
+    push @cmd, "-passwd", $options->{'vncPasswdFile'} if $options->{'vncAuthEnabled'};
+    if ($options->{'localhost'} =~ m/^(?:yes|true|1)$/i) {
+      push @cmd, ":$options->{'displayNumber'}";
+    } else {
+      push @cmd, "$HOSTFQDN:$options->{'displayNumber'}";
+    }
+    print "\nUse ".join(" ", @cmd)." to connect to the vnc server.\n\n";
+  }
   exit 0;
 }
 
@@ -808,6 +894,10 @@ sub usage {
     $prefix."                       The default password file is ~/.vnc/passwd\n".
     $prefix."[-passwd]              Alias for PasswordFile\n".
     $prefix."[-rfbauth]             Alias for PasswordFile\n".
+    $prefix."[-X509Key]		    Path to the key of the X509 certificate in PEM format. This\n".
+    $prefix."			    is used by the security types X509None, X509Vnc, and X509Plain.\n".
+    $prefix."[-X509Cert]	    Path to the X509 certificate in PEM format. This is used by\n".
+    $prefix."			    the security types X509None, X509Vnc, and X509Plain.\n".
     $prefix."<X11-options ...>      Further options for Xtigervnc(1)\n".
     $prefix."[-- sessiontype]       Arguments for the VNC startup script Xvnc-session\n\n".
 
@@ -852,7 +942,7 @@ sub main {
       clean			=> 0,
       displayNumber		=> undef,
       displayHost		=> undef,
-      localhost			=> 1,
+      localhost			=> undef,
       fontPath			=> undef,
       XFConfigPath		=>
         "/etc/X11/xorg.conf",
@@ -1003,6 +1093,8 @@ SCRIPTEOF
       'passwd=s'	  => \$opts{'vncPasswdFile'},
       'rfbauth=s'	  => \$opts{'vncPasswdFile'},
       'PasswordFile=s'	  => \$opts{'vncPasswdFile'},
+      'X509Key'		  => \$opts{'X509Key'},
+      'X509Cert'	  => \$opts{'X509Cert'},
     );
     
     &usage(!$rc) if (!$rc || $opts{'help'});
@@ -1059,6 +1151,8 @@ SCRIPTEOF
         push @cmd, "-PAMService", $opts{'PAMService'} if defined $opts{'PAMService'};
         push @cmd, "-PlainUsers", $opts{'PlainUsers'} if defined $opts{'PlainUsers'};
         push @cmd, "-PasswordFile", $opts{'vncPasswdFile'} if defined $opts{'vncPasswdFile'};
+        push @cmd, "-X509Key", $opts{'X509Key'} if defined $opts{'X509Key'};
+        push @cmd, "-X509Cert", $opts{'X509Cert'} if defined $opts{'X509Cert'};
         push @cmd, @ARGV;
         if ($#{$options->{'sessionArgs'}} >= 0) {
           push @cmd, '--';
@@ -1105,6 +1199,8 @@ SCRIPTEOF
     }
     $options->{'vncAuthEnabled'} = 0;
     $options->{'vncPlainEnabled'} = 0;
+    $options->{'x509CertRequired'} = 0;
+    $options->{'vncTLSorX509Encryption'} = 0;
     if (defined $options->{'SecurityTypes'}) {
       foreach my $securityType (split(',', $options->{'SecurityTypes'})) {
 	if (lc($securityType) eq "vncauth" ||
@@ -1116,6 +1212,8 @@ SCRIPTEOF
 	    lc($securityType) eq "x509plain") {
 	  $options->{'vncPlainEnabled'} = 1;
         }
+	$options->{'x509CertRequired'} = 1        if $securityType =~ m/^x509/i;
+	$options->{'vncTLSorX509Encryption'} = 1  if $securityType =~ m/^(?:x509|tls)/i;
       }
     } else {
       $options->{'vncAuthEnabled'} = 1;
@@ -1127,6 +1225,13 @@ SCRIPTEOF
       print STDERR "$PROG: The tigervnc PAM servcice required for the security types\n";
       print STDERR "\tPlain, TLSPlain, or X509Plain is not installed.\n";
       &installTigerVNCCommon();
+    }
+
+    unless (defined $options->{'localhost'}) {
+      # If we have no encrypted VNC connection security types, then
+      # we better only server VNC on localhost to be tunneled via
+      # ssh.
+      $options->{'localhost'} = !$options->{'vncTLSorX509Encryption'};
     }
   }
   

@@ -30,8 +30,14 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
     The presence of tigervncserver-common will also be checked by the
     tigervncserver wrapper script if at least one of the three plain security
     types is used.
+  * Feature: Better support for security types X509None, X509Vnc, and X509Plain.
+    We now have support for the -X509Cert and -X509Key options in the
+    tigervncserver wrapper script. Moreover, if the user does not specify a
+    certificate and key when at least one of the three X509 security types
+    is used, then we will generate a self signed certificate for the tigervnc
+    server if it is not already present.
 
- -- Joachim Falk <joachim.falk@gmx.de>  Tue, 03 Jan 2017 07:55:24 +0100
+ -- Joachim Falk <joachim.falk@gmx.de>  Tue, 03 Jan 2017 14:08:23 +0100
 
 tigervnc (1.7.0+dfsg-1) unstable; urgency=high
 
