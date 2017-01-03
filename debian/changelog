@@ -17,12 +17,21 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
     server on a remote host via ssh, e.g., as requested by the following
     command: tigervncserver -localhost no <some remote server>:nn.
   * Fixed bug in tigervncserver wrapper script. Now allow -list and -kill
-    command to be executed on remote host, e.g., as requested by the following
-    command: tigervncserver -kill <some remote server>[:nn] and 
-             tigervncserver -list <some remote server>.
-  * Feature: Be a little more helpfull after a remote tigervncserver sessions
+    commands to be executed on a remote host, e.g., as requested by the following
+    commands: tigervncserver -kill <some remote server>[:nn] or
+              tigervncserver -list <some remote server>.
+  * Feature: Be a little more helpful after a remote tigervncserver sessions
     has been started. Give the user the xtigervncviewer command that can
     be used to connect to the started remote session.
+  * Fixed support for security types Plain, TLSPlain, and X509Plain. We now
+    have support for the -SecurityTypes option in the tigervncserver wrapper
+    script. Moreover, we now ship a tigervnc PAM service file required for
+    password authentication via PAM in the tigervncserver-common package.
+    The presence of tigervncserver-common will also be checked by the
+    tigervncserver wrapper script if at least one of the three plain security
+    types is used.
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Tue, 03 Jan 2017 07:55:24 +0100
 
 tigervnc (1.7.0+dfsg-1) unstable; urgency=high
 

@@ -89,12 +89,16 @@ use vars qw($HOST $HOSTFQDN $PROG %CMDS);
 # Get the program name
 $PROG = basename($0);
 
+sub installTigerVNCCommon {
+  print STDERR "\tPlease install the tigervnc-common package!\n";
+  exit 1;
+}
+
 sub getCommand {
   my ($cmd) = @_;
   return $CMDS{$cmd} if defined $CMDS{$cmd};
   print STDERR "$PROG: Couldn't find \"$cmd\" on your PATH.\n";
-  print STDERR "\tPlease install the tigervnc-common package!\n";
-  exit 1;
+  &installTigerVNCCommon();
 }
 
 #
@@ -574,6 +578,11 @@ sub CreateMITCookie {
 # Make sure the user has a password.
 sub CreateVNCPasswd {
   my ( $options ) = @_;
+
+  # Check whether VNC authentication is enabled, and if so, prompt the user to
+  # create a VNC password if they don't already have one.
+  return if !$options->{'vncAuthEnabled'} ||
+             $options->{'passwordArgSpecified'};
   my $vncPasswdFile = $options->{'vncPasswdFile'};
   my $st = stat($vncPasswdFile);
   
@@ -649,11 +658,16 @@ sub startXvncServer {
     push @cmd, '-depth', $options->{'depth'} if $options->{'depth'};
     push @cmd, '-pixelformat', $options->{'pixelformat'} if $options->{'pixelformat'};
     push @cmd, '-rfbwait', $options->{'rfbwait'};
-    push @cmd, '-rfbauth', $options->{'vncPasswdFile'};
+    push @cmd, '-rfbauth', $options->{'vncPasswdFile'} if $options->{'vncAuthEnabled'};
     push @cmd, '-rfbport', $vncPort;
     push @cmd, '-pn';
     push @cmd, '-localhost' if $options->{'localhost'} =~ m/^(?:yes|true|1)$/i;
     push @cmd, '-fp', $options->{'fontPath'} if $options->{'fontPath'};
+    push @cmd, "-SecurityTypes", $options->{'SecurityTypes'} if defined $options->{'SecurityTypes'};
+    if ($options->{'vncPlainEnabled'}) {
+      push @cmd, "-PAMService", $options->{'PAMService'} if defined $options->{'PAMService'};
+      push @cmd, "-PlainUsers", $options->{'PlainUsers'} if defined $options->{'PlainUsers'};
+    }
     push @cmd, @ARGV;
 
     print join(" ",@cmd), "\n" if $options->{'verbose'};
@@ -782,6 +796,18 @@ sub usage {
     $prefix."[-autokill]            Kill the VNC server after its X session has terminated\n".
     $prefix."[-fp fontpath]         Colon separated list of font locations\n".
     $prefix."[-cleanstale]          Do not choke on a stale lockfile\n".
+    $prefix."[-SecurityTypes]       Comma list of security types to offer (None, VncAuth,\n".
+    $prefix."                       Plain, TLSNone, TLSVnc, TLSPlain, X509None, X509Vnc,\n".
+    $prefix."                       X509Plain). On default, offer only VncAuth.\n".
+    $prefix."[-PlainUsers]          In case of security types Plain, TLSPlain, and X509Plain,\n".
+    $prefix."                       this options specifies the list of authorized users.\n".
+    $prefix."[-PAMService]          In case of security types Plain, TLSPlain, and X509Plain,\n".
+    $prefix."                       this options specifies the service name for PAM password\n".
+    $prefix."                       validation (default vnc if present otherwise tigervnc).\n".
+    $prefix."[-PasswordFile]        Password file for security types VncAuth, TLSVnc, and X509Vnc.\n".
+    $prefix."                       The default password file is ~/.vnc/passwd\n".
+    $prefix."[-passwd]              Alias for PasswordFile\n".
+    $prefix."[-rfbauth]             Alias for PasswordFile\n".
     $prefix."<X11-options ...>      Further options for Xtigervnc(1)\n".
     $prefix."[-- sessiontype]       Arguments for the VNC startup script Xvnc-session\n\n".
 
@@ -850,6 +876,11 @@ SCRIPTEOF
         File::Spec->catfile($ENV{HOME}, ".vnc"),
       vncPasswdFile		=>
         undef, # later derived from vncUserDir
+      SecurityTypes		=> "VncAuth",
+      PAMService		=>
+        undef, # depends if /etc/pam.d/vnc exists, use our own /etc/pam.d/tigervnc as fallback
+      PlainUsers		=>
+        undef, # later derived from /usr/bin/id -u -n
       vncStartup		=>
         undef, # later derived from vncUserDir
       sessionArgs		=> [],
@@ -966,6 +997,12 @@ SCRIPTEOF
       'clean'             => \$options->{'clean'},
       'verbose'           => \$options->{'verbose'},
       'dry-run'           => \$options->{'dry-run'},
+      'SecurityTypes=s'	  => \$options->{'SecurityTypes'},
+      'PAMService=s'	  => \$opts{'PAMService'},
+      'PlainUsers=s'	  => \$opts{'PlainUsers'},
+      'passwd=s'	  => \$opts{'vncPasswdFile'},
+      'rfbauth=s'	  => \$opts{'vncPasswdFile'},
+      'PasswordFile=s'	  => \$opts{'vncPasswdFile'},
     );
     
     &usage(!$rc) if (!$rc || $opts{'help'});
@@ -1018,6 +1055,10 @@ SCRIPTEOF
         push @cmd, "-useold" if $opts{'useold'};
         push @cmd, "-cleanstale" if ($options->{'cleanstale'});
         push @cmd, "-wmDecoration", $options->{'wmDecoration'} if ($options->{'wmDecoration'});
+        push @cmd, "-SecurityTypes", $options->{'SecurityTypes'} if defined $options->{'SecurityTypes'};
+        push @cmd, "-PAMService", $opts{'PAMService'} if defined $opts{'PAMService'};
+        push @cmd, "-PlainUsers", $opts{'PlainUsers'} if defined $opts{'PlainUsers'};
+        push @cmd, "-PasswordFile", $opts{'vncPasswdFile'} if defined $opts{'vncPasswdFile'};
         push @cmd, @ARGV;
         if ($#{$options->{'sessionArgs'}} >= 0) {
           push @cmd, '--';
@@ -1041,8 +1082,51 @@ SCRIPTEOF
       exit 0;
     }
     
+    unless (defined $options->{'PlainUsers'}) {
+      chomp($options->{'PlainUsers'} = `/usr/bin/id -u -n`);
+    }
+    unless (defined $options->{'PAMService'}) {
+      if (-f '/etc/pam.d/vnc') {
+        $options->{'PAMService'} = 'vnc';
+      } else {
+        # Default vnc service not present. Hence, we fall back to our own tigervnc service.
+        $options->{'PAMService'} = 'tigervnc';
+      }
+    }
+
     foreach my $key (keys %opts) {
-      $options->{$key} = $opts{$key};
+      $options->{$key} = $opts{$key} if defined $opts{$key};
+    }
+
+    if (defined $opts{'vncPasswdFile'}) {
+      $options->{'passwordArgSpecified'} = 1;
+    } else {
+      $options->{'passwordArgSpecified'} = 0;
+    }
+    $options->{'vncAuthEnabled'} = 0;
+    $options->{'vncPlainEnabled'} = 0;
+    if (defined $options->{'SecurityTypes'}) {
+      foreach my $securityType (split(',', $options->{'SecurityTypes'})) {
+	if (lc($securityType) eq "vncauth" ||
+	    lc($securityType) eq "tlsvnc" ||
+	    lc($securityType) eq "x509vnc") {
+	  $options->{'vncAuthEnabled'} = 1;
+	} elsif (lc($securityType) eq "plain" ||
+	    lc($securityType) eq "tlsplain" ||
+	    lc($securityType) eq "x509plain") {
+	  $options->{'vncPlainEnabled'} = 1;
+        }
+      }
+    } else {
+      $options->{'vncAuthEnabled'} = 1;
+    }
+
+    if ($options->{'vncPlainEnabled'} &&
+        $options->{'PAMService'} eq 'tigervnc' &&
+        ! -f '/etc/pam.d/tigervnc') {
+      print STDERR "$PROG: The tigervnc PAM servcice required for the security types\n";
+      print STDERR "\tPlain, TLSPlain, or X509Plain is not installed.\n";
+      &installTigerVNCCommon();
     }
   }
   
