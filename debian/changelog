@@ -20,6 +20,9 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
     command to be executed on remote host, e.g., as requested by the following
     command: tigervncserver -kill <some remote server>[:nn] and 
              tigervncserver -list <some remote server>.
+  * Feature: Be a little more helpfull after a remote tigervncserver sessions
+    has been started. Give the user the xtigervncviewer command that can
+    be used to connect to the started remote session.
 
 tigervnc (1.7.0+dfsg-1) unstable; urgency=high
 

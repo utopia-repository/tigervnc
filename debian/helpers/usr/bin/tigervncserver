@@ -1025,10 +1025,20 @@ SCRIPTEOF
         }
       }
       print join(" ",@cmd), "\n" if $options->{'verbose'};
-      exec(@cmd);
-      # print "\"".join(" ",@cmd)."\"\n";
-      # die "\nCan't tell if $options->{'displayHost'} equals $HOST\n";
-      exit -1;
+      if (system (@cmd)) {
+        print STDERR "\n$PROG: Command '", join(" ", @cmd), "' failed: $?\n";
+        exit -1;
+      }
+      if (!$opts{'kill'} && !$opts{'list'}) {
+        # Feedback on how to connect to the remote tigervnc server.
+        if (defined $options->{'displayNumber'}) {
+          print "Use xtigervncviewer -via $options->{'displayHost'} :$options->{'displayNumber'} to connect!\n";
+        } else {
+          print "Use xtigervncviewer -via $options->{'displayHost'} :n to connect!\n";
+          print "The display number :n is given in the above startup message from tigervncserver.\n";
+        }
+      }
+      exit 0;
     }
     
     foreach my $key (keys %opts) {
