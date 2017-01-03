@@ -1010,7 +1010,7 @@ SCRIPTEOF
         push @cmd, "-autokill" if $opts{'autokill'};
         push @cmd, "-httpPort", $options->{'httpPort'} if ($options->{'httpPort'});
         push @cmd, "-baseHttpPort", $options->{'baseHttpPort'} if ($options->{'baseHttpPort'});
-        push @cmd, "-localhost" if ($options->{'localhost'});
+        push @cmd, "-localhost", $options->{'localhost'} if defined $options->{'localhost'};
         push @cmd, "-useold" if $opts{'useold'};
         push @cmd, "-cleanstale" if ($options->{'cleanstale'});
         push @cmd, "-wmDecoration", $options->{'wmDecoration'} if ($options->{'wmDecoration'});

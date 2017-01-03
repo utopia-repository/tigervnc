@@ -12,6 +12,10 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
   * Fixed bug in tigervncserver wrapper script. An option -localhost without
     an argument is true, i.e., only listen on localhost for vnc connections,
     not false!
+  * Fixed bug in tigervncserver wrapper script. Correctly propagate -localhost
+    option to remote host if tigervncserver should start the Xtigervnc
+    server on a remote host via ssh, e.g., as requested by the following
+    command: tigervncserver -localhost no <some remote server>:nn.
 
 tigervnc (1.7.0+dfsg-1) unstable; urgency=high
 
