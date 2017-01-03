@@ -970,7 +970,7 @@ SCRIPTEOF
     
     &usage(!$rc) if (!$rc || $opts{'help'});
     
-    if ((@ARGV > 0) && ($ARGV[0] =~ /^([\w\d.]*):(\d+(?:\.\d+)?|\*)$/)) {
+    if ((@ARGV > 0) && ($ARGV[0] =~ /^([\w\d.]*)(?::(\d+(?:\.\d+)?|\*))?$/)) {
       shift(@ARGV);
       $options->{'localhost'} = 'yes' if $1 eq "localhost";
       if (($1 eq "") || ($1 eq "localhost")) {
@@ -978,10 +978,12 @@ SCRIPTEOF
       } else {
         $options->{'displayHost'} = $1;
       }
-      $options->{'displayNumber'} = $2;
-      $options->{'displayNumber'} =~ s{\.\d+$}{};
+      if (defined $2) {
+        $options->{'displayNumber'} = $2;
+        $options->{'displayNumber'} =~ s{\.\d+$}{};
+      }
       if (!$opts{'kill'} && !$opts{'list'}) {
-        &usage(1) if $options->{'displayNumber'} eq '*';
+        &usage(1) if ($options->{'displayNumber'}||"") eq '*';
       }
     } elsif ((@ARGV > 0) && ($ARGV[0] !~ /^-/)) {
       &usage(1);
@@ -995,12 +997,14 @@ SCRIPTEOF
       push @cmd, "-dry-run" if $options->{'dry-run'};
       if ( $opts{'kill'} ) {
         push @cmd, "-kill";
-        push @cmd, ":$options->{'displayNumber'}";
+        push @cmd, ":$options->{'displayNumber'}" if defined $options->{'displayNumber'};
         push @cmd, "-clean" if ($options->{'clean'});
       } elsif ( $opts{'list'} ) {
         push @cmd, "-list";
+        push @cmd, ":$options->{'displayNumber'}" if defined $options->{'displayNumber'};
+        push @cmd, "-cleanstale" if ($options->{'cleanstale'});
       } else {
-        push @cmd, ":$options->{'displayNumber'}";
+        push @cmd, ":$options->{'displayNumber'}" if defined $options->{'displayNumber'};
         push @cmd, "-geometry", $options->{'geometry'} if ($options->{'geometry'});
         push @cmd, "-pixelformat", $options->{'pixelformat'} if ($options->{'pixelformat'});
         push @cmd, "-depth", $options->{'depth'} if ($options->{'depth'});

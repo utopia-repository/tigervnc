@@ -16,6 +16,10 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
     option to remote host if tigervncserver should start the Xtigervnc
     server on a remote host via ssh, e.g., as requested by the following
     command: tigervncserver -localhost no <some remote server>:nn.
+  * Fixed bug in tigervncserver wrapper script. Now allow -list and -kill
+    command to be executed on remote host, e.g., as requested by the following
+    command: tigervncserver -kill <some remote server>[:nn] and 
+             tigervncserver -list <some remote server>.
 
 tigervnc (1.7.0+dfsg-1) unstable; urgency=high
 
