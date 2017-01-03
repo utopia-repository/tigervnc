@@ -1,3 +1,9 @@
+tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
+
+  [ Joachim Falk ]
+  * Fixed spurious next cmd; in tigervncserver wrapper script. Leads to
+    bug if tigervnc-common package is also installed.
+
 tigervnc (1.7.0+dfsg-1) unstable; urgency=high
 
   [ Joachim Falk ]

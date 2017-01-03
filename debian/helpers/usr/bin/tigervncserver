@@ -126,7 +126,6 @@ cmd:
       my $fqcmd = File::Spec->catfile($dir, $cmd);
       if (-x $fqcmd) {
         $CMDS{$cmd} = $fqcmd;
-	next cmd;
       }
     }
   }
