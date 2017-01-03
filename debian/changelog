@@ -3,6 +3,12 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
   [ Joachim Falk ]
   * Fixed spurious next cmd; in tigervncserver wrapper script. Leads to
     bug if tigervnc-common package is also installed.
+  * Fixed bug if killing a non-existing tigervncserver, i.e.,
+    tigervncserver -kill :17
+    Use of uninitialized value $pid in concatenation (.) or string at
+    /usr/bin/tigervncserver line 493.
+    Can't kill a non-numeric process ID at /usr/bin/tigervncserver line 495.
+    Killing Xtigervnc process ID ...
 
 tigervnc (1.7.0+dfsg-1) unstable; urgency=high
 

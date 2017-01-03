@@ -490,6 +490,7 @@ sub killXvncServer {
     my $stale = 0;
     my $pid   = $runningUserVncservers->{$vnc}->{'pid'};
     
+    next unless defined $pid;
     print "Killing Xtigervnc process ID $pid...";
     unless ($options->{'dry-run'}) {
       if (kill('TERM', $pid)) {
