@@ -1093,8 +1093,8 @@ SCRIPTEOF
       'passwd=s'	  => \$opts{'vncPasswdFile'},
       'rfbauth=s'	  => \$opts{'vncPasswdFile'},
       'PasswordFile=s'	  => \$opts{'vncPasswdFile'},
-      'X509Key'		  => \$opts{'X509Key'},
-      'X509Cert'	  => \$opts{'X509Cert'},
+      'X509Key=s'	  => \$opts{'X509Key'},
+      'X509Cert=s'	  => \$opts{'X509Cert'},
     );
     
     &usage(!$rc) if (!$rc || $opts{'help'});
