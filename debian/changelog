@@ -1,5 +1,9 @@
 tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
 
+  [ Ola Lundqvist ]
+  * Increased the update-alternatives priority so that this package will
+    have precedence over tightvnc and vnc4 that we hope to soon replace.
+
   [ Joachim Falk ]
   * Fixed spurious next cmd; in tigervncserver wrapper script. Leads to
     bug if tigervnc-common package is also installed. Closes: #849996 and
