@@ -1126,7 +1126,7 @@ SCRIPTEOF
     
     &usage(!$rc) if (!$rc || $opts{'help'});
     
-    if ((@ARGV > 0) && ($ARGV[0] =~ /^([\w\d.]*)(?::(\d+(?:\.\d+)?|\*))?$/)) {
+    if ((@ARGV > 0) && ($ARGV[0] =~ /^([@\w\d.]*)(?::(\d+(?:\.\d+)?|\*))?$/)) {
       shift(@ARGV);
       $options->{'localhost'} = 'yes' if $1 eq "localhost";
       if (($1 eq "") || ($1 eq "localhost")) {
@@ -1150,6 +1150,8 @@ SCRIPTEOF
     if ($options->{'displayHost'} ne $HOST &&
         $options->{'displayHost'} ne $HOSTFQDN) {
       my @cmd = ("ssh", "$options->{'displayHost'}", "tigervncserver");
+      # Get rid of possible user@ in front of displayHost.
+      $options->{'displayHost'} =~ s/^[\w\d.]*@//;
       push @cmd, "-dry-run" if $options->{'dry-run'};
       if ( $opts{'kill'} ) {
         push @cmd, "-kill";
