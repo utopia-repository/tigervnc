@@ -89,13 +89,9 @@ use vars qw($HOST $HOSTFQDN $PROG %CMDS);
 # Get the program name
 $PROG = basename($0);
 
-sub installTigerVNCCommon {
-  print STDERR "\tPlease install the tigervnc-common package, i.e., sudo apt-get install tigervnc-common.\n";
-  exit 1;
-}
-
-sub installOpenSSL {
-  print STDERR "\tPlease install the openssl package, i.e., sudo apt-get install openssl.\n";
+sub installPackageError {
+  my ($package) = @_;
+  print STDERR "\tPlease install the $package package, i.e., sudo apt-get install $package.\n";
   exit 1;
 }
 
@@ -103,8 +99,9 @@ sub getCommand {
   my ($cmd) = @_;
   return $CMDS{$cmd} if defined $CMDS{$cmd};
   print STDERR "$PROG: Couldn't find \"$cmd\" on your PATH.\n";
-  &installTigerVNCCommon() if $cmd eq 'tigervncpasswd';
-  &installOpenSSL() if $cmd eq 'openssl';
+  &installPackageError("tigenvnc-common") if $cmd eq 'tigervncpasswd';
+  &installPackageError("openssl") if $cmd eq 'openssl';
+  &installPackageError("x11-utils") if $cmd eq 'xdpyinfo';
   exit 1;
 }
 
@@ -132,7 +129,7 @@ cmd:
     exit 1;
   }
   # These commands are optional.
-  foreach my $cmd ("tigervncpasswd", "openssl") {
+  foreach my $cmd ("tigervncpasswd", "openssl", "xdpyinfo") {
     foreach my $dir ($binbase, split(/:/,$ENV{PATH})) {
       my $fqcmd = File::Spec->catfile($dir, $cmd);
       if (-x $fqcmd) {
@@ -287,9 +284,15 @@ sub getXDisplayDefaults {
   
   my (@lines, @matchlines, $defaultVisualId, $i);
   
-  return if (!defined($ENV{DISPLAY}));
-  
-  @lines = `xdpyinfo 2>/dev/null`;
+  return if !defined($ENV{DISPLAY}) &&
+            !defined($options->{'getDefaultFrom'});
+
+  my $xdpyinfo = &getCommand("xdpyinfo");
+  if (defined $ENV{DISPLAY}) {
+    @lines = `$xdpyinfo 2>/dev/null`;
+  } else {
+    @lines = `$xdpyinfo $options->{'getDefaultFrom'} 2>/dev/null`;
+  }
   
   return if ($? != 0);
   
@@ -1241,7 +1244,7 @@ SCRIPTEOF
         ! -f '/etc/pam.d/tigervnc') {
       print STDERR "$PROG: The tigervnc PAM servcice required for the security types\n";
       print STDERR "\tPlain, TLSPlain, or X509Plain is not installed.\n";
-      &installTigerVNCCommon();
+      &installPackageError("tigervnc-common");
     }
 
     unless (defined $options->{'localhost'}) {

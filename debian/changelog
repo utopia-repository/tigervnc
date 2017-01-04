@@ -46,6 +46,9 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
     default option definitions in the tigervncserver wrapper script to
     conform to the order the options are documented in the /etc/vnc.conf
     configuration file.
+  * Fixed bug in tigervncserver wrapper script. The option $getDefaultFrom
+    is documented in the /etc/vnc.conf configuration file, but was ignored
+    in the wrapper script.
 
  -- Joachim Falk <joachim.falk@gmx.de>  Tue, 03 Jan 2017 14:08:23 +0100
 
