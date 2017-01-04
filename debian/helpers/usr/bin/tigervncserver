@@ -780,13 +780,13 @@ sub startXvncServer {
     my $i = 10;
     for (; $i >= 0; $i = $i-1) {
       last if &checkTCPPortUsed(5900 + $options->{'displayNumber'});
-      if ($xvncServerPid = waitpid($xvncServerPid, WNOHANG)) { $i = -2; last; }
+      if ($xvncServerPid == waitpid($xvncServerPid, WNOHANG)) { $i = -2; last; }
       usleep 100000;
     }
     for (; $i >= 0; $i = $i-1) {
       last if -e "/tmp/.X11-unix/X$options->{'displayNumber'}" ||
               &checkTCPPortUsed(6000 + $options->{'displayNumber'});
-      if ($xvncServerPid = waitpid($xvncServerPid, WNOHANG)) { $i = -2; last; }
+      if ($xvncServerPid == waitpid($xvncServerPid, WNOHANG)) { $i = -2; last; }
       usleep 100000;
     }
     if ($i < 0) {
