@@ -1204,6 +1204,8 @@ SCRIPTEOF
         push @cmd, "-name", $options->{'desktopName'} if defined $options->{'desktopName'};
         push @cmd, "-fp", $opts{'fp'} if $opts{'fp'};
         push @cmd, "-fg" if $opts{'fg'};
+        push @cmd, "-noxstartup" if $opts{'noxstartup'};
+        push @cmd, "-xstartup", $opts{'vncStartup'} if !$opts{'noxstartup'} && defined $opts{'vncStartup'};
         push @cmd, "-autokill" if $opts{'autokill'};
         push @cmd, "-httpPort", $options->{'httpPort'} if ($options->{'httpPort'});
         push @cmd, "-baseHttpPort", $options->{'baseHttpPort'} if ($options->{'baseHttpPort'});
