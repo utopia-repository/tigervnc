@@ -63,7 +63,7 @@ tigervncserver \- start or stop a TigerVNC server
 .
 .SH DESCRIPTION
 .B tigervncserver\fP is used to start a TigerVNC (Virtual Network Computing) desktop.
-.B tigervncserver\fP is a Perl wrapper script which simplifies the process of starting an Xtigervnc server.
+.B tigervncserver\fP is a Perl wrapper script which simplifies the process of starting an instance of the TigerVNC server Xtigervnc.
 It runs Xtigervnc with appropriate options and starts some X applications to be displayed in the TigerVNC desktop.
 .
 .B tigervncserver\fP can be run with no options at all.
@@ -182,16 +182,17 @@ path for Xtigervnc to use.
 .
 .TP
 .B \-fg
-Runs Xtigervnc as a foreground process.  This has two effects: (1) The TigerVNC server
-can be aborted with CTRL-C, and (2) the TigerVNC server will exit as soon as the
-user logs out of the window manager in the TigerVNC session.  This may be necessary
-when launching TigerVNC from within certain grid computing environments.
+Runs the Xnv-session as a foreground process. This has two effects: (1) The
+Xnv-session can be aborted with CTRL-C, and (2) the TigerVNC server will be
+killed as soon as the user logs out of the window manager in the Xvnc-session.
+This may be necessary when launching TigerVNC from within certain grid
+computing environments.
 .
 .TP
 .B \-autokill
-Automatically kill Xtigervnc whenever the Xvnc-session script exits.  In most cases,
-this has the effect of terminating Xtigervnc when the user logs out of the window
-manager.
+Automatically kills the TigerVNC server whenever the Xvnc-session script exits.
+In most cases, this has the effect of terminating Xtigervnc when the user logs
+out of the window manager.
 .
 .TP
 .B \-noxstartup
