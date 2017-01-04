@@ -902,10 +902,10 @@ sub usage {
     $prefix."                       The default password file is ~/.vnc/passwd\n".
     $prefix."[-passwd]              Alias for PasswordFile\n".
     $prefix."[-rfbauth]             Alias for PasswordFile\n".
-    $prefix."[-X509Key]		    Path to the key of the X509 certificate in PEM format. This\n".
-    $prefix."			    is used by the security types X509None, X509Vnc, and X509Plain.\n".
-    $prefix."[-X509Cert]	    Path to the X509 certificate in PEM format. This is used by\n".
-    $prefix."			    the security types X509None, X509Vnc, and X509Plain.\n".
+    $prefix."[-X509Key]             Path to the key of the X509 certificate in PEM format. This\n".
+    $prefix."                       is used by the security types X509None, X509Vnc, and X509Plain.\n".
+    $prefix."[-X509Cert]            Path to the X509 certificate in PEM format. This is used by\n".
+    $prefix."                       the security types X509None, X509Vnc, and X509Plain.\n".
     $prefix."<X11-options ...>      Further options for Xtigervnc(1)\n".
     $prefix."[-- sessiontype]       Arguments for the VNC startup script Xvnc-session\n\n".
 
