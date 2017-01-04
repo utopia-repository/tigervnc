@@ -61,6 +61,7 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
     not complain that there is none running. This already worked when
     a desired display number was given, but did not work when no
     display number was specified.
+  * Updated tigervncserver man page.
 
  -- Joachim Falk <joachim.falk@gmx.de>  Tue, 03 Jan 2017 14:08:23 +0100
 
