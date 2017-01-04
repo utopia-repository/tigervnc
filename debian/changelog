@@ -56,6 +56,11 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
     as the geometry specified by the commonalind via -g NNxMM. Morover,
     use reasonable defaults for -wmDecoration for the desktops contained
     in debian stretch.
+  * Fixed bug in tigervncserver wrapper script. The option -useold
+    should start a tigervncserver if it is not already running and
+    not complain that there is none running. This already worked when
+    a desired display number was given, but did not work when no
+    display number was specified.
 
  -- Joachim Falk <joachim.falk@gmx.de>  Tue, 03 Jan 2017 14:08:23 +0100
 

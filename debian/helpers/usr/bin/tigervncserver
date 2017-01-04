@@ -1278,9 +1278,12 @@ SCRIPTEOF
       print STDERR "$PROG: This is ambiguous. Multiple vncservers are running for this user!\n";
       &listXvncServer(\*STDERR, $options, $runningUserVncservers, \@vncs);
       exit 1;
-    } elsif ($#vncs == -1) {
+    } elsif ($#vncs == -1 && $options->{'kill'}) {
       print STDERR "$PROG: No vncserver running for this user!\n";
       exit 1;
+    } elsif ($#vncs == -1 && $options->{'useold'}) {
+      # Find display number.
+      push @vncs, &getDisplayNumber();
     }
   } elsif ($options->{'list'}) {
     push @vncs, sort keys %{$runningUserVncservers};
