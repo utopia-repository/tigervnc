@@ -415,6 +415,17 @@ sub getDisplayNumber {
   exit -1;
 }
 
+#
+# quotedString returns a string which yields the original string when parsed
+# by a shell.
+#
+
+sub quotedString {
+  my ($in) = @_;
+  $in =~ s/\'/\'\"\'\"\'/g;
+  return "'$in'";
+}
+
 sub pidFile {
   my ($options,$usedDisplay) = @_;
   $usedDisplay = $options->{'displayNumber'} unless defined $usedDisplay;
@@ -1184,9 +1195,10 @@ SCRIPTEOF
     
     if ($options->{'displayHost'} ne $HOST &&
         $options->{'displayHost'} ne $HOSTFQDN) {
-      my @cmd = ("ssh", "$options->{'displayHost'}", "tigervncserver");
+      my @cmdPrefix = ("ssh", "$options->{'displayHost'}", "tigervncserver");
       # Get rid of possible user@ in front of displayHost.
       $options->{'displayHost'} =~ s/^[\w\d.]*@//;
+      my @cmd;
       push @cmd, "-dry-run" if $options->{'dry-run'};
       if ( $opts{'kill'} ) {
         push @cmd, "-kill";
@@ -1225,6 +1237,7 @@ SCRIPTEOF
           push @cmd, @{$options->{'sessionArgs'}};
         }
       }
+      @cmd = (@cmdPrefix, map { &quotedString($_); } @cmd);
       print join(" ",@cmd), "\n" if $options->{'verbose'};
       if (system (@cmd)) {
         print STDERR "\n$PROG: Command '", join(" ", @cmd), "' failed: $?\n";

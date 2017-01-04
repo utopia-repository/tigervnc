@@ -74,6 +74,9 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
     security type is combined with -localhost no. To continue, the user has to
     provide the option --I-KNOW-THIS-IS-INSECURE.  If a *None security type is
     used with localhost access, the user will merely get a polite warning.
+  * Fixed bug in tigervncserver wrapper script when options are forwarded to a
+    remote tigervncserver script. In this case, the ssh call introduces one
+    level of shell execution. Thus, the options must be shell escaped.
 
  -- Joachim Falk <joachim.falk@gmx.de>  Tue, 03 Jan 2017 14:08:23 +0100
 
