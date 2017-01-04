@@ -643,10 +643,12 @@ sub CreateX509Cert {
       exit 1;
     }
     my $toSSLFh;
-    unless (defined open($toSSLFh, "|-",
-	getCommand("openssl"), "req", "-newkey", "ec:/etc/tigervnc/ecparams.pem",
-	"-config", "-", "-x509", "-days", "2190", "-nodes",
-	"-out", $options->{'X509Cert'}, "-keyout", $options->{'X509Key'})) {
+    my @CMD = split(/\s+/, $options->{'sslAutoGenCertCommand'});
+    $CMD[0] = &getCommand($CMD[0]);
+    push @CMD, "-config", "-" unless grep { $_ eq "-config" } @CMD;
+    push @CMD, "-out", $options->{'X509Cert'} unless grep { $_ eq "-out" } @CMD;
+    push @CMD, "-keyout", $options->{'X509Key'} unless grep { $_ eq "-keyout" } @CMD;
+    unless (defined open($toSSLFh, "|-", @CMD)) {
       print STDERR "Can't start openssl pipe: $!!\n";
       exit 1;
     }
@@ -664,7 +666,7 @@ sub CreateX509Cert {
     if ($? != 0) {
       unlink $options->{'X509Cert'};
       unlink $options->{'X509Key'};
-      print STDERR "The openssl command failed: $?\n";
+      print STDERR "The openssl command ", join(' ', @CMD), " failed: $?\n";
       exit 1;
     }
   }
@@ -947,6 +949,8 @@ sub main {
       PAMService		=>
         undef, # Use vnc if /etc/pam.d/vnc exists. Otherwise,
 	       # use our own /etc/pam.d/tigervnc as fallback.
+      sslAutoGenCertCommand	=>
+      	"openssl req -newkey ec:/etc/tigervnc/ecparams.pem -x509 -days 2190 -nodes",
 ## Values declared as user values in /etc/vnc.conf, i.e., values
 ## that are intended to be overwritten by ~/.vnc/vnc.conf.
       vncUserDir		=>
