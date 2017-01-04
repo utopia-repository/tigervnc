@@ -67,6 +67,17 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
     wrapper script shipped with TigerVNC. Let our startup script be
     compatible with theirs. These options are already documented in
     the updated tigervncserver man page.
+  * Security hardening: The user can easily expose a VNC server to
+    the internet without any authentication by specifying
+    tigervncserver -localhost no -SecurityTypes None|TLSNone|X509None.
+    Moreover, previously we switched the default from -localhost yes
+    to -localhost no when a TLS* or X509* security type was given
+    via -SecurityTypes. From now on, we will give a stern warning
+    and refuse to start the VNC server when a *None security type
+    is combined with -localhost no. To continue, the user has to
+    provide the option --I-KNOW-THIS-IS-INSECURE.
+    If a *None security type is used with localhost access, the
+    user will merely get a polite warning.
 
  -- Joachim Falk <joachim.falk@gmx.de>  Tue, 03 Jan 2017 14:08:23 +0100
 

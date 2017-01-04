@@ -741,7 +741,7 @@ sub startXvncServer {
     push @cmd, '-localhost' if $options->{'localhost'} =~ m/^(?:yes|true|1)$/i;
     push @cmd, '-fp', $options->{'fontPath'} if $options->{'fontPath'};
     push @cmd, "-SecurityTypes", $options->{'SecurityTypes'} if defined $options->{'SecurityTypes'};
-    if ($options->{'vncPlainEnabled'}) {
+    if ($options->{'plainAuthEnabled'}) {
       push @cmd, "-PAMService", $options->{'PAMService'} if defined $options->{'PAMService'};
       push @cmd, "-PlainUsers", $options->{'PlainUsers'} if defined $options->{'PlainUsers'};
     }
@@ -981,7 +981,7 @@ sub main {
       rfbwait			=> 30000,
       localhost			=> undef,
       SecurityTypes		=>
-      	"VncAuth",
+        undef, # later derived depening on localhost setting
       PlainUsers		=>
         undef, # later derived from /usr/bin/id -u -n
       X509Cert			=>
@@ -1150,6 +1150,7 @@ SCRIPTEOF
       'PasswordFile=s'	  => \$opts{'vncPasswdFile'},
       'X509Key=s'	  => \$opts{'X509Key'},
       'X509Cert=s'	  => \$opts{'X509Cert'},
+      'I-KNOW-THIS-IS-INSECURE' => \$options->{'I-KNOW-THIS-IS-INSECURE'},
     );
     
     &usage(!$rc) if (!$rc || $opts{'help'});
@@ -1256,29 +1257,32 @@ SCRIPTEOF
     } else {
       $options->{'passwordArgSpecified'} = 0;
     }
-    $options->{'vncAuthEnabled'} = 0;
-    $options->{'vncPlainEnabled'} = 0;
-    $options->{'x509CertRequired'} = 0;
-    $options->{'vncTLSorX509Encryption'} = 0;
-    if (defined $options->{'SecurityTypes'}) {
-      foreach my $securityType (split(',', $options->{'SecurityTypes'})) {
-	if (lc($securityType) eq "vncauth" ||
-	    lc($securityType) eq "tlsvnc" ||
-	    lc($securityType) eq "x509vnc") {
-	  $options->{'vncAuthEnabled'} = 1;
-	} elsif (lc($securityType) eq "plain" ||
-	    lc($securityType) eq "tlsplain" ||
-	    lc($securityType) eq "x509plain") {
-	  $options->{'vncPlainEnabled'} = 1;
-        }
-	$options->{'x509CertRequired'} = 1        if $securityType =~ m/^x509/i;
-	$options->{'vncTLSorX509Encryption'} = 1  if $securityType =~ m/^(?:x509|tls)/i;
+    if (defined $options->{'localhost'}) {
+      $options->{'localhost'} = $options->{'localhost'} =~ m/^(?:yes|true|1)$/i;
+    }
+    unless (defined $options->{'SecurityTypes'}) {
+      if (!defined($options->{'localhost'}) || $options->{'localhost'}) {
+        $options->{'SecurityTypes'} = 'VncAuth';
+        $options->{'localhost'}     = 1;
+      } else {
+        $options->{'SecurityTypes'} = 'VncAuth,TLSVnc';
+        $options->{'localhost'}     = 0;
       }
-    } else {
-      $options->{'vncAuthEnabled'} = 1;
+    }
+    $options->{'vncAuthEnabled'} = 0;
+    $options->{'noneAuthEnabled'} = 0;
+    $options->{'plainAuthEnabled'} = 0;
+    $options->{'x509CertRequired'} = 0;
+    $options->{'haveSSLEncryption'} = 0;
+    foreach my $securityType (split(',', $options->{'SecurityTypes'})) {
+      $options->{'vncAuthEnabled'} = 1    if $securityType =~ m/^(?:.*vnc|vncauth)$/i;
+      $options->{'noneAuthEnabled'} = 1   if $securityType =~ m/none$/i;
+      $options->{'plainAuthEnabled'} = 1  if $securityType =~ m/plain$/i;
+      $options->{'x509CertRequired'} = 1  if $securityType =~ m/^x509/i;
+      $options->{'haveSSLEncryption'} = 1 if $securityType =~ m/^(?:x509|tls)/i;
     }
 
-    if ($options->{'vncPlainEnabled'} &&
+    if ($options->{'plainAuthEnabled'} &&
         $options->{'PAMService'} eq 'tigervnc' &&
         ! -f '/etc/pam.d/tigervnc') {
       print STDERR "$PROG: The tigervnc PAM servcice required for the security types\n";
@@ -1287,10 +1291,26 @@ SCRIPTEOF
     }
 
     unless (defined $options->{'localhost'}) {
-      # If we have no encrypted VNC connection security types, then
+      # If we have no encrypted VNC connection security types or
+      # we have at least one *None security type in there, then
       # we better only server VNC on localhost to be tunneled via
       # ssh.
-      $options->{'localhost'} = !$options->{'vncTLSorX509Encryption'};
+      $options->{'localhost'} = !$options->{'haveSSLEncryption'}
+                             || $options->{'noneAuthEnabled'};
+    }
+    # PREVENT THE USER FROM EXPOSING A VNC SESSION WITHOUT AUTHENTICATION
+    # TO THE WHOLE INTERNET!!!
+    if (!$options->{'localhost'} && $options->{'noneAuthEnabled'} &&
+        !$options->{'I-KNOW-THIS-IS-INSECURE'}) {
+      print STDERR "$PROG: YOU ARE TRYING TO EXPOSE A VNC SERVER WITHOUT ANY\n";
+      print STDERR "AUTHENTICATION TO THE WHOLE INTERNET! I AM REFUSING TO COOPERATE!\n\n";
+      print STDERR "If you really want to do that add the --I-KNOW-THIS-IS-INSECURE option!\n";
+      exit -1;
+    }
+    if ($options->{'noneAuthEnabled'} &&
+        !$options->{'I-KNOW-THIS-IS-INSECURE'}) {
+      print STDERR "Please be aware that you are exposing your VNC server to all users on the\n";
+      print STDERR "local machine. These users can access your server without authentication!\n";
     }
   }
   
