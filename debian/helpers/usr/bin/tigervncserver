@@ -236,8 +236,10 @@ sub checkGeometryAndDepth {
   }
   if ($options->{'geometry'} =~ /^(\d+)x(\d+)$/) {
     my ( $width, $height ) = ( $1, $2 );
-    $width  -= $wmDecorationWidth;
-    $height -= $wmDecorationHeight;
+    if ($options->{'usedXDisplayDefaultsGeometry'}) {
+      $width  -= $wmDecorationWidth;
+      $height -= $wmDecorationHeight;
+    }
     if (($width<1) || ($height<1)) {
       print STDERR "$PROG: geometry $options->{'geometry'} is invalid\n";
       exit 1;
@@ -300,6 +302,7 @@ sub getXDisplayDefaults {
   if (@matchlines) {
     my ($width, $height) = ($matchlines[0] =~ /(\d+)x(\d+) pixels/);
     $options->{'geometry'} = "${width}x${height}";
+    $options->{'usedXDisplayDefaultsGeometry'} = 1;
   }
   
   @matchlines = grep(/default visual id/, @lines);
@@ -876,7 +879,7 @@ sub usage {
     $prefix." |bgr888|bgr565|bgr233]  red color channel encoded in lower bits\n".
     $prefix."[-geometry <dim>]      Desktop geometry in <width>x<height>\n".
     $prefix."[-xdisplaydefaults]    Get geometry and pixelformat from running X\n".
-    $prefix."[-wmDecoration <dim>]  Shrink geometry by dim\n".
+    $prefix."[-wmDecoration <dim>]  Shrink geometry from xdisplaydefaults by dim\n".
     $prefix."[-localhost yes|no]    Only accept VNC connections from localhost\n".
     $prefix."[-httpPort     port]   Port of internal http server\n".
     $prefix."[-baseHttpPort port]   Calculate http port from base port + display nr\n".
@@ -957,7 +960,7 @@ sub main {
         File::Spec->catfile($ENV{HOME}, ".Xauthority"),
       desktopName		=> "X-".($ENV{LOGNAME}||"unknown"),
       wmDecoration		=>
-      	"4x24", # a guess at the typical size for a window manager decoration
+      	"8x64", # a guess at the typical size for a window manager decoration
       geometry			=> "1280x1024",
       depth			=> 32,
       pixelformat		=> undef,

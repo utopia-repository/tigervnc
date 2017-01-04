@@ -49,6 +49,13 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
   * Fixed bug in tigervncserver wrapper script. The option $getDefaultFrom
     is documented in the /etc/vnc.conf configuration file, but was ignored
     in the wrapper script.
+  * Some love for the -xdisplaydefaults and -wmDecoration options. Now
+    only apply -wmDecoration shrinkage if -xdisplaydefaults is used.
+    The geometry specified in /etc/vnc.conf and ~/.vnc/vnc.conf is no
+    longer influenced by wmDecoration. This is now the same behavior
+    as the geometry specified by the commonalind via -g NNxMM. Morover,
+    use reasonable defaults for -wmDecoration for the desktops contained
+    in debian stretch.
 
  -- Joachim Falk <joachim.falk@gmx.de>  Tue, 03 Jan 2017 14:08:23 +0100
 
