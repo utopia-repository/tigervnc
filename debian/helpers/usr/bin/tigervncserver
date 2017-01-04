@@ -638,15 +638,15 @@ sub CreateX509Cert {
     }
     my $toSSLFh;
     unless (defined open($toSSLFh, "|-",
-	getCommand("openssl"), "req", "-newkey", "ec:/usr/share/tigervnc/ecparams.pem",
+	getCommand("openssl"), "req", "-newkey", "ec:/etc/tigervnc/ecparams.pem",
 	"-config", "-", "-x509", "-days", "2190", "-nodes",
 	"-out", $options->{'X509Cert'}, "-keyout", $options->{'X509Key'})) {
       print STDERR "Can't start openssl pipe: $!!\n";
       exit 1;
     }
     my $configSSLFh;
-    unless (defined open($configSSLFh, "<", "/usr/share/tigervnc/ssleay.cnf")) {
-      print STDERR "Can't open openssl configuration template /usr/share/tigervnc/ssleay.cnf: $!\n";
+    unless (defined open($configSSLFh, "<", "/etc/tigervnc/ssleay.cnf")) {
+      print STDERR "Can't open openssl configuration template /etc/tigervnc/ssleay.cnf: $!\n";
       exit 1;
     }
     while (my $line = <$configSSLFh>) {
