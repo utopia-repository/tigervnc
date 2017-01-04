@@ -41,6 +41,11 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
     certificate and key when at least one of the three X509 security types
     is used, then we will generate a self signed certificate for the tigervnc
     server if it is not already present.
+  * Update the descriptions in /etc/vnc.conf to conform to the real
+    behavior and options of the tigervncserver wrapper script. Reordered
+    default option definitions in the tigervncserver wrapper script to
+    conform to the order the options are documented in the /etc/vnc.conf
+    configuration file.
 
  -- Joachim Falk <joachim.falk@gmx.de>  Tue, 03 Jan 2017 14:08:23 +0100
 

@@ -931,24 +931,47 @@ sub main {
   # Use /etc/vnc.conf and ~/.vnc/vnc.conf for this purpose.
   #
   my $options = {
-      # a guess at typical size for window manager decoration
-      wmDecoration		=> "4x24",
-      geometry			=> "1280x1024",
-      depth			=> 32,
-      pixelformat		=> undef,
-      desktopName		=> "X-".($ENV{LOGNAME}||"unknown"),
-      rfbwait			=> 30000,
-      cleanstale		=> 0,
-      clean			=> 0,
-      displayNumber		=> undef,
-      displayHost		=> undef,
-      localhost			=> undef,
+# Values that are documented in /etc/vnc.conf
+## Values declared as system values in /etc/vnc.conf
+      vncClasses		=>
+        undef, # /var/www/vnc if the directory exists (checked later)
+      baseHttpPort		=> undef,
+      XFConfigPath		=> "/etc/X11/xorg.conf",
       fontPath			=> undef,
-      XFConfigPath		=>
-        "/etc/X11/xorg.conf",
+      PAMService		=>
+        undef, # Use vnc if /etc/pam.d/vnc exists. Otherwise,
+	       # use our own /etc/pam.d/tigervnc as fallback.
+## Values declared as user values in /etc/vnc.conf, i.e., values
+## that are intended to be overwritten by ~/.vnc/vnc.conf.
+      vncUserDir		=>
+        File::Spec->catfile($ENV{HOME}, ".vnc"),
+      vncPasswdFile		=>
+        undef, # later derived from vncUserDir
+      vncStartup		=>
+        undef, # later derived from vncUserDir
       xauthorityFile		=>
         $ENV{XAUTHORITY} ||
         File::Spec->catfile($ENV{HOME}, ".Xauthority"),
+      desktopName		=> "X-".($ENV{LOGNAME}||"unknown"),
+      wmDecoration		=>
+      	"4x24", # a guess at the typical size for a window manager decoration
+      geometry			=> "1280x1024",
+      depth			=> 32,
+      pixelformat		=> undef,
+      getDefaultFrom		=> undef,
+      rfbwait			=> 30000,
+      localhost			=> undef,
+      SecurityTypes		=>
+      	"VncAuth",
+      PlainUsers		=>
+        undef, # later derived from /usr/bin/id -u -n
+      X509Cert			=>
+      	undef, # auto generated if absent and stored in
+	       # ~/.vnc/${HOSTFQDN}-SrvCert.pem
+      X509Key			=>
+      	undef, # auto generated if absent and stored in
+	       # ~/.vnc/${HOSTFQDN}-SrvKey.pem
+# Undocumented values
       defaultVncStartup         => <<SCRIPTEOF
 #! /bin/sh
 
@@ -962,18 +985,12 @@ EOF
 vncserver -kill \$DISPLAY
 SCRIPTEOF
 ,
-      vncUserDir		=>
-        File::Spec->catfile($ENV{HOME}, ".vnc"),
-      vncPasswdFile		=>
-        undef, # later derived from vncUserDir
-      SecurityTypes		=> "VncAuth",
-      PAMService		=>
-        undef, # depends if /etc/pam.d/vnc exists, use our own /etc/pam.d/tigervnc as fallback
-      PlainUsers		=>
-        undef, # later derived from /usr/bin/id -u -n
-      vncStartup		=>
-        undef, # later derived from vncUserDir
       sessionArgs		=> [],
+      cleanstale		=> 0,
+      clean			=> 0,
+      httpPort			=> undef,
+      displayNumber		=> undef,
+      displayHost		=> undef,
     };
   
   #
