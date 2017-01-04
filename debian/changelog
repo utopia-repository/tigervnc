@@ -62,6 +62,11 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
     a desired display number was given, but did not work when no
     display number was specified.
   * Updated tigervncserver man page.
+  * Feature: Implement the -xstartup and -noxstartup options in the
+    tigervncserver wrapper script. These options are from the vncserver
+    wrapper script shipped with TigerVNC. Let our startup script be
+    compatible with theirs. These options are already documented in
+    the updated tigervncserver man page.
 
  -- Joachim Falk <joachim.falk@gmx.de>  Tue, 03 Jan 2017 14:08:23 +0100
 

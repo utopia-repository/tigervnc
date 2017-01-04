@@ -3,7 +3,7 @@
 #
 # vncserver - wrapper script to start an X VNC server.
 #
-# Copyright (C) 2004-2016 Joachim Falk <joachim.falk@gmx.de>
+# Copyright (C) 2004-2017 Joachim Falk <joachim.falk@gmx.de>
 # Please report all errors to Joachim Falk and not to OL.
 #
 # This file is based on a vncserver script provided by:
@@ -687,7 +687,7 @@ sub startXvncServer {
   &CreateMITCookie($options);
   
   # Create the user's vncStartup script if necessary.
-  if (!(-e $vncStartup)) {
+  if (defined($vncStartup) && !(-e $vncStartup)) {
     print "Creating default startup script $vncStartup\n";
     unless ($options->{'dry-run'}) {
       my $sf = IO::File->new($vncStartup, "w", 0755);
@@ -699,7 +699,7 @@ sub startXvncServer {
       $sf->close;
     }
   }
-  if (!(-x $vncStartup)) {
+  if (defined($vncStartup) && !(-x $vncStartup)) {
     unless ($options->{'dry-run'} || chmod 0755, $vncStartup) {
       print STDERR "$PROG: Can't fixup permissions of startup script '$vncStartup': $!\n";
       exit 1;
@@ -808,12 +808,19 @@ sub startXvncServer {
   }
   $ENV{VNCDESKTOP} = $options->{'desktopName'};
   print "\nNew '$options->{'desktopName'}' desktop at $ENV{DISPLAY} on machine $HOSTFQDN\n\n";
-  
-  # Run the X startup script.
-  print "Starting applications specified in $vncStartup\n";
-  print "Log file is $desktopLog\n\n";
-  
-  my $childPid = $options->{'fg'} ? 0 : fork();
+
+  my $childPid = $$;
+  if (defined $vncStartup) {
+    # Run the X startup script.
+    print "Starting applications specified in $vncStartup\n";
+    print "Log file is $desktopLog\n\n";
+    $childPid = $options->{'fg'} ? 0 : fork();
+  } elsif ($options->{'autokill'}) {
+    # Nothing to start and I should also kill the Xtigervnc server when the
+    # Xvnc-session terminates. Well, lets do so. What a pointless exercise.
+    &killXvncServer($options, $runningUserVncservers, [$options->{'displayNumber'}]);
+  }
+
   if ($childPid == 0) {
     # I am the child
     my @cmd = ($vncStartup);
@@ -844,7 +851,7 @@ sub startXvncServer {
   }
   # I am the parent
 
-  {
+  if (kill(0, $xvncServerPid)) {
     my @cmd = ("xtigervncviewer");
     push @cmd, "-SecurityTypes", $options->{'SecurityTypes'};
     push @cmd, "-X509CA", $options->{'X509Cert'} if $options->{'x509CertRequired'};
@@ -888,6 +895,8 @@ sub usage {
     $prefix."[-fg]                  No daemonization and\n".
     $prefix."                       kill the VNC server after its X session has terminated\n".
     $prefix."[-autokill]            Kill the VNC server after its X session has terminated\n".
+    $prefix."[-noxstartup]          Do not run the Xvnc-session script after launching Xtigervnc\n".
+    $prefix."[-xstartup]            Specify the script to start after launching Xtigervnc\n".
     $prefix."[-fp fontpath]         Colon separated list of font locations\n".
     $prefix."[-cleanstale]          Do not choke on a stale lockfile\n".
     $prefix."[-SecurityTypes]       Comma list of security types to offer (None, VncAuth,\n".
@@ -1025,17 +1034,26 @@ SCRIPTEOF
       exit 1;
     }
   }
+  my $vncStartup = $options->{'vncStartup'};
+  undef $options->{'vncStartup'};
   &readConfigFile($options, File::Spec->catfile($options->{'vncUserDir'}, "vnc.conf"));
   unless (defined $options->{'vncStartup'}) {
+    # vncStartup was not defined by the user configuration in ~/.vnc/vnc.conf.
     if (-f File::Spec->catfile($options->{'vncUserDir'}, "Xvnc-session")) {
+      # A user provided Xvnc-session script exists => user it.
       $options->{'vncStartup'} =
         File::Spec->catfile($options->{'vncUserDir'}, "Xvnc-session");
-    } elsif (-f File::Spec->catfile($options->{'vncUserDir'}, "Xvnc-session")) {
+    } elsif (-f File::Spec->catfile($options->{'vncUserDir'}, "xstartup")) {
+      # A user provided Xvnc-session script exists => user it.
       $options->{'vncStartup'} =
         File::Spec->catfile($options->{'vncUserDir'}, "xstartup");
-    } else {
+    } elsif (!defined $vncStartup) {
+      # vncStartup was not defined by the system configuration in /etc/vnc.conf.
       $options->{'vncStartup'} =
         File::Spec->catfile($options->{'vncUserDir'}, "Xvnc-session");
+    } else {
+      # Use the system configuration for vncStartup.
+      $options->{'vncStartup'} = $vncStartup;
     }
   }
   unless (defined $options->{'vncPasswdFile'}) {
@@ -1073,6 +1091,7 @@ SCRIPTEOF
         fg        => 0,
         autokill  => 0,
         useold    => 0,
+        noxstartup=> 0,
       );
     my $p = new Getopt::Long::Parser;
     $p->configure("pass_through");
@@ -1093,6 +1112,15 @@ SCRIPTEOF
       'list'              => \$opts{'list'},
       'fg'                => \$opts{'fg'},
       'autokill'          => \$opts{'autokill'},
+      'noxstartup'        => \$opts{'noxstartup'},
+      'xstartup:s'        => sub {
+          $opts{'noxstartup'} = 0;
+          if ($_[1] eq '') {
+            $opts{'vncStartup'} = undef;
+          } else {
+            $opts{'vncStartup'} = $_[1];
+          }
+        },
       'xdisplaydefaults'  => sub {
         &getXDisplayDefaults($options); },
       'wmDecoration=s'    => \$options->{'wmDecoration'},
@@ -1220,7 +1248,9 @@ SCRIPTEOF
     foreach my $key (keys %opts) {
       $options->{$key} = $opts{$key} if defined $opts{$key};
     }
-
+    if ($opts{'noxstartup'}) {
+      $options->{'vncStartup'} = undef;
+    }
     if (defined $opts{'vncPasswdFile'}) {
       $options->{'passwordArgSpecified'} = 1;
     } else {
