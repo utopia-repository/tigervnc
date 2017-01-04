@@ -80,7 +80,7 @@ use Time::HiRes qw(usleep);
 use Errno qw(:POSIX);
 use POSIX ":sys_wait_h";
 
-use vars qw($HOST $HOSTFQDN $PROG %CMDS);
+use vars qw($HOST $HOSTFQDN $USER $PROG %CMDS);
 
 #
 # Set global constants
@@ -946,6 +946,9 @@ sub main {
     chomp($HOST     = `$hostname`);
     chomp($HOSTFQDN = `$hostname -f`);
   }
+  # Get the username
+  chomp($USER = `/usr/bin/id -u -n`);
+
   #
   # Global options.  You may want to configure some of these for your site.
   # Use /etc/vnc.conf and ~/.vnc/vnc.conf for this purpose.
@@ -974,7 +977,7 @@ sub main {
       xauthorityFile		=>
         $ENV{XAUTHORITY} ||
         File::Spec->catfile($ENV{HOME}, ".Xauthority"),
-      desktopName		=> "X-".($ENV{LOGNAME}||"unknown"),
+      desktopName		=> undef,
       wmDecoration		=>
       	"8x64", # a guess at the typical size for a window manager decoration
       geometry			=> "1280x1024",
@@ -1198,7 +1201,7 @@ SCRIPTEOF
         push @cmd, "-geometry", $options->{'geometry'} if ($options->{'geometry'});
         push @cmd, "-pixelformat", $options->{'pixelformat'} if ($options->{'pixelformat'});
         push @cmd, "-depth", $options->{'depth'} if ($options->{'depth'});
-        push @cmd, "-name", $options->{'desktopName'} if ($options->{'desktopName'});
+        push @cmd, "-name", $options->{'desktopName'} if defined $options->{'desktopName'};
         push @cmd, "-fp", $opts{'fp'} if $opts{'fp'};
         push @cmd, "-fg" if $opts{'fg'};
         push @cmd, "-autokill" if $opts{'autokill'};
@@ -1362,6 +1365,9 @@ SCRIPTEOF
         !($options->{'useold'} && $haveOld)) {
       print STDERR "A VNC/X11 server is already running as :$options->{'displayNumber'} on machine $HOSTFQDN\n";
       exit 1;
+    }
+    unless (defined $options->{'desktopName'}) {
+      $options->{'desktopName'} = "${HOSTFQDN}:$options->{'displayNumber'} ($USER)";
     }
     if ($options->{'useold'} && $haveOld) {
       my $DISPLAY = $runningUserVncservers->{$options->{'displayNumber'}}->{'DISPLAY'};
