@@ -1,4 +1,4 @@
-.TH tigervncserver 1 "" "TigerVNC" "Virtual Network Computing"
+.TH tigervncserver 1 "Jan 5th, 2017" "TigerVNC 1.7" "Virtual Network Computing"
 .SH NAME
 tigervncserver \- start or stop a TigerVNC server
 .SH SYNOPSIS
@@ -74,7 +74,7 @@ You can also specify the display number, in which case it will use that number i
 tigervncserver :13
 .RE
 
-Moreover, a username and a hostname can be given to start the tigervncserver via ssh on the given machine under the provided user account, e.g.:
+Moreover, a username and a hostname can be given to start the tigervncserver via SSH on the given machine under the provided user account, e.g.:
 
 .RS
 tigervncserver franz@kopernikus:13
@@ -251,7 +251,7 @@ It does this by killing the Xtigervnc process, whose process ID is stored in the
 This can be useful so you can write "tigervncserver \-kill $DISPLAY", e.g., at the end of your Xvnc-session file after a particular application exits.
 If\fB :*\fP is given, then tigervncserver tries to kill all Xtigervnc processes with pidfiles in $HOME/.vnc on the local machine.
 If no display number is given, then tigervncserver tries to kill the Xtigervnc processes of the user on the local machine if only one such process is running and has a pidfile in $HOME/.vnc.
-If a\fI host\fP is specified, then tigervncserver will use ssh to kill a Xtigervnc process on the remote machine.
+If a\fI host\fP is specified, then tigervncserver will use SSH to kill a Xtigervnc process on the remote machine.
 .
 .TP
 .B \-clean
@@ -260,7 +260,7 @@ If given with\fB \-kill\fP, then the logfile $HOME/.vnc/\fIhost\fP:\fIdisplay#\f
 .TP
 .B \-list [[\fIuser\fP@]\fIhost\fP][:\fIdisplay#\fP|:*]
 This lists all running TigerVNC desktop previously started with tigervncserver.
-If a\fI host\fP is specified, then tigervncserver will use ssh to list Xtigervnc desktops on the remote machine.
+If a\fI host\fP is specified, then tigervncserver will use SSH to list Xtigervnc desktops on the remote machine.
 Stale entries are marked with (stale) in the output.
 .
 .SH FILES
