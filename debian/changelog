@@ -1,4 +1,4 @@
-tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
+tigervnc (1.7.0+dfsg-2) unstable; urgency=high
 
   [ Ola Lundqvist ]
   * Increased the update-alternatives priority so that this package will
@@ -79,7 +79,7 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
     level of shell execution. Thus, the options must be shell escaped.
   * Updated vnc.conf man page.
 
- -- Joachim Falk <joachim.falk@gmx.de>  Tue, 03 Jan 2017 14:08:23 +0100
+ -- Ola Lundqvist <opal@debian.org>  Thu, 05 Jan 2017 23:35:23 +0100
 
 tigervnc (1.7.0+dfsg-1) unstable; urgency=high
 
