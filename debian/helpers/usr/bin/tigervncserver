@@ -841,9 +841,10 @@ sub startXvncServer {
     } else {
       push @cmd, "$HOSTFQDN:$options->{'displayNumber'}";
     }
-    print "\nUse ".join(" ", @cmd)." to connect to the vnc server.\n\n";
+    print "Use ".join(" ", @cmd)." to connect to the VNC server.\n\n";
   }
 
+  pipe RH, WH or die "Can't open pipe: $!";
   my $childPid = defined $vncStartup
     ? ($options->{'fg'} ? 0 : fork())
     : $$;
@@ -854,31 +855,72 @@ sub startXvncServer {
     push @cmd, @{$options->{'sessionArgs'}};
     print join(" ",@cmd), "\n" if $options->{'verbose'};
 
+    open(OLDOUT, '>&', \*STDOUT); # save old STDOUT
     open(OLDERR, '>&', \*STDERR); # save old STDERR
     open(STDOUT, '>>', $desktopLog);
     open(STDERR, '>>', $desktopLog);
     STDERR->autoflush(1);
     STDOUT->autoflush(1);
+    OLDERR->autoflush(1);
+    OLDOUT->autoflush(1);
+
+    $SIG{'ALRM'} = sub {
+        open(OLDERR, '>', '/dev/null') unless $options->{'fg'};
+        open(OLDOUT, '>', '/dev/null') unless $options->{'fg'};
+        syswrite WH, "OK"; close WH;
+        $SIG{'ALRM'} = 'DEFAULT';
+      };
+    # Wait for three seconds for erros to appear and to propagate to
+    # our parent if not in -fg mode.
+    alarm 3 unless $options->{'fg'};
+    $! = 0;
+    if (system {$cmd[0]} (@cmd)) {
+      if ($!) {
+        alarm 0; # this must not be before the if ($!) condition
+        print OLDERR "\n$PROG: Can't start ",
+          join(" ", map { &quotedString($_); } @cmd), ": $!!\n";
+      } else {
+        alarm 0; # this must not be before the if ($!) condition
+        print OLDERR "\n$PROG: Failed command ",
+          join(" ", map { &quotedString($_); } @cmd), ": $?!\n";
+      }
+      $SIG{'ALRM'} = 'DEFAULT';
+      syswrite WH, "ERR"; close WH;
+    } else {
+      &{$SIG{'ALRM'}} if ref($SIG{'ALRM'}) eq 'CODE';
+    }
     if ($options->{'fg'} || $options->{'autokill'}) {
-      system {$cmd[0]} (@cmd);
       if (kill(0, $xvncServerPid)) {
         &killXvncServer($options, $runningUserVncservers, [$options->{'displayNumber'}]);
       } else {
         &cleanStale($options,$options->{'displayNumber'},0);
       }
-      exit 0;
-    } else {
-      exec {$cmd[0]} (@cmd) or
-        print OLDERR "$PROG: Can't exec '".$cmd[0]."': $!\n";
-      exit 1;
     }
+    exit 0 unless $options->{'fg'};
+    open(STDOUT, '>&', \*OLDOUT); # restore STDOUT
+    open(STDERR, '>&', \*OLDERR); # restore STDERR
   } elsif ($childPid < 0) {
     # Failed to fork
     print STDERR "$PROG: failed to fork: $!\n";
+    exit -1;
   }
-  # I am the parent
-
-  exit 0;
+  {
+    # I am the parent
+    close WH;
+    my $status;
+    $status = 'ERR' unless defined sysread RH, $status, 3;
+    unless ($status eq 'OK') {
+      my $header = "=================== tail -15 $desktopLog ===================";
+      print STDERR "\n${header}\n";
+      system 'tail -15 '.&quotedString($desktopLog).' 1>&2';
+      print STDERR "\n".("=" x length $header)."\n\n";
+      print STDERR "Starting applications specified in $vncStartup has failed.\n";
+      print STDERR "Maybe try something simple first, e.g.,\n";
+      print STDERR "\ttigervncserver -xstartup /usr/bin/xterm\n";
+      exit -1;
+    }
+    exit 0;
+  }
 }
 
 #
