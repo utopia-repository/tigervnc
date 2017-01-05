@@ -687,6 +687,7 @@ sub CreateX509Cert {
 sub startXvncServer {
   my ($options) = @_;
   my $vncStartup = $options->{'vncStartup'};
+  my $xstartupArg= $options->{'xstartupArgSpecified'};
   my $vncPort    = 5900 + $options->{'displayNumber'};
   my $desktopLog = &desktopLog($options);
   my $pidFile    = &pidFile($options);
@@ -698,7 +699,7 @@ sub startXvncServer {
   &CreateMITCookie($options);
   
   # Create the user's vncStartup script if necessary.
-  if (defined($vncStartup) && !(-e $vncStartup)) {
+  if (defined($vncStartup) && !$xstartupArg && !(-e $vncStartup)) {
     print "Creating default startup script $vncStartup\n";
     unless ($options->{'dry-run'}) {
       my $sf = IO::File->new($vncStartup, "w", 0755);
@@ -710,7 +711,7 @@ sub startXvncServer {
       $sf->close;
     }
   }
-  if (defined($vncStartup) && !(-x $vncStartup)) {
+  if (defined($vncStartup) && !$xstartupArg && !(-x $vncStartup)) {
     unless ($options->{'dry-run'} || chmod 0755, $vncStartup) {
       print STDERR "$PROG: Can't fixup permissions of startup script '$vncStartup': $!\n";
       exit 1;
@@ -1134,8 +1135,10 @@ SCRIPTEOF
           $opts{'noxstartup'} = 0;
           if ($_[1] eq '') {
             $opts{'vncStartup'} = undef;
+            $opts{'xstartupArgSpecified'} = undef;
           } else {
             $opts{'vncStartup'} = $_[1];
+            $opts{'xstartupArgSpecified'} = 1;
           }
         },
       'xdisplaydefaults'  => sub {
@@ -1272,6 +1275,7 @@ SCRIPTEOF
     }
     if ($opts{'noxstartup'}) {
       $options->{'vncStartup'} = undef;
+      $options->{'xstartupArgSpecified'} = undef;
     }
     if (defined $opts{'vncPasswdFile'}) {
       $options->{'passwordArgSpecified'} = 1;
