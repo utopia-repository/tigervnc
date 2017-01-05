@@ -6,8 +6,8 @@ tigervnc (1.7.0+dfsg-2) UNRELEASED; urgency=high
 
   [ Joachim Falk ]
   * Fixed spurious next cmd; in tigervncserver wrapper script. Leads to bug if
-    tigervnc-common package is also installed. Closes: #849996 and Closes:
-    #850054.
+    tigervnc-common package is also installed. Closes: #849996 and
+    Closes: #850054.
   * Fixed bug if killing a non-existing tigervncserver, i.e.,
     tigervncserver -kill :17
     Use of uninitialized value $pid in concatenation (.) or string at
