@@ -178,7 +178,6 @@ in, because the data has not to be recalculated then.
 
 .IR $getDefaultFrom\ \| =\ " \-display\ localhost:0 """;
 is an example how to do this.
-.RE
 .
 .TP
 .IR $rfbwait\ \| =\ " 30000 """;
