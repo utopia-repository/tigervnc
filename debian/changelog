@@ -1,3 +1,13 @@
+tigervnc (1.7.0+dfsg-3) UNRELEASED; urgency=low
+
+  [ Joachim Falk ]
+  * Shut up lintian manpage-has-errors-from-man for vnc.conf.5x.gz
+    Basically the default value for $sslAutoGenCertCommand is too large
+    to fit into a 80 column manpage output. Broke that into multiple
+    lines.
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Sat, 07 Jan 2017 08:58:53 +0100
+
 tigervnc (1.7.0+dfsg-2) unstable; urgency=high
 
   [ Ola Lundqvist ]

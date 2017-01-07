@@ -77,7 +77,7 @@ Can be set to the global
 .I xorg.conf 
 file. This will be
 parsed to gain default values for
-.I $fontPath .
+.IR $fontPath .
 .\"and
 .\".IR $colorPath .
 If you want to disable this feature, point it to an
@@ -110,8 +110,15 @@ Note that the tigervnc-common package provides the PAM service configuration fil
 Otherwise, if
 .I /etc/pam.d/vnc
 is present, then the\fB vnc\fP PAM service will be used.
-.TP
-.IR $sslAutoGenCertCommand\ \| =\ " openssl\ req\ \-newkey\ ec:/etc/tigervnc/ecparams.pem\ \-x509\ \-days\ 2190\ \-nodes """;
+.PP
+.IR $sslAutoGenCertCommand\ \| =\ " openssl\ req
+.RS 15
+.I \-newkey\ ec:/etc/tigervnc/ecparams.pem
+.RE
+.RS 15
+.IR \-x509\ \-days\ 2190\ \-nodes """;
+.RE
+.RS
 The command specified by the\fI $sslAutoGenCertCommand\fP parameter is used to auto generate the certificate for the\fI \-X509Cert\fP and\fI \-X509Key\fP options of
 .BR Xtigervnc (1) .
 The configuration for
@@ -119,6 +126,7 @@ The configuration for
 is taken from
 .I /etc/tigervnc/ssleay.cnf
 where we substitute\fB @HostName@\fP by the fully qualified domain name of the host.
+.RE
 .TP
 .IR $vncUserDir\ \| =\ " $ENV{HOME}/.vnc """;
 Contains the filename for the log files directory of Xvnc
@@ -244,7 +252,7 @@ If filenames are given for \fI$X509Cert\fP and \fI$X509Key\fP either here or
 on the commandline via \fI\-X509Cert\fP and \fI\-X509Key\fP options, then
 the auto generation is disabled and the user has to take care
 that usable certificates are present.
-.ES
+.RE
 .SH FILES
 .TP
 .B /usr/bin/vncserver
