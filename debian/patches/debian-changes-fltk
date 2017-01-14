@@ -22,241 +22,9 @@ Bug-Ubuntu: https://launchpad.net/bugs/<bugnumber>
 Forwarded: <no|not-needed|url proving that it has been forwarded>
 Reviewed-By: <name and email of someone who approved the patch>
 Last-Update: 2017-01-14
-
---- tigervnc-1.7.0+dfsg.orig/fltk/CMake/FLTKConfig.cmake.in
-+++ tigervnc-1.7.0+dfsg/fltk/CMake/FLTKConfig.cmake.in
-@@ -14,3 +14,5 @@ include(${CMAKE_CURRENT_LIST_DIR}/FLTK-T
- 
- set(FLTK_INCLUDE_DIRS "@INCLUDE_DIRS@")
- set(FLTK_USE_FILE ${CMAKE_CURRENT_LIST_DIR}/UseFLTK.cmake)
-+
-+include(${FLTK_USE_FILE})
---- tigervnc-1.7.0+dfsg.orig/fltk/Makefile
-+++ tigervnc-1.7.0+dfsg/fltk/Makefile
-@@ -100,8 +100,8 @@ makeinclude: configure configh.in makein
- 	touch config.h
- 	chmod +x fltk-config
- 
--configure: configure.in
--	autoconf
-+# configure: configure.in
-+# 	autoconf
- 
- config.guess config.sub:
- 	-automake --add-missing 2> /dev/null
---- tigervnc-1.7.0+dfsg.orig/fltk/cairo/Makefile
-+++ tigervnc-1.7.0+dfsg/fltk/cairo/Makefile
-@@ -19,6 +19,8 @@
- FLTKFLAGS = -DFL_LIBRARY
- include ../makeinclude
- 
-+CXXFLAGS := $(CXXFLAGS:-fPIE=-fPIC)
-+
- #
- # Object files...
- #
-@@ -39,13 +41,13 @@ $(CAIROLIBNAME): $(CAIROOBJECTS)
- 
- libfltk_cairo.so.1.3: $(CAIROOBJECTS) ../src/libfltk.so.1.3
- 	echo $(DSOCOMMAND) $@ ...
--	$(DSOCOMMAND) $@ $(CAIROOBJECTS) -L../src -lfltk
-+	$(DSOCOMMAND) $@ $(CAIROOBJECTS) -L../src $(CAIROLIBS) -lfltk
- 	$(RM) libfltk_cairo.so
- 	$(LN) $(CAIRODSONAME) libfltk_cairo.so
- 
- libfltk_cairo.sl.1.3: $(CAIROOBJECTS) ../src/libfltk.sl.1.3
- 	echo $(DSOCOMMAND) $@ ...
--	$(DSOCOMMAND) $@ $(CAIROOBJECTS) -L../src -lfltk
-+	$(DSOCOMMAND) $@ $(CAIROOBJECTS) -L../src $(CAIROLIBS) -lfltk
- 	$(RM) libfltk_cairo.sl
- 	$(LN) libfltk_cairo.sl.1.3 libfltk_cairo.sl
- 
---- tigervnc-1.7.0+dfsg.orig/fltk/configure
-+++ tigervnc-1.7.0+dfsg/fltk/configure
-@@ -3942,9 +3942,9 @@ $as_echo "$ac_cv_cxx_fvisibility_inlines
-                 CXXFLAGS="$CXXFLAGS -fvisibility-inlines-hidden"
-             fi
- 
--	    if test "x$libdir" != "x/usr/lib" -a "x$libdir" != "x/usr/lib64"; then
--		    DSOLINK="-Wl,-rpath,$libdir"
--            fi
-+#	    if test "x$libdir" != "x/usr/lib" -a "x$libdir" != "x/usr/lib64"; then
-+#		    DSOLINK="-Wl,-rpath,$libdir"
-+#           fi
- 	    ;;
- 	aix*)
-             DSONAME="libfltk_s.a"
-@@ -7744,7 +7744,7 @@ if ${ac_cv_lib_Xft_XftDrawCreate+:} fals
-   $as_echo_n "(cached) " >&6
- else
-   ac_check_lib_save_LIBS=$LIBS
--LIBS="-lXft  $LIBS"
-+LIBS="-lXft -lfontconfig $LIBS"
- cat confdefs.h - <<_ACEOF >conftest.$ac_ext
- /* end confdefs.h.  */
- 
-@@ -7777,7 +7777,7 @@ $as_echo "$ac_cv_lib_Xft_XftDrawCreate"
- if test "x$ac_cv_lib_Xft_XftDrawCreate" = xyes; then :
-   $as_echo "#define USE_XFT 1" >>confdefs.h
- 
--			LIBS="-lXft $LIBS"
-+			LIBS="-lXft -lfontconfig $LIBS"
- fi
- 
- fi
-@@ -8431,7 +8431,7 @@ _ACEOF
- 
-     else
- 	cat >>confdefs.h <<_ACEOF
--#define FLTK_DOCDIR "$prefix/share/doc/fltk"
-+#define FLTK_DOCDIR "$prefix/share/doc/fltk1.3-doc/HTML"
- _ACEOF
- 
-     fi
---- tigervnc-1.7.0+dfsg.orig/fltk/configure.in
-+++ tigervnc-1.7.0+dfsg/fltk/configure.in
-@@ -286,9 +286,9 @@ if test x$enable_shared = xyes; then
-                 CXXFLAGS="$CXXFLAGS -fvisibility-inlines-hidden"
-             fi
- 
--	    if test "x$libdir" != "x/usr/lib" -a "x$libdir" != "x/usr/lib64"; then
--		    DSOLINK="-Wl,-rpath,$libdir"
--            fi
-+#	    if test "x$libdir" != "x/usr/lib" -a "x$libdir" != "x/usr/lib64"; then
-+#		    DSOLINK="-Wl,-rpath,$libdir"
-+#           fi
- 	    ;;
- 	aix*)
-             DSONAME="libfltk_s.a"
-@@ -980,7 +980,7 @@ case $host_os_gui in
- 		AC_CHECK_HEADER(X11/Xft/Xft.h,
- 		    AC_CHECK_LIB(Xft, XftDrawCreate,
- 			AC_DEFINE(USE_XFT)
--			LIBS="-lXft $LIBS"))
-+			LIBS="-lXft -lfontconfig $LIBS", [], -lfontconfig))
- 	    fi
- 	fi
- 
-@@ -1353,7 +1353,7 @@ case $host_os in
-     if test x$prefix = xNONE; then
- 	AC_DEFINE_UNQUOTED(FLTK_DOCDIR, "/usr/local/share/doc/fltk")
-     else
--	AC_DEFINE_UNQUOTED(FLTK_DOCDIR, "$prefix/share/doc/fltk")
-+	AC_DEFINE_UNQUOTED(FLTK_DOCDIR, "$prefix/share/doc/fltk1.3-doc/HTML")
-     fi
-     ;;
- esac
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/CMakeCache.txt
-@@ -0,0 +1,7 @@
-+# Fake cmake cache (the Debian build uses configure) to appease
-+# CMake's picky FindFLTK.cmake.
-+
-+//Inverted to compensate for FindFLTK.cmake's own inversion(!)
-+FLTK_USE_SYSTEM_JPEG:BOOL=FALSE
-+FLTK_USE_SYSTEM_PNG:BOOL=FALSE
-+FLTK_USE_SYSTEM_ZLIB:BOOL=FALSE
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/FLTKLibraries-noconfig.cmake.in
-@@ -0,0 +1,96 @@
-+#----------------------------------------------------------------
-+# Generated CMake target import file for configuration "".
-+#----------------------------------------------------------------
-+
-+# Commands may need to know the format version.
-+SET(CMAKE_IMPORT_FILE_VERSION 1)
-+
-+# Import target "fluid" for configuration ""
-+SET_PROPERTY(TARGET fluid APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
-+SET_TARGET_PROPERTIES(fluid PROPERTIES
-+  IMPORTED_LOCATION_NOCONFIG "/usr/bin/fluid"
-+  )
-+
-+# Import target "fltk" for configuration ""
-+SET_PROPERTY(TARGET fltk APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
-+SET_TARGET_PROPERTIES(fltk PROPERTIES
-+  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "C;CXX"
-+  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "-lXft;-lfontconfig;-lXinerama;-lX11;-lm"
-+  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk.a"
-+  )
-+
-+# Import target "fltk_cairo" for configuration ""
-+SET_PROPERTY(TARGET fltk_cairo APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
-+SET_TARGET_PROPERTIES(fltk_cairo PROPERTIES
-+  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "CXX"
-+  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "fltk;-lcairo"
-+  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_cairo.a"
-+  )
-+
-+# Import target "fltk_forms" for configuration ""
-+SET_PROPERTY(TARGET fltk_forms APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
-+SET_TARGET_PROPERTIES(fltk_forms PROPERTIES
-+  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "CXX"
-+  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "fltk"
-+  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_forms.a"
-+  )
-+
-+# Import target "fltk_images" for configuration ""
-+SET_PROPERTY(TARGET fltk_images APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
-+SET_TARGET_PROPERTIES(fltk_images PROPERTIES
-+  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "CXX"
-+  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "fltk;-lpng;-lz;-ljpeg"
-+  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_images.a"
-+  )
-+
-+# Import target "fltk_gl" for configuration ""
-+SET_PROPERTY(TARGET fltk_gl APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
-+SET_TARGET_PROPERTIES(fltk_gl PROPERTIES
-+  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "CXX"
-+  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "fltk;-lGLU;-lGL"
-+  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_gl.a"
-+  )
-+
-+# Import target "fltk_SHARED" for configuration ""
-+SET_PROPERTY(TARGET fltk_SHARED APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
-+SET_TARGET_PROPERTIES(fltk_SHARED PROPERTIES
-+  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG ""
-+  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk.so.1.3"
-+  IMPORTED_SONAME_NOCONFIG "libfltk.so.0"
-+  )
-+
-+# Import target "fltk_cairo_SHARED" for configuration ""
-+SET_PROPERTY(TARGET fltk_cairo_SHARED APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
-+SET_TARGET_PROPERTIES(fltk_cairo_SHARED PROPERTIES
-+  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "CXX"
-+  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG ""
-+  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_cairo.so.1.3"
-+  IMPORTED_SONAME_NOCONFIG "libfltk_cairo.so.0"
-+  )
-+
-+# Import target "fltk_forms_SHARED" for configuration ""
-+SET_PROPERTY(TARGET fltk_forms_SHARED APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
-+SET_TARGET_PROPERTIES(fltk_forms_SHARED PROPERTIES
-+  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG ""
-+  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_forms.so.1.3"
-+  IMPORTED_SONAME_NOCONFIG "libfltk_forms.so.0"
-+  )
-+
-+# Import target "fltk_images_SHARED" for configuration ""
-+SET_PROPERTY(TARGET fltk_images_SHARED APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
-+SET_TARGET_PROPERTIES(fltk_images_SHARED PROPERTIES
-+  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG ""
-+  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_images.so.1.3"
-+  IMPORTED_SONAME_NOCONFIG "libfltk_images.so.0"
-+  )
-+
-+# Import target "fltk_gl_SHARED" for configuration ""
-+SET_PROPERTY(TARGET fltk_gl_SHARED APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
-+SET_TARGET_PROPERTIES(fltk_gl_SHARED PROPERTIES
-+  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG ""
-+  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_gl.so.1.3"
-+  IMPORTED_SONAME_NOCONFIG "libfltk_gl.so.0"
-+  )
-+
-+# Commands beyond this point should not need to know the version.
-+SET(CMAKE_IMPORT_FILE_VERSION)
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/changelog
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/changelog pkg-tigervnc/fltk/debian/changelog
+--- pkg-tigervnc/fltk.orig/debian/changelog	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/changelog	2016-02-21 01:54:18.000000000 +0100
 @@ -0,0 +1,1093 @@
 +fltk1.3 (1.3.3-8) unstable; urgency=high
 +
@@ -1351,12 +1119,25 @@ Last-Update: 2017-01-14
 +  * Initial release (closes: #131427) (closes: #135955)
 +
 + -- Stefan Schwandter <swan@debian.org>  Sat,  5 Oct 2002 10:07:26 +0200
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/compat
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/CMakeCache.txt pkg-tigervnc/fltk/debian/CMakeCache.txt
+--- pkg-tigervnc/fltk.orig/debian/CMakeCache.txt	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/CMakeCache.txt	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,7 @@
++# Fake cmake cache (the Debian build uses configure) to appease
++# CMake's picky FindFLTK.cmake.
++
++//Inverted to compensate for FindFLTK.cmake's own inversion(!)
++FLTK_USE_SYSTEM_JPEG:BOOL=FALSE
++FLTK_USE_SYSTEM_PNG:BOOL=FALSE
++FLTK_USE_SYSTEM_ZLIB:BOOL=FALSE
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/compat pkg-tigervnc/fltk/debian/compat
+--- pkg-tigervnc/fltk.orig/debian/compat	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/compat	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1 @@
 +9
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/control
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/control pkg-tigervnc/fltk/debian/control
+--- pkg-tigervnc/fltk.orig/debian/control	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/control	2016-02-21 01:36:51.000000000 +0100
 @@ -0,0 +1,183 @@
 +Source: fltk1.3
 +Section: libs
@@ -1541,8 +1322,9 @@ Last-Update: 2017-01-14
 + .
 + The Fast Light Toolkit (FLTK) is a cross-platform graphical user interface
 + toolkit originally based on libForms.
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/copyright
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/copyright pkg-tigervnc/fltk/debian/copyright
+--- pkg-tigervnc/fltk.orig/debian/copyright	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/copyright	2016-02-21 01:36:51.000000000 +0100
 @@ -0,0 +1,176 @@
 +Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 +Upstream-Name: fltk1.3
@@ -1720,8 +1502,9 @@ Last-Update: 2017-01-14
 +  2. Altered source versions must be plainly marked as such, and must not be
 +     misrepresented as being the original software.
 +  3. This notice may not be removed or altered from any source distribution.
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/fix-fltk-targets-noconfig
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/fix-fltk-targets-noconfig pkg-tigervnc/fltk/debian/fix-fltk-targets-noconfig
+--- pkg-tigervnc/fltk.orig/debian/fix-fltk-targets-noconfig	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/fix-fltk-targets-noconfig	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,24 @@
 +#!/usr/bin/perl -w
 +use strict;
@@ -1747,8 +1530,9 @@ Last-Update: 2017-01-14
 +    }
 +    print;
 +}
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/fltk1.3-doc.doc-base
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/fltk1.3-doc.doc-base pkg-tigervnc/fltk/debian/fltk1.3-doc.doc-base
+--- pkg-tigervnc/fltk.orig/debian/fltk1.3-doc.doc-base	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/fltk1.3-doc.doc-base	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,13 @@
 +Document: fltk1.3-doc
 +Title: Fast Light Toolkit Programming Manual
@@ -1763,20 +1547,24 @@ Last-Update: 2017-01-14
 +
 +Format: PDF
 +Files: /usr/share/doc/fltk1.3-doc/fltk.pdf.gz
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/fltk1.3-doc.examples
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/fltk1.3-doc.examples pkg-tigervnc/fltk/debian/fltk1.3-doc.examples
+--- pkg-tigervnc/fltk.orig/debian/fltk1.3-doc.examples	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/fltk1.3-doc.examples	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1 @@
 +examples/*
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/fltk1.3-doc.install
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/fltk1.3-doc.install pkg-tigervnc/fltk/debian/fltk1.3-doc.install
+--- pkg-tigervnc/fltk.orig/debian/fltk1.3-doc.install	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/fltk1.3-doc.install	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1 @@
 +usr/share/doc/fltk1.3-doc
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/fltk1.3-doc.lintian-overrides
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/fltk1.3-doc.lintian-overrides pkg-tigervnc/fltk/debian/fltk1.3-doc.lintian-overrides
+--- pkg-tigervnc/fltk.orig/debian/fltk1.3-doc.lintian-overrides	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/fltk1.3-doc.lintian-overrides	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1 @@
 +fltk1.3-doc: embedded-javascript-library usr/share/doc/fltk1.3-doc/HTML/jquery.js
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/fltk1.3-games.install
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/fltk1.3-games.install pkg-tigervnc/fltk/debian/fltk1.3-games.install
+--- pkg-tigervnc/fltk.orig/debian/fltk1.3-games.install	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/fltk1.3-games.install	2016-02-14 22:20:49.000000000 +0100
 @@ -0,0 +1,8 @@
 +usr/games
 +usr/share/applications/flblocks.desktop
@@ -1786,8 +1574,123 @@ Last-Update: 2017-01-14
 +usr/share/icons/hicolor/*/apps/flcheckers.png
 +usr/share/icons/hicolor/*/apps/flsudoku.png
 +usr/share/man/man6
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/fluid.NEWS
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/FLTKLibraries-noconfig.cmake.in pkg-tigervnc/fltk/debian/FLTKLibraries-noconfig.cmake.in
+--- pkg-tigervnc/fltk.orig/debian/FLTKLibraries-noconfig.cmake.in	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/FLTKLibraries-noconfig.cmake.in	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,96 @@
++#----------------------------------------------------------------
++# Generated CMake target import file for configuration "".
++#----------------------------------------------------------------
++
++# Commands may need to know the format version.
++SET(CMAKE_IMPORT_FILE_VERSION 1)
++
++# Import target "fluid" for configuration ""
++SET_PROPERTY(TARGET fluid APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
++SET_TARGET_PROPERTIES(fluid PROPERTIES
++  IMPORTED_LOCATION_NOCONFIG "/usr/bin/fluid"
++  )
++
++# Import target "fltk" for configuration ""
++SET_PROPERTY(TARGET fltk APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
++SET_TARGET_PROPERTIES(fltk PROPERTIES
++  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "C;CXX"
++  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "-lXft;-lfontconfig;-lXinerama;-lX11;-lm"
++  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk.a"
++  )
++
++# Import target "fltk_cairo" for configuration ""
++SET_PROPERTY(TARGET fltk_cairo APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
++SET_TARGET_PROPERTIES(fltk_cairo PROPERTIES
++  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "CXX"
++  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "fltk;-lcairo"
++  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_cairo.a"
++  )
++
++# Import target "fltk_forms" for configuration ""
++SET_PROPERTY(TARGET fltk_forms APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
++SET_TARGET_PROPERTIES(fltk_forms PROPERTIES
++  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "CXX"
++  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "fltk"
++  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_forms.a"
++  )
++
++# Import target "fltk_images" for configuration ""
++SET_PROPERTY(TARGET fltk_images APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
++SET_TARGET_PROPERTIES(fltk_images PROPERTIES
++  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "CXX"
++  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "fltk;-lpng;-lz;-ljpeg"
++  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_images.a"
++  )
++
++# Import target "fltk_gl" for configuration ""
++SET_PROPERTY(TARGET fltk_gl APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
++SET_TARGET_PROPERTIES(fltk_gl PROPERTIES
++  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "CXX"
++  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "fltk;-lGLU;-lGL"
++  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_gl.a"
++  )
++
++# Import target "fltk_SHARED" for configuration ""
++SET_PROPERTY(TARGET fltk_SHARED APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
++SET_TARGET_PROPERTIES(fltk_SHARED PROPERTIES
++  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG ""
++  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk.so.1.3"
++  IMPORTED_SONAME_NOCONFIG "libfltk.so.0"
++  )
++
++# Import target "fltk_cairo_SHARED" for configuration ""
++SET_PROPERTY(TARGET fltk_cairo_SHARED APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
++SET_TARGET_PROPERTIES(fltk_cairo_SHARED PROPERTIES
++  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "CXX"
++  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG ""
++  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_cairo.so.1.3"
++  IMPORTED_SONAME_NOCONFIG "libfltk_cairo.so.0"
++  )
++
++# Import target "fltk_forms_SHARED" for configuration ""
++SET_PROPERTY(TARGET fltk_forms_SHARED APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
++SET_TARGET_PROPERTIES(fltk_forms_SHARED PROPERTIES
++  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG ""
++  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_forms.so.1.3"
++  IMPORTED_SONAME_NOCONFIG "libfltk_forms.so.0"
++  )
++
++# Import target "fltk_images_SHARED" for configuration ""
++SET_PROPERTY(TARGET fltk_images_SHARED APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
++SET_TARGET_PROPERTIES(fltk_images_SHARED PROPERTIES
++  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG ""
++  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_images.so.1.3"
++  IMPORTED_SONAME_NOCONFIG "libfltk_images.so.0"
++  )
++
++# Import target "fltk_gl_SHARED" for configuration ""
++SET_PROPERTY(TARGET fltk_gl_SHARED APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
++SET_TARGET_PROPERTIES(fltk_gl_SHARED PROPERTIES
++  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG ""
++  IMPORTED_LOCATION_NOCONFIG "@libdir@/libfltk_gl.so.1.3"
++  IMPORTED_SONAME_NOCONFIG "libfltk_gl.so.0"
++  )
++
++# Commands beyond this point should not need to know the version.
++SET(CMAKE_IMPORT_FILE_VERSION)
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/fluid.install pkg-tigervnc/fltk/debian/fluid.install
+--- pkg-tigervnc/fltk.orig/debian/fluid.install	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/fluid.install	2016-02-14 22:20:49.000000000 +0100
+@@ -0,0 +1,4 @@
++usr/bin/fluid
++usr/share/applications/fluid.desktop
++usr/share/icons/hicolor/*/apps/fluid.png
++usr/share/mimelnk/application/x-fluid.desktop
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/fluid.manpages pkg-tigervnc/fltk/debian/fluid.manpages
+--- pkg-tigervnc/fltk.orig/debian/fluid.manpages	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/fluid.manpages	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,2 @@
++documentation/src/fluid.man
++
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/fluid.NEWS pkg-tigervnc/fltk/debian/fluid.NEWS
+--- pkg-tigervnc/fltk.orig/debian/fluid.NEWS	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/fluid.NEWS	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,22 @@
 +fltk1.3 (1.3~r7710-1) experimental; urgency=low
 +
@@ -1811,391 +1714,27 @@ Last-Update: 2017-01-14
 +    Apologies for any resulting disruption.
 +
 + -- Aaron M. Ucko <ucko@debian.org>  Tue, 12 Oct 2010 18:17:39 -0400
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/fluid.install
-@@ -0,0 +1,4 @@
-+usr/bin/fluid
-+usr/share/applications/fluid.desktop
-+usr/share/icons/hicolor/*/apps/fluid.png
-+usr/share/mimelnk/application/x-fluid.desktop
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/fluid.manpages
-@@ -0,0 +1,2 @@
-+documentation/src/fluid.man
-+
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-cairo1.3.install
-@@ -0,0 +1 @@
-+usr/lib/*/libfltk_cairo.so.1.3
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-cairo1.3.symbols
-@@ -0,0 +1,7 @@
-+libfltk_cairo.so.1.3 libfltk-cairo1.3 #MINVER#
-+* Build-Depends-Package: libfltk1.3-dev
-+ _ZN14Fl_Cairo_State8autolinkEb@Base 0
-+ _ZN2Fl12cairo_state_E@Base 0
-+ _ZN2Fl18cairo_make_currentEP9Fl_Window@Base 0
-+ _ZN2Fl18cairo_make_currentEPv@Base 0
-+ _ZN2Fl18cairo_make_currentEPvii@Base 0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-forms1.3.install
-@@ -0,0 +1 @@
-+usr/lib/*/libfltk_forms.so.1.3
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-forms1.3.symbols
-@@ -0,0 +1,67 @@
-+libfltk_forms.so.1.3 libfltk-forms1.3 #MINVER#
-+* Build-Depends-Package: libfltk1.3-dev
-+(optional)#include "libfltk-forms1.3.symbols.no-gcc5"
-+(optional)#include "libfltk-forms1.3.symbols.no-clang"
-+ _Z10fl_gettimePlS_@Base 0
-+ _Z11fl_do_formsv@Base 0
-+ _Z11fl_end_formv@Base 0
-+ _Z12fl_show_formP9Fl_WindowiiPKc@Base 0
-+ _Z13fl_add_buttonhiiiiPKc@Base 0
-+ _Z13fl_initializePiPPcPKcPvi@Base 0
-+ _Z13fl_show_alertPKcS0_S0_i@Base 0
-+ _Z14fl_check_formsv@Base 0
-+ _Z14fl_get_patternv@Base 0
-+ _Z14fl_show_choicePKcS0_S0_iS0_S0_S0_@Base 0
-+ _Z15fl_get_filenamev@Base 0
-+ _Z15fl_show_messagePKcS0_S0_@Base 0
-+ _Z16fl_get_directoryv@Base 0
-+ _Z16fl_show_questionPKcS0_S0_@Base 0
-+ _Z20fl_set_graphics_modeii@Base 0
-+ _Z20fl_show_simple_inputPKcS0_@Base 0
-+ _Z21fl_show_file_selectorPKcS0_S0_S0_@Base 0
-+ _ZN12Fl_FormsText4drawEv@Base 0
-+ _ZN14Fl_FormsBitmap3setEiiPKh@Base 0
-+ _ZN14Fl_FormsBitmap4drawEv@Base 0
-+ _ZN14Fl_FormsBitmapC1E10Fl_BoxtypeiiiiPKc@Base 0
-+ _ZN14Fl_FormsBitmapC2E10Fl_BoxtypeiiiiPKc@Base 0
-+ _ZN14Fl_FormsPixmap3setEPKPc@Base 0
-+ _ZN14Fl_FormsPixmap4drawEv@Base 0
-+ _ZN14Fl_FormsPixmapC1E10Fl_BoxtypeiiiiPKc@Base 0
-+ _ZN14Fl_FormsPixmapC2E10Fl_BoxtypeiiiiPKc@Base 0
-+ _ZN7Fl_Free4drawEv@Base 0
-+ _ZN7Fl_Free4stepEPv@Base 0
-+ _ZN7Fl_Free6handleEi@Base 0
-+ _ZN7Fl_FreeC1EhiiiiPKcPFiP9Fl_WidgetiffcE@Base 0
-+ _ZN7Fl_FreeC2EhiiiiPKcPFiP9Fl_WidgetiffcE@Base 0
-+ _ZN7Fl_FreeD0Ev@Base 0
-+ _ZN7Fl_FreeD1Ev@Base 0
-+ _ZN7Fl_FreeD2Ev@Base 0
-+ _ZN8Fl_Group9forms_endEv@Base 0
-+ _ZN8Fl_Timer4drawEv@Base 0
-+ _ZN8Fl_Timer4stepEv@Base 0
-+ _ZN8Fl_Timer5valueEd@Base 0
-+ _ZN8Fl_Timer6handleEi@Base 0
-+ _ZN8Fl_Timer6stepcbEPv@Base 0
-+ _ZN8Fl_Timer9suspendedEc@Base 0
-+ _ZN8Fl_TimerC1EhiiiiPKc@Base 0
-+ _ZN8Fl_TimerC2EhiiiiPKc@Base 0
-+ _ZN8Fl_TimerD0Ev@Base 0
-+ _ZN8Fl_TimerD1Ev@Base 0
-+ _ZN8Fl_TimerD2Ev@Base 0
-+ _ZTI12Fl_FormsText@Base 0
-+ _ZTI14Fl_FormsBitmap@Base 0
-+ _ZTI14Fl_FormsPixmap@Base 0
-+ _ZTI7Fl_Free@Base 0
-+ _ZTI8Fl_Timer@Base 0
-+ _ZTS12Fl_FormsText@Base 0
-+ _ZTS14Fl_FormsBitmap@Base 0
-+ _ZTS14Fl_FormsPixmap@Base 0
-+ _ZTS7Fl_Free@Base 0
-+ _ZTS8Fl_Timer@Base 0
-+ _ZTV12Fl_FormsText@Base 0
-+ _ZTV14Fl_FormsBitmap@Base 0
-+ _ZTV14Fl_FormsPixmap@Base 0
-+ _ZTV7Fl_Free@Base 0
-+ _ZTV8Fl_Timer@Base 0
-+ fl_flip@Base 0
-+ fl_modal_next@Base 0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-forms1.3.symbols.no-clang
-@@ -0,0 +1,6 @@
-+ _ZN12Fl_FormsTextD1Ev@Base 1.3.0
-+ _ZN12Fl_FormsTextD2Ev@Base 1.3.0
-+ _ZN14Fl_FormsBitmapD1Ev@Base 1.3.0
-+ _ZN14Fl_FormsBitmapD2Ev@Base 1.3.0
-+ _ZN14Fl_FormsPixmapD1Ev@Base 1.3.0
-+ _ZN14Fl_FormsPixmapD2Ev@Base 1.3.0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-forms1.3.symbols.no-gcc5
-@@ -0,0 +1,3 @@
-+ _ZN12Fl_FormsTextD0Ev@Base 0
-+ _ZN14Fl_FormsBitmapD0Ev@Base 0
-+ _ZN14Fl_FormsPixmapD0Ev@Base 0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-gl1.3.install
-@@ -0,0 +1 @@
-+usr/lib/*/libfltk_gl.so.1.3
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-gl1.3.symbols
-@@ -0,0 +1,156 @@
-+libfltk_gl.so.1.3 libfltk-gl1.3 #MINVER#
-+* Build-Depends-Package: libfltk1.3-dev
-+(optional)#include "libfltk-gl1.3.symbols.no-gcc49"
-+(optional)#include "libfltk-gl1.3.symbols.no-clang"
-+ _Z10gl_descentv@Base 0
-+ _Z10gl_measurePKcRiS1_@Base 0
-+ _Z12glutIdleFuncPFvvE@Base 0
-+ _Z12glutLayerGetj@Base 0
-+ _Z12glutMainLoopv@Base 0
-+ _Z12glutWireConeddii@Base 0
-+ _Z12glutWireCubed@Base 0
-+ _Z13gl_draw_imagePKhiiiiii@Base 0
-+ _Z13glutDeviceGetj@Base 0
-+ _Z13glutSetWindowi@Base 0
-+ _Z13glutSolidConeddii@Base 0
-+ _Z13glutSolidCubed@Base 0
-+ _Z13glutWireTorusddii@Base 0
-+ _Z14glutAddSubMenuPci@Base 0
-+ _Z14glutCreateMenuPFviE@Base 0
-+ _Z14glutSolidTorusddii@Base 0
-+ _Z14glutWireSpheredii@Base 0
-+ _Z14glutWireTeapotd@Base 0
-+ _Z15glutBitmapWidthPvi@Base 0
-+ _Z15glutDestroyMenui@Base 0
-+ _Z15glutSolidSpheredii@Base 0
-+ _Z15glutSolidTeapotd@Base 0
-+ _Z15glutStrokeWidthPvi@Base 0
-+ _Z15glutSwapBuffersv@Base 0
-+ _Z16fl_no_gl_contextv@Base 0
-+ _Z16glutAddMenuEntryPci@Base 0
-+ _Z16glutBitmapHeightPv@Base 0
-+ _Z16glutBitmapLengthPvPKh@Base 0
-+ _Z16glutBitmapStringPvPKh@Base 0
-+ _Z16glutCreateWindowPKc@Base 0
-+ _Z16glutCreateWindowPc@Base 0
-+ _Z16glutStrokeHeightPv@Base 0
-+ _Z16glutStrokeLengthPvPKh@Base 0
-+ _Z16glutStrokeStringPvPKh@Base 0
-+ _Z16glutWireCylinderddii@Base 0
-+ _Z17fl_set_gl_contextP9Fl_WindowP15__GLXcontextRec@Base 0
-+ _Z17glutDestroyWindowi@Base 0
-+ _Z17glutSolidCylinderddii@Base 0
-+ _Z18glutGetProcAddressPKc@Base 0
-+ _Z18glutInitWindowSizeii@Base 0
-+ _Z18glutRemoveMenuItemi@Base 0
-+ _Z18glutWireOctahedronv@Base 0
-+ _Z19glutBitmapCharacterPvi@Base 0
-+ _Z19glutChangeToSubMenuiPci@Base 0
-+ _Z19glutCreateSubWindowiiiii@Base 0
-+ _Z19glutInitDisplayModej@Base 0
-+ _Z19glutSolidOctahedronv@Base 0
-+ _Z19glutStrokeCharacterPvi@Base 0
-+ _Z19glutWireIcosahedronv@Base 0
-+ _Z19glutWireTetrahedronv@Base 0
-+ _Z20fl_create_gl_contextP11XVisualInfo@Base 0
-+ _Z20fl_delete_gl_contextP15__GLXcontextRec@Base 0
-+ _Z20glutSolidIcosahedronv@Base 0
-+ _Z20glutSolidTetrahedronv@Base 0
-+ _Z20glutWireDodecahedronv@Base 0
-+ _Z21glutChangeToMenuEntryiPci@Base 0
-+ _Z21glutSolidDodecahedronv@Base 0
-+ _Z22glutExtensionSupportedPKc@Base 0
-+ _Z22glutInitWindowPositionii@Base 0
-+ _Z23glutPostWindowRedisplayi@Base 0
-+ _Z24glutWireSierpinskiSpongeiPdd@Base 0
-+ _Z25glutSolidSierpinskiSpongeiPdd@Base 0
-+ _Z27gl_remove_displaylist_fontsv@Base 0
-+ _Z27glutWireRhombicDodecahedronv@Base 0
-+ _Z28glutSolidRhombicDodecahedronv@Base 0
-+ _Z7gl_drawPKc@Base 0
-+ _Z7gl_drawPKcff@Base 0
-+ _Z7gl_drawPKci@Base 0
-+ _Z7gl_drawPKciff@Base 0
-+ _Z7gl_drawPKcii@Base 0
-+ _Z7gl_drawPKciii@Base 0
-+ _Z7gl_drawPKciiiij@Base 0
-+ _Z7gl_fontii@Base 0
-+ _Z7gl_rectiiii@Base 0
-+ _Z7glutGetj@Base 0
-+ _Z8gl_colorj@Base 0
-+ _Z8gl_startv@Base 0
-+ _Z8gl_widthPKc@Base 0
-+ _Z8gl_widthPKci@Base 0
-+ _Z8gl_widthh@Base 0
-+ _Z8glutInitPiPPc@Base 0
-+ _Z9gl_finishv@Base 0
-+ _Z9gl_heightv@Base 0
-+ _ZN12Fl_Gl_Choice4findEiPKi@Base 0
-+ _ZN12Fl_Gl_Window10invalidateEv@Base 0
-+ _ZN12Fl_Gl_Window12draw_overlayEv@Base 0
-+ _ZN12Fl_Gl_Window12hide_overlayEv@Base 0
-+ _ZN12Fl_Gl_Window12make_currentEv@Base 0
-+ _ZN12Fl_Gl_Window12make_overlayEv@Base 0
-+ _ZN12Fl_Gl_Window12swap_buffersEv@Base 0
-+ _ZN12Fl_Gl_Window14can_do_overlayEv@Base 0
-+ _ZN12Fl_Gl_Window14redraw_overlayEv@Base 0
-+ _ZN12Fl_Gl_Window17gl_plugin_linkageEv@Base 1.3.3
-+ _ZN12Fl_Gl_Window20make_overlay_currentEv@Base 0
-+ _ZN12Fl_Gl_Window4drawEv@Base 0
-+ _ZN12Fl_Gl_Window4hideEv@Base 0
-+ _ZN12Fl_Gl_Window4initEv@Base 0
-+ _ZN12Fl_Gl_Window4modeEiPKi@Base 0
-+ _ZN12Fl_Gl_Window4showEv@Base 0
-+ _ZN12Fl_Gl_Window5flushEv@Base 0
-+ _ZN12Fl_Gl_Window5orthoEv@Base 0
-+ _ZN12Fl_Gl_Window6can_doEiPKi@Base 0
-+ _ZN12Fl_Gl_Window6handleEi@Base 1.3.0
-+ _ZN12Fl_Gl_Window6resizeEiiii@Base 0
-+ _ZN12Fl_Gl_Window7contextEPvi@Base 0
-+ _ZN12Fl_Gl_WindowD0Ev@Base 0
-+ _ZN12Fl_Gl_WindowD1Ev@Base 0
-+ _ZN12Fl_Gl_WindowD2Ev@Base 0
-+ _ZN14Fl_Glut_Window12draw_overlayEv@Base 0
-+ _ZN14Fl_Glut_Window12make_currentEv@Base 0
-+ _ZN14Fl_Glut_Window4drawEv@Base 0
-+ _ZN14Fl_Glut_Window5_initEv@Base 0
-+ _ZN14Fl_Glut_Window6handleEi@Base 0
-+ _ZN14Fl_Glut_WindowC1EiiPKc@Base 0
-+ _ZN14Fl_Glut_WindowC1EiiiiPKc@Base 0
-+ _ZN14Fl_Glut_WindowC2EiiPKc@Base 0
-+ _ZN14Fl_Glut_WindowC2EiiiiPKc@Base 0
-+ _ZN14Fl_Glut_WindowD0Ev@Base 0
-+ _ZN14Fl_Glut_WindowD1Ev@Base 0
-+ _ZN14Fl_Glut_WindowD2Ev@Base 0
-+ _ZN2Fl9gl_visualEiPi@Base 0
-+ _ZTI12Fl_Gl_Window@Base 0
-+ _ZTI14Fl_Glut_Window@Base 0
-+ _ZTI16Fl_Device_Plugin@Base 0
-+ _ZTI19Fl_Gl_Device_Plugin@Base 0
-+ _ZTS12Fl_Gl_Window@Base 0
-+ _ZTS14Fl_Glut_Window@Base 0
-+ _ZTS16Fl_Device_Plugin@Base 0
-+ _ZTS19Fl_Gl_Device_Plugin@Base 0
-+ _ZTV12Fl_Gl_Window@Base 0
-+ _ZTV14Fl_Glut_Window@Base 0
-+ _ZTV16Fl_Device_Plugin@Base 0
-+ _ZTV19Fl_Gl_Device_Plugin@Base 0
-+ fl_gl_load_plugin@Base 0
-+ glutBitmap8By13@Base 0
-+ glutBitmap9By15@Base 0
-+ glutBitmapHelvetica10@Base 0
-+ glutBitmapHelvetica12@Base 0
-+ glutBitmapHelvetica18@Base 0
-+ glutBitmapTimesRoman10@Base 0
-+ glutBitmapTimesRoman24@Base 0
-+ glutStrokeMonoRoman@Base 0
-+ glutStrokeRoman@Base 0
-+ glut_menu@Base 0
-+ glut_menustate_function@Base 0
-+ glut_menustatus_function@Base 0
-+ glut_window@Base 0
-+ icos_r@Base 0
-+ icos_v@Base 0
-+ rdod_n@Base 0
-+ rdod_r@Base 0
-+ rdod_v@Base 0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-gl1.3.symbols.no-clang
-@@ -0,0 +1,2 @@
-+ _ZN19Fl_Gl_Device_PluginD1Ev@Base 0
-+ _ZN19Fl_Gl_Device_PluginD2Ev@Base 1.3.0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-gl1.3.symbols.no-gcc49
-@@ -0,0 +1,3 @@
-+ _ZN16Fl_Device_PluginD0Ev@Base 0
-+ _ZN16Fl_Device_PluginD1Ev@Base 0
-+ _ZN16Fl_Device_PluginD2Ev@Base 1.3.0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-images1.3.install
-@@ -0,0 +1 @@
-+usr/lib/*/libfltk_images.so.1.3
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-images1.3.symbols
-@@ -0,0 +1,66 @@
-+libfltk_images.so.1.3 libfltk-images1.3 #MINVER#
-+* Build-Depends-Package: libfltk1.3-dev
-+(optional)#include "libfltk-images1.3.symbols.no-gcc5"
-+(optional)#include "libfltk-images1.3.symbols.no-clang"
-+ _Z18fl_register_imagesv@Base 0
-+ _ZN12Fl_BMP_ImageC1EPKc@Base 0
-+ _ZN12Fl_BMP_ImageC2EPKc@Base 0
-+ _ZN12Fl_File_Icon10load_imageEPKc@Base 0
-+ _ZN12Fl_File_Icon17load_system_iconsEv@Base 0
-+ _ZN12Fl_File_Icon4loadEPKc@Base 0
-+ _ZN12Fl_File_Icon8load_ftiEPKc@Base 0
-+ _ZN12Fl_GIF_ImageC1EPKc@Base 0
-+ _ZN12Fl_GIF_ImageC2EPKc@Base 0
-+ _ZN12Fl_PNG_Image9load_png_EPKcPKhi@Base 1.3.0
-+ _ZN12Fl_PNG_ImageC1EPKc@Base 0
-+ _ZN12Fl_PNG_ImageC1EPKcPKhi@Base 1.3.0
-+ _ZN12Fl_PNG_ImageC2EPKc@Base 0
-+ _ZN12Fl_PNG_ImageC2EPKcPKhi@Base 1.3.0
-+ _ZN12Fl_PNM_ImageC1EPKc@Base 0
-+ _ZN12Fl_PNM_ImageC2EPKc@Base 0
-+ _ZN13Fl_JPEG_ImageC1EPKc@Base 0
-+ _ZN13Fl_JPEG_ImageC1EPKcPKh@Base 0
-+ _ZN13Fl_JPEG_ImageC2EPKc@Base 0
-+ _ZN13Fl_JPEG_ImageC2EPKcPKh@Base 0
-+ _ZN14Fl_Help_Dialog10cb_larger_EP9Fl_ButtonPv@Base 0
-+ _ZN14Fl_Help_Dialog11cb_forward_EP9Fl_ButtonPv@Base 0
-+ _ZN14Fl_Help_Dialog11cb_smaller_EP9Fl_ButtonPv@Base 0
-+ _ZN14Fl_Help_Dialog1hEv@Base 0
-+ _ZN14Fl_Help_Dialog1wEv@Base 0
-+ _ZN14Fl_Help_Dialog1xEv@Base 0
-+ _ZN14Fl_Help_Dialog1yEv@Base 0
-+ _ZN14Fl_Help_Dialog4hideEv@Base 0
-+ _ZN14Fl_Help_Dialog4loadEPKc@Base 0
-+ _ZN14Fl_Help_Dialog4showEiPPc@Base 0
-+ _ZN14Fl_Help_Dialog4showEv@Base 0
-+ _ZN14Fl_Help_Dialog5valueEPKc@Base 0
-+ _ZN14Fl_Help_Dialog6resizeEiiii@Base 0
-+ _ZN14Fl_Help_Dialog7toplineEPKc@Base 0
-+ _ZN14Fl_Help_Dialog7toplineEi@Base 0
-+ _ZN14Fl_Help_Dialog7visibleEv@Base 0
-+ _ZN14Fl_Help_Dialog8cb_back_EP9Fl_ButtonPv@Base 0
-+ _ZN14Fl_Help_Dialog8cb_find_EP8Fl_InputPv@Base 0
-+ _ZN14Fl_Help_Dialog8cb_view_EP12Fl_Help_ViewPv@Base 0
-+ _ZN14Fl_Help_Dialog8positionEii@Base 0
-+ _ZN14Fl_Help_Dialog8textsizeEi@Base 0
-+ _ZN14Fl_Help_Dialog8textsizeEv@Base 0
-+ _ZN14Fl_Help_DialogC1Ev@Base 0
-+ _ZN14Fl_Help_DialogC2Ev@Base 0
-+ _ZN14Fl_Help_DialogD1Ev@Base 0
-+ _ZN14Fl_Help_DialogD2Ev@Base 0
-+ _ZNK14Fl_Help_Dialog5valueEv@Base 0
-+ _ZTI12Fl_BMP_Image@Base 0
-+ _ZTI12Fl_GIF_Image@Base 0
-+ _ZTI12Fl_PNG_Image@Base 0
-+ _ZTI12Fl_PNM_Image@Base 0
-+ _ZTI13Fl_JPEG_Image@Base 0
-+ _ZTS12Fl_BMP_Image@Base 0
-+ _ZTS12Fl_GIF_Image@Base 0
-+ _ZTS12Fl_PNG_Image@Base 0
-+ _ZTS12Fl_PNM_Image@Base 0
-+ _ZTS13Fl_JPEG_Image@Base 0
-+ _ZTV12Fl_BMP_Image@Base 0
-+ _ZTV12Fl_GIF_Image@Base 0
-+ _ZTV12Fl_PNG_Image@Base 0
-+ _ZTV12Fl_PNM_Image@Base 0
-+ _ZTV13Fl_JPEG_Image@Base 0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-images1.3.symbols.no-clang
-@@ -0,0 +1,10 @@
-+ _ZN12Fl_BMP_ImageD1Ev@Base 0
-+ _ZN12Fl_BMP_ImageD2Ev@Base 1.3.0
-+ _ZN12Fl_GIF_ImageD1Ev@Base 0
-+ _ZN12Fl_GIF_ImageD2Ev@Base 1.3.0
-+ _ZN12Fl_PNG_ImageD1Ev@Base 0
-+ _ZN12Fl_PNG_ImageD2Ev@Base 1.3.0
-+ _ZN12Fl_PNM_ImageD1Ev@Base 0
-+ _ZN12Fl_PNM_ImageD2Ev@Base 1.3.0
-+ _ZN13Fl_JPEG_ImageD1Ev@Base 0
-+ _ZN13Fl_JPEG_ImageD2Ev@Base 1.3.0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk-images1.3.symbols.no-gcc5
-@@ -0,0 +1,5 @@
-+ _ZN12Fl_BMP_ImageD0Ev@Base 0
-+ _ZN12Fl_GIF_ImageD0Ev@Base 0
-+ _ZN12Fl_PNG_ImageD0Ev@Base 0
-+ _ZN12Fl_PNM_ImageD0Ev@Base 0
-+ _ZN13Fl_JPEG_ImageD0Ev@Base 0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk1.3-compat-headers.install
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/.gitignore pkg-tigervnc/fltk/debian/.gitignore
+--- pkg-tigervnc/fltk.orig/debian/.gitignore	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/.gitignore	2016-02-21 01:36:51.000000000 +0100
+@@ -0,0 +1,14 @@
++*.debhelper
++*.debhelper.log
++*.substvars
++common-build-stamp
++debhelper-build-stamp
++files
++fltk1.3-doc
++fltk1.3-games
++fluid
++libfltk*1.3
++libfltk1.3-dbg
++libfltk1.3-dev
++libfltk1.3-compat-headers
++tmp
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk1.3-compat-headers.install pkg-tigervnc/fltk/debian/libfltk1.3-compat-headers.install
+--- pkg-tigervnc/fltk.orig/debian/libfltk1.3-compat-headers.install	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk1.3-compat-headers.install	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,15 @@
 +usr/include/FL/Enumerations.h
 +usr/include/FL/Fl*.h
@@ -2212,28 +1751,16 @@ Last-Update: 2017-01-14
 +usr/include/FL/mac.h
 +usr/include/FL/win32.h
 +usr/include/FL/x.h
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk1.3-dev.NEWS
-@@ -0,0 +1,11 @@
-+fltk1.1 (1.1.7-4) unstable; urgency=low
-+  
-+  * To address http://bugs.debian.org/405233 , libfltk_gl.so.1.1 no longer
-+    pulls libGLU in automatically, as FLTK proper makes no use of GLU;
-+    likewise, fltk-config --ldstaticflags --use-gl no longer lists -lGLU.
-+    As such, if your fltk1.1-based application uses libGLU itself, you
-+    will need to link against libGLU explicitly.
-+
-+    Apologies for any resulting inconvenience.
-+  
-+ -- Aaron M. Ucko <ucko@debian.org>  Sun, 22 Apr 2007 15:40:16 -0400
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk1.3-dev.docs
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk1.3-dev.docs pkg-tigervnc/fltk/debian/libfltk1.3-dev.docs
+--- pkg-tigervnc/fltk.orig/debian/libfltk1.3-dev.docs	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk1.3-dev.docs	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,3 @@
 +README.CMake.txt
 +README.Cairo.txt
 +README.Unix.txt
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk1.3-dev.install
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk1.3-dev.install pkg-tigervnc/fltk/debian/libfltk1.3-dev.install
+--- pkg-tigervnc/fltk.orig/debian/libfltk1.3-dev.install	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk1.3-dev.install	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,13 @@
 +usr/bin/fltk-config
 +usr/include/FL/*.H
@@ -2248,22 +1775,41 @@ Last-Update: 2017-01-14
 +usr/lib/*/lib*.a
 +usr/lib/*/lib*.so
 +usr/lib/fltk
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk1.3-dev.links
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk1.3-dev.links pkg-tigervnc/fltk/debian/libfltk1.3-dev.links
+--- pkg-tigervnc/fltk.orig/debian/libfltk1.3-dev.links	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk1.3-dev.links	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,2 @@
 +usr/include/FL                   usr/include/Fl
 +usr/lib/fltk/UseFLTK.cmake       usr/lib/fltk/FLTKUse.cmake
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk1.3-dev.manpages
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk1.3-dev.manpages pkg-tigervnc/fltk/debian/libfltk1.3-dev.manpages
+--- pkg-tigervnc/fltk.orig/debian/libfltk1.3-dev.manpages	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk1.3-dev.manpages	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,2 @@
 +documentation/src/fltk-config.man
 +documentation/src/fltk.man
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk1.3.install
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk1.3-dev.NEWS pkg-tigervnc/fltk/debian/libfltk1.3-dev.NEWS
+--- pkg-tigervnc/fltk.orig/debian/libfltk1.3-dev.NEWS	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk1.3-dev.NEWS	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,11 @@
++fltk1.1 (1.1.7-4) unstable; urgency=low
++  
++  * To address http://bugs.debian.org/405233 , libfltk_gl.so.1.1 no longer
++    pulls libGLU in automatically, as FLTK proper makes no use of GLU;
++    likewise, fltk-config --ldstaticflags --use-gl no longer lists -lGLU.
++    As such, if your fltk1.1-based application uses libGLU itself, you
++    will need to link against libGLU explicitly.
++
++    Apologies for any resulting inconvenience.
++  
++ -- Aaron M. Ucko <ucko@debian.org>  Sun, 22 Apr 2007 15:40:16 -0400
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk1.3.install pkg-tigervnc/fltk/debian/libfltk1.3.install
+--- pkg-tigervnc/fltk.orig/debian/libfltk1.3.install	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk1.3.install	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1 @@
 +usr/lib/*/libfltk.so.1.3
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk1.3.symbols
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk1.3.symbols pkg-tigervnc/fltk/debian/libfltk1.3.symbols
+--- pkg-tigervnc/fltk.orig/debian/libfltk1.3.symbols	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk1.3.symbols	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,2658 @@
 +libfltk.so.1.3 libfltk1.3 #MINVER#
 +* Build-Depends-Package: libfltk1.3-dev
@@ -4923,13 +4469,15 @@ Last-Update: 2017-01-14
 + fl_xmap@Base 0
 + fl_xmousewin@Base 0
 + fl_yes@Base 0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk1.3.symbols.gcc48
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk1.3.symbols.gcc48 pkg-tigervnc/fltk/debian/libfltk1.3.symbols.gcc48
+--- pkg-tigervnc/fltk.orig/debian/libfltk1.3.symbols.gcc48	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk1.3.symbols.gcc48	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,2 @@
 + _ZN18Fl_Help_Font_Stack3popERiS0_Rj@Base 1.3.2-4~
 + _ZN18Fl_Help_Font_Stack4pushEiij@Base 1.3.2-4~
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk1.3.symbols.no-clang
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk1.3.symbols.no-clang pkg-tigervnc/fltk/debian/libfltk1.3.symbols.no-clang
+--- pkg-tigervnc/fltk.orig/debian/libfltk1.3.symbols.no-clang	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk1.3.symbols.no-clang	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,162 @@
 + _ZN10Fl_BrowserD1Ev@Base 0
 + _ZN10Fl_SpinnerD1Ev@Base 0
@@ -5093,16 +4641,18 @@ Last-Update: 2017-01-14
 + _ZN9menutitleD1Ev@Base 0
 + _ZN9menutitleD2Ev@Base 1.3.0
 + _ZTV9Fl_Device@Base 1.3.0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk1.3.symbols.no-gcc49
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk1.3.symbols.no-gcc49 pkg-tigervnc/fltk/debian/libfltk1.3.symbols.no-gcc49
+--- pkg-tigervnc/fltk.orig/debian/libfltk1.3.symbols.no-gcc49	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk1.3.symbols.no-gcc49	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,5 @@
 + _ZN11Fl_ValuatorD0Ev@Base 0
 + _ZN11Fl_ValuatorD1Ev@Base 0
 + _ZN11Fl_ValuatorD2Ev@Base 1.3.0
 + _ZN12Fl_Help_View7popfontERiS0_Rj@Base 0
 + _ZN12Fl_Help_View8pushfontEii@Base 0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/libfltk1.3.symbols.no-gcc5
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk1.3.symbols.no-gcc5 pkg-tigervnc/fltk/debian/libfltk1.3.symbols.no-gcc5
+--- pkg-tigervnc/fltk.orig/debian/libfltk1.3.symbols.no-gcc5	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk1.3.symbols.no-gcc5	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,63 @@
 + _ZN10Fl_SpinnerD0Ev@Base 0
 + _ZN10Fl_SpinnerD2Ev@Base 1.3.0
@@ -5167,8 +4717,394 @@ Last-Update: 2017-01-14
 + _ZN9Fl_ScrollD0Ev@Base 0
 + _ZN9Fl_SliderD0Ev@Base 0
 + _ZN9Fl_WizardD0Ev@Base 0
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/patches/debian-changes
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-cairo1.3.install pkg-tigervnc/fltk/debian/libfltk-cairo1.3.install
+--- pkg-tigervnc/fltk.orig/debian/libfltk-cairo1.3.install	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-cairo1.3.install	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1 @@
++usr/lib/*/libfltk_cairo.so.1.3
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-cairo1.3.symbols pkg-tigervnc/fltk/debian/libfltk-cairo1.3.symbols
+--- pkg-tigervnc/fltk.orig/debian/libfltk-cairo1.3.symbols	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-cairo1.3.symbols	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,7 @@
++libfltk_cairo.so.1.3 libfltk-cairo1.3 #MINVER#
++* Build-Depends-Package: libfltk1.3-dev
++ _ZN14Fl_Cairo_State8autolinkEb@Base 0
++ _ZN2Fl12cairo_state_E@Base 0
++ _ZN2Fl18cairo_make_currentEP9Fl_Window@Base 0
++ _ZN2Fl18cairo_make_currentEPv@Base 0
++ _ZN2Fl18cairo_make_currentEPvii@Base 0
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-forms1.3.install pkg-tigervnc/fltk/debian/libfltk-forms1.3.install
+--- pkg-tigervnc/fltk.orig/debian/libfltk-forms1.3.install	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-forms1.3.install	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1 @@
++usr/lib/*/libfltk_forms.so.1.3
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-forms1.3.symbols pkg-tigervnc/fltk/debian/libfltk-forms1.3.symbols
+--- pkg-tigervnc/fltk.orig/debian/libfltk-forms1.3.symbols	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-forms1.3.symbols	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,67 @@
++libfltk_forms.so.1.3 libfltk-forms1.3 #MINVER#
++* Build-Depends-Package: libfltk1.3-dev
++(optional)#include "libfltk-forms1.3.symbols.no-gcc5"
++(optional)#include "libfltk-forms1.3.symbols.no-clang"
++ _Z10fl_gettimePlS_@Base 0
++ _Z11fl_do_formsv@Base 0
++ _Z11fl_end_formv@Base 0
++ _Z12fl_show_formP9Fl_WindowiiPKc@Base 0
++ _Z13fl_add_buttonhiiiiPKc@Base 0
++ _Z13fl_initializePiPPcPKcPvi@Base 0
++ _Z13fl_show_alertPKcS0_S0_i@Base 0
++ _Z14fl_check_formsv@Base 0
++ _Z14fl_get_patternv@Base 0
++ _Z14fl_show_choicePKcS0_S0_iS0_S0_S0_@Base 0
++ _Z15fl_get_filenamev@Base 0
++ _Z15fl_show_messagePKcS0_S0_@Base 0
++ _Z16fl_get_directoryv@Base 0
++ _Z16fl_show_questionPKcS0_S0_@Base 0
++ _Z20fl_set_graphics_modeii@Base 0
++ _Z20fl_show_simple_inputPKcS0_@Base 0
++ _Z21fl_show_file_selectorPKcS0_S0_S0_@Base 0
++ _ZN12Fl_FormsText4drawEv@Base 0
++ _ZN14Fl_FormsBitmap3setEiiPKh@Base 0
++ _ZN14Fl_FormsBitmap4drawEv@Base 0
++ _ZN14Fl_FormsBitmapC1E10Fl_BoxtypeiiiiPKc@Base 0
++ _ZN14Fl_FormsBitmapC2E10Fl_BoxtypeiiiiPKc@Base 0
++ _ZN14Fl_FormsPixmap3setEPKPc@Base 0
++ _ZN14Fl_FormsPixmap4drawEv@Base 0
++ _ZN14Fl_FormsPixmapC1E10Fl_BoxtypeiiiiPKc@Base 0
++ _ZN14Fl_FormsPixmapC2E10Fl_BoxtypeiiiiPKc@Base 0
++ _ZN7Fl_Free4drawEv@Base 0
++ _ZN7Fl_Free4stepEPv@Base 0
++ _ZN7Fl_Free6handleEi@Base 0
++ _ZN7Fl_FreeC1EhiiiiPKcPFiP9Fl_WidgetiffcE@Base 0
++ _ZN7Fl_FreeC2EhiiiiPKcPFiP9Fl_WidgetiffcE@Base 0
++ _ZN7Fl_FreeD0Ev@Base 0
++ _ZN7Fl_FreeD1Ev@Base 0
++ _ZN7Fl_FreeD2Ev@Base 0
++ _ZN8Fl_Group9forms_endEv@Base 0
++ _ZN8Fl_Timer4drawEv@Base 0
++ _ZN8Fl_Timer4stepEv@Base 0
++ _ZN8Fl_Timer5valueEd@Base 0
++ _ZN8Fl_Timer6handleEi@Base 0
++ _ZN8Fl_Timer6stepcbEPv@Base 0
++ _ZN8Fl_Timer9suspendedEc@Base 0
++ _ZN8Fl_TimerC1EhiiiiPKc@Base 0
++ _ZN8Fl_TimerC2EhiiiiPKc@Base 0
++ _ZN8Fl_TimerD0Ev@Base 0
++ _ZN8Fl_TimerD1Ev@Base 0
++ _ZN8Fl_TimerD2Ev@Base 0
++ _ZTI12Fl_FormsText@Base 0
++ _ZTI14Fl_FormsBitmap@Base 0
++ _ZTI14Fl_FormsPixmap@Base 0
++ _ZTI7Fl_Free@Base 0
++ _ZTI8Fl_Timer@Base 0
++ _ZTS12Fl_FormsText@Base 0
++ _ZTS14Fl_FormsBitmap@Base 0
++ _ZTS14Fl_FormsPixmap@Base 0
++ _ZTS7Fl_Free@Base 0
++ _ZTS8Fl_Timer@Base 0
++ _ZTV12Fl_FormsText@Base 0
++ _ZTV14Fl_FormsBitmap@Base 0
++ _ZTV14Fl_FormsPixmap@Base 0
++ _ZTV7Fl_Free@Base 0
++ _ZTV8Fl_Timer@Base 0
++ fl_flip@Base 0
++ fl_modal_next@Base 0
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-forms1.3.symbols.no-clang pkg-tigervnc/fltk/debian/libfltk-forms1.3.symbols.no-clang
+--- pkg-tigervnc/fltk.orig/debian/libfltk-forms1.3.symbols.no-clang	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-forms1.3.symbols.no-clang	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,6 @@
++ _ZN12Fl_FormsTextD1Ev@Base 1.3.0
++ _ZN12Fl_FormsTextD2Ev@Base 1.3.0
++ _ZN14Fl_FormsBitmapD1Ev@Base 1.3.0
++ _ZN14Fl_FormsBitmapD2Ev@Base 1.3.0
++ _ZN14Fl_FormsPixmapD1Ev@Base 1.3.0
++ _ZN14Fl_FormsPixmapD2Ev@Base 1.3.0
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-forms1.3.symbols.no-gcc5 pkg-tigervnc/fltk/debian/libfltk-forms1.3.symbols.no-gcc5
+--- pkg-tigervnc/fltk.orig/debian/libfltk-forms1.3.symbols.no-gcc5	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-forms1.3.symbols.no-gcc5	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,3 @@
++ _ZN12Fl_FormsTextD0Ev@Base 0
++ _ZN14Fl_FormsBitmapD0Ev@Base 0
++ _ZN14Fl_FormsPixmapD0Ev@Base 0
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-gl1.3.install pkg-tigervnc/fltk/debian/libfltk-gl1.3.install
+--- pkg-tigervnc/fltk.orig/debian/libfltk-gl1.3.install	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-gl1.3.install	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1 @@
++usr/lib/*/libfltk_gl.so.1.3
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-gl1.3.symbols pkg-tigervnc/fltk/debian/libfltk-gl1.3.symbols
+--- pkg-tigervnc/fltk.orig/debian/libfltk-gl1.3.symbols	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-gl1.3.symbols	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,156 @@
++libfltk_gl.so.1.3 libfltk-gl1.3 #MINVER#
++* Build-Depends-Package: libfltk1.3-dev
++(optional)#include "libfltk-gl1.3.symbols.no-gcc49"
++(optional)#include "libfltk-gl1.3.symbols.no-clang"
++ _Z10gl_descentv@Base 0
++ _Z10gl_measurePKcRiS1_@Base 0
++ _Z12glutIdleFuncPFvvE@Base 0
++ _Z12glutLayerGetj@Base 0
++ _Z12glutMainLoopv@Base 0
++ _Z12glutWireConeddii@Base 0
++ _Z12glutWireCubed@Base 0
++ _Z13gl_draw_imagePKhiiiiii@Base 0
++ _Z13glutDeviceGetj@Base 0
++ _Z13glutSetWindowi@Base 0
++ _Z13glutSolidConeddii@Base 0
++ _Z13glutSolidCubed@Base 0
++ _Z13glutWireTorusddii@Base 0
++ _Z14glutAddSubMenuPci@Base 0
++ _Z14glutCreateMenuPFviE@Base 0
++ _Z14glutSolidTorusddii@Base 0
++ _Z14glutWireSpheredii@Base 0
++ _Z14glutWireTeapotd@Base 0
++ _Z15glutBitmapWidthPvi@Base 0
++ _Z15glutDestroyMenui@Base 0
++ _Z15glutSolidSpheredii@Base 0
++ _Z15glutSolidTeapotd@Base 0
++ _Z15glutStrokeWidthPvi@Base 0
++ _Z15glutSwapBuffersv@Base 0
++ _Z16fl_no_gl_contextv@Base 0
++ _Z16glutAddMenuEntryPci@Base 0
++ _Z16glutBitmapHeightPv@Base 0
++ _Z16glutBitmapLengthPvPKh@Base 0
++ _Z16glutBitmapStringPvPKh@Base 0
++ _Z16glutCreateWindowPKc@Base 0
++ _Z16glutCreateWindowPc@Base 0
++ _Z16glutStrokeHeightPv@Base 0
++ _Z16glutStrokeLengthPvPKh@Base 0
++ _Z16glutStrokeStringPvPKh@Base 0
++ _Z16glutWireCylinderddii@Base 0
++ _Z17fl_set_gl_contextP9Fl_WindowP15__GLXcontextRec@Base 0
++ _Z17glutDestroyWindowi@Base 0
++ _Z17glutSolidCylinderddii@Base 0
++ _Z18glutGetProcAddressPKc@Base 0
++ _Z18glutInitWindowSizeii@Base 0
++ _Z18glutRemoveMenuItemi@Base 0
++ _Z18glutWireOctahedronv@Base 0
++ _Z19glutBitmapCharacterPvi@Base 0
++ _Z19glutChangeToSubMenuiPci@Base 0
++ _Z19glutCreateSubWindowiiiii@Base 0
++ _Z19glutInitDisplayModej@Base 0
++ _Z19glutSolidOctahedronv@Base 0
++ _Z19glutStrokeCharacterPvi@Base 0
++ _Z19glutWireIcosahedronv@Base 0
++ _Z19glutWireTetrahedronv@Base 0
++ _Z20fl_create_gl_contextP11XVisualInfo@Base 0
++ _Z20fl_delete_gl_contextP15__GLXcontextRec@Base 0
++ _Z20glutSolidIcosahedronv@Base 0
++ _Z20glutSolidTetrahedronv@Base 0
++ _Z20glutWireDodecahedronv@Base 0
++ _Z21glutChangeToMenuEntryiPci@Base 0
++ _Z21glutSolidDodecahedronv@Base 0
++ _Z22glutExtensionSupportedPKc@Base 0
++ _Z22glutInitWindowPositionii@Base 0
++ _Z23glutPostWindowRedisplayi@Base 0
++ _Z24glutWireSierpinskiSpongeiPdd@Base 0
++ _Z25glutSolidSierpinskiSpongeiPdd@Base 0
++ _Z27gl_remove_displaylist_fontsv@Base 0
++ _Z27glutWireRhombicDodecahedronv@Base 0
++ _Z28glutSolidRhombicDodecahedronv@Base 0
++ _Z7gl_drawPKc@Base 0
++ _Z7gl_drawPKcff@Base 0
++ _Z7gl_drawPKci@Base 0
++ _Z7gl_drawPKciff@Base 0
++ _Z7gl_drawPKcii@Base 0
++ _Z7gl_drawPKciii@Base 0
++ _Z7gl_drawPKciiiij@Base 0
++ _Z7gl_fontii@Base 0
++ _Z7gl_rectiiii@Base 0
++ _Z7glutGetj@Base 0
++ _Z8gl_colorj@Base 0
++ _Z8gl_startv@Base 0
++ _Z8gl_widthPKc@Base 0
++ _Z8gl_widthPKci@Base 0
++ _Z8gl_widthh@Base 0
++ _Z8glutInitPiPPc@Base 0
++ _Z9gl_finishv@Base 0
++ _Z9gl_heightv@Base 0
++ _ZN12Fl_Gl_Choice4findEiPKi@Base 0
++ _ZN12Fl_Gl_Window10invalidateEv@Base 0
++ _ZN12Fl_Gl_Window12draw_overlayEv@Base 0
++ _ZN12Fl_Gl_Window12hide_overlayEv@Base 0
++ _ZN12Fl_Gl_Window12make_currentEv@Base 0
++ _ZN12Fl_Gl_Window12make_overlayEv@Base 0
++ _ZN12Fl_Gl_Window12swap_buffersEv@Base 0
++ _ZN12Fl_Gl_Window14can_do_overlayEv@Base 0
++ _ZN12Fl_Gl_Window14redraw_overlayEv@Base 0
++ _ZN12Fl_Gl_Window17gl_plugin_linkageEv@Base 1.3.3
++ _ZN12Fl_Gl_Window20make_overlay_currentEv@Base 0
++ _ZN12Fl_Gl_Window4drawEv@Base 0
++ _ZN12Fl_Gl_Window4hideEv@Base 0
++ _ZN12Fl_Gl_Window4initEv@Base 0
++ _ZN12Fl_Gl_Window4modeEiPKi@Base 0
++ _ZN12Fl_Gl_Window4showEv@Base 0
++ _ZN12Fl_Gl_Window5flushEv@Base 0
++ _ZN12Fl_Gl_Window5orthoEv@Base 0
++ _ZN12Fl_Gl_Window6can_doEiPKi@Base 0
++ _ZN12Fl_Gl_Window6handleEi@Base 1.3.0
++ _ZN12Fl_Gl_Window6resizeEiiii@Base 0
++ _ZN12Fl_Gl_Window7contextEPvi@Base 0
++ _ZN12Fl_Gl_WindowD0Ev@Base 0
++ _ZN12Fl_Gl_WindowD1Ev@Base 0
++ _ZN12Fl_Gl_WindowD2Ev@Base 0
++ _ZN14Fl_Glut_Window12draw_overlayEv@Base 0
++ _ZN14Fl_Glut_Window12make_currentEv@Base 0
++ _ZN14Fl_Glut_Window4drawEv@Base 0
++ _ZN14Fl_Glut_Window5_initEv@Base 0
++ _ZN14Fl_Glut_Window6handleEi@Base 0
++ _ZN14Fl_Glut_WindowC1EiiPKc@Base 0
++ _ZN14Fl_Glut_WindowC1EiiiiPKc@Base 0
++ _ZN14Fl_Glut_WindowC2EiiPKc@Base 0
++ _ZN14Fl_Glut_WindowC2EiiiiPKc@Base 0
++ _ZN14Fl_Glut_WindowD0Ev@Base 0
++ _ZN14Fl_Glut_WindowD1Ev@Base 0
++ _ZN14Fl_Glut_WindowD2Ev@Base 0
++ _ZN2Fl9gl_visualEiPi@Base 0
++ _ZTI12Fl_Gl_Window@Base 0
++ _ZTI14Fl_Glut_Window@Base 0
++ _ZTI16Fl_Device_Plugin@Base 0
++ _ZTI19Fl_Gl_Device_Plugin@Base 0
++ _ZTS12Fl_Gl_Window@Base 0
++ _ZTS14Fl_Glut_Window@Base 0
++ _ZTS16Fl_Device_Plugin@Base 0
++ _ZTS19Fl_Gl_Device_Plugin@Base 0
++ _ZTV12Fl_Gl_Window@Base 0
++ _ZTV14Fl_Glut_Window@Base 0
++ _ZTV16Fl_Device_Plugin@Base 0
++ _ZTV19Fl_Gl_Device_Plugin@Base 0
++ fl_gl_load_plugin@Base 0
++ glutBitmap8By13@Base 0
++ glutBitmap9By15@Base 0
++ glutBitmapHelvetica10@Base 0
++ glutBitmapHelvetica12@Base 0
++ glutBitmapHelvetica18@Base 0
++ glutBitmapTimesRoman10@Base 0
++ glutBitmapTimesRoman24@Base 0
++ glutStrokeMonoRoman@Base 0
++ glutStrokeRoman@Base 0
++ glut_menu@Base 0
++ glut_menustate_function@Base 0
++ glut_menustatus_function@Base 0
++ glut_window@Base 0
++ icos_r@Base 0
++ icos_v@Base 0
++ rdod_n@Base 0
++ rdod_r@Base 0
++ rdod_v@Base 0
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-gl1.3.symbols.no-clang pkg-tigervnc/fltk/debian/libfltk-gl1.3.symbols.no-clang
+--- pkg-tigervnc/fltk.orig/debian/libfltk-gl1.3.symbols.no-clang	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-gl1.3.symbols.no-clang	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,2 @@
++ _ZN19Fl_Gl_Device_PluginD1Ev@Base 0
++ _ZN19Fl_Gl_Device_PluginD2Ev@Base 1.3.0
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-gl1.3.symbols.no-gcc49 pkg-tigervnc/fltk/debian/libfltk-gl1.3.symbols.no-gcc49
+--- pkg-tigervnc/fltk.orig/debian/libfltk-gl1.3.symbols.no-gcc49	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-gl1.3.symbols.no-gcc49	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,3 @@
++ _ZN16Fl_Device_PluginD0Ev@Base 0
++ _ZN16Fl_Device_PluginD1Ev@Base 0
++ _ZN16Fl_Device_PluginD2Ev@Base 1.3.0
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-images1.3.install pkg-tigervnc/fltk/debian/libfltk-images1.3.install
+--- pkg-tigervnc/fltk.orig/debian/libfltk-images1.3.install	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-images1.3.install	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1 @@
++usr/lib/*/libfltk_images.so.1.3
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-images1.3.symbols pkg-tigervnc/fltk/debian/libfltk-images1.3.symbols
+--- pkg-tigervnc/fltk.orig/debian/libfltk-images1.3.symbols	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-images1.3.symbols	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,66 @@
++libfltk_images.so.1.3 libfltk-images1.3 #MINVER#
++* Build-Depends-Package: libfltk1.3-dev
++(optional)#include "libfltk-images1.3.symbols.no-gcc5"
++(optional)#include "libfltk-images1.3.symbols.no-clang"
++ _Z18fl_register_imagesv@Base 0
++ _ZN12Fl_BMP_ImageC1EPKc@Base 0
++ _ZN12Fl_BMP_ImageC2EPKc@Base 0
++ _ZN12Fl_File_Icon10load_imageEPKc@Base 0
++ _ZN12Fl_File_Icon17load_system_iconsEv@Base 0
++ _ZN12Fl_File_Icon4loadEPKc@Base 0
++ _ZN12Fl_File_Icon8load_ftiEPKc@Base 0
++ _ZN12Fl_GIF_ImageC1EPKc@Base 0
++ _ZN12Fl_GIF_ImageC2EPKc@Base 0
++ _ZN12Fl_PNG_Image9load_png_EPKcPKhi@Base 1.3.0
++ _ZN12Fl_PNG_ImageC1EPKc@Base 0
++ _ZN12Fl_PNG_ImageC1EPKcPKhi@Base 1.3.0
++ _ZN12Fl_PNG_ImageC2EPKc@Base 0
++ _ZN12Fl_PNG_ImageC2EPKcPKhi@Base 1.3.0
++ _ZN12Fl_PNM_ImageC1EPKc@Base 0
++ _ZN12Fl_PNM_ImageC2EPKc@Base 0
++ _ZN13Fl_JPEG_ImageC1EPKc@Base 0
++ _ZN13Fl_JPEG_ImageC1EPKcPKh@Base 0
++ _ZN13Fl_JPEG_ImageC2EPKc@Base 0
++ _ZN13Fl_JPEG_ImageC2EPKcPKh@Base 0
++ _ZN14Fl_Help_Dialog10cb_larger_EP9Fl_ButtonPv@Base 0
++ _ZN14Fl_Help_Dialog11cb_forward_EP9Fl_ButtonPv@Base 0
++ _ZN14Fl_Help_Dialog11cb_smaller_EP9Fl_ButtonPv@Base 0
++ _ZN14Fl_Help_Dialog1hEv@Base 0
++ _ZN14Fl_Help_Dialog1wEv@Base 0
++ _ZN14Fl_Help_Dialog1xEv@Base 0
++ _ZN14Fl_Help_Dialog1yEv@Base 0
++ _ZN14Fl_Help_Dialog4hideEv@Base 0
++ _ZN14Fl_Help_Dialog4loadEPKc@Base 0
++ _ZN14Fl_Help_Dialog4showEiPPc@Base 0
++ _ZN14Fl_Help_Dialog4showEv@Base 0
++ _ZN14Fl_Help_Dialog5valueEPKc@Base 0
++ _ZN14Fl_Help_Dialog6resizeEiiii@Base 0
++ _ZN14Fl_Help_Dialog7toplineEPKc@Base 0
++ _ZN14Fl_Help_Dialog7toplineEi@Base 0
++ _ZN14Fl_Help_Dialog7visibleEv@Base 0
++ _ZN14Fl_Help_Dialog8cb_back_EP9Fl_ButtonPv@Base 0
++ _ZN14Fl_Help_Dialog8cb_find_EP8Fl_InputPv@Base 0
++ _ZN14Fl_Help_Dialog8cb_view_EP12Fl_Help_ViewPv@Base 0
++ _ZN14Fl_Help_Dialog8positionEii@Base 0
++ _ZN14Fl_Help_Dialog8textsizeEi@Base 0
++ _ZN14Fl_Help_Dialog8textsizeEv@Base 0
++ _ZN14Fl_Help_DialogC1Ev@Base 0
++ _ZN14Fl_Help_DialogC2Ev@Base 0
++ _ZN14Fl_Help_DialogD1Ev@Base 0
++ _ZN14Fl_Help_DialogD2Ev@Base 0
++ _ZNK14Fl_Help_Dialog5valueEv@Base 0
++ _ZTI12Fl_BMP_Image@Base 0
++ _ZTI12Fl_GIF_Image@Base 0
++ _ZTI12Fl_PNG_Image@Base 0
++ _ZTI12Fl_PNM_Image@Base 0
++ _ZTI13Fl_JPEG_Image@Base 0
++ _ZTS12Fl_BMP_Image@Base 0
++ _ZTS12Fl_GIF_Image@Base 0
++ _ZTS12Fl_PNG_Image@Base 0
++ _ZTS12Fl_PNM_Image@Base 0
++ _ZTS13Fl_JPEG_Image@Base 0
++ _ZTV12Fl_BMP_Image@Base 0
++ _ZTV12Fl_GIF_Image@Base 0
++ _ZTV12Fl_PNG_Image@Base 0
++ _ZTV12Fl_PNM_Image@Base 0
++ _ZTV13Fl_JPEG_Image@Base 0
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-images1.3.symbols.no-clang pkg-tigervnc/fltk/debian/libfltk-images1.3.symbols.no-clang
+--- pkg-tigervnc/fltk.orig/debian/libfltk-images1.3.symbols.no-clang	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-images1.3.symbols.no-clang	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,10 @@
++ _ZN12Fl_BMP_ImageD1Ev@Base 0
++ _ZN12Fl_BMP_ImageD2Ev@Base 1.3.0
++ _ZN12Fl_GIF_ImageD1Ev@Base 0
++ _ZN12Fl_GIF_ImageD2Ev@Base 1.3.0
++ _ZN12Fl_PNG_ImageD1Ev@Base 0
++ _ZN12Fl_PNG_ImageD2Ev@Base 1.3.0
++ _ZN12Fl_PNM_ImageD1Ev@Base 0
++ _ZN12Fl_PNM_ImageD2Ev@Base 1.3.0
++ _ZN13Fl_JPEG_ImageD1Ev@Base 0
++ _ZN13Fl_JPEG_ImageD2Ev@Base 1.3.0
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/libfltk-images1.3.symbols.no-gcc5 pkg-tigervnc/fltk/debian/libfltk-images1.3.symbols.no-gcc5
+--- pkg-tigervnc/fltk.orig/debian/libfltk-images1.3.symbols.no-gcc5	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/libfltk-images1.3.symbols.no-gcc5	2016-01-01 01:22:46.000000000 +0100
+@@ -0,0 +1,5 @@
++ _ZN12Fl_BMP_ImageD0Ev@Base 0
++ _ZN12Fl_GIF_ImageD0Ev@Base 0
++ _ZN12Fl_PNG_ImageD0Ev@Base 0
++ _ZN12Fl_PNM_ImageD0Ev@Base 0
++ _ZN13Fl_JPEG_ImageD0Ev@Base 0
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/patches/debian-changes pkg-tigervnc/fltk/debian/patches/debian-changes
+--- pkg-tigervnc/fltk.orig/debian/patches/debian-changes	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/patches/debian-changes	2016-02-21 01:55:05.000000000 +0100
 @@ -0,0 +1,342 @@
 +Combined patches from git.
 +--- fltk1.3-1.3.3.orig/.gitignore
@@ -5512,12 +5448,14 @@ Last-Update: 2017-01-14
 + 	$(RM) libfltk.so
 + 	$(LN) libfltk.so.1.3 libfltk.so
 + 
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/patches/series
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/patches/series pkg-tigervnc/fltk/debian/patches/series
+--- pkg-tigervnc/fltk.orig/debian/patches/series	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/patches/series	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1 @@
 +debian-changes
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/rules
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/rules pkg-tigervnc/fltk/debian/rules
+--- pkg-tigervnc/fltk.orig/debian/rules	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/rules	2016-02-21 01:54:18.000000000 +0100
 @@ -0,0 +1,110 @@
 +#!/usr/bin/make -f
 +export DEB_BUILD_MAINT_OPTIONS=hardening=+all
@@ -5629,225 +5567,25 @@ Last-Update: 2017-01-14
 +
 +override_dh_strip:
 +	dh_strip       --dbg-package=libfltk1.3-dbg
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/source/format
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/source/format pkg-tigervnc/fltk/debian/source/format
+--- pkg-tigervnc/fltk.orig/debian/source/format	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/source/format	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1 @@
 +3.0 (quilt)
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/source/options
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/source/options pkg-tigervnc/fltk/debian/source/options
+--- pkg-tigervnc/fltk.orig/debian/source/options	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/source/options	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1 @@
 +single-debian-patch
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/source/patch-header
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/source/patch-header pkg-tigervnc/fltk/debian/source/patch-header
+--- pkg-tigervnc/fltk.orig/debian/source/patch-header	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/source/patch-header	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1 @@
 +Combined patches from git.
---- /dev/null
-+++ tigervnc-1.7.0+dfsg/fltk/debian/watch
+diff -urN --exclude .git pkg-tigervnc/fltk.orig/debian/watch pkg-tigervnc/fltk/debian/watch
+--- pkg-tigervnc/fltk.orig/debian/watch	1970-01-01 01:00:00.000000000 +0100
++++ pkg-tigervnc/fltk/debian/watch	2016-01-01 01:22:46.000000000 +0100
 @@ -0,0 +1,3 @@
 +version=3
 +opts="downloadurlmangle=s|.*FILE=|ftp://ftp.easysw.com/pub/|,uversionmangle=s|rc|~rc|;s|\.x-|~|" \
 +http://www.fltk.org/software.php .*/fltk-(1\.3\.\d?)-source?\.tar\.gz
---- tigervnc-1.7.0+dfsg.orig/fltk/documentation/Makefile
-+++ tigervnc-1.7.0+dfsg/fltk/documentation/Makefile
-@@ -54,6 +54,11 @@ MANPAGES =	$(SRC_DOCDIR)/fltk.$(CAT3EXT)
- 		$(SRC_DOCDIR)/fluid.$(CAT1EXT) $(SRC_DOCDIR)/blocks.$(CAT6EXT) \
- 		$(SRC_DOCDIR)/checkers.$(CAT6EXT) $(SRC_DOCDIR)/sudoku.$(CAT6EXT)
- 
-+DEB_DATE := $(shell cd .. && dpkg-parsechangelog -S Date)
-+PDF_DATE := $(shell date -ud '$(DEB_DATE)' +D:%Y%m%d%H%M%SZ)
-+PDFLATEX = pdflatex --interaction=nonstopmode \
-+           '\pdfinfo{/CreationDate($(PDF_DATE))/ModDate($(PDF_DATE))}\input{refman.tex}'
-+
- all:	$(MANPAGES)
- 
- # use make dist to create all docs for distribution files
-@@ -73,10 +78,10 @@ depend:
- 
- install: $(MANPAGES)
- 	echo "Installing documentation files in $(DESTDIR)$(docdir) ..."
--	-$(INSTALL_DIR) $(DESTDIR)$(docdir)
-+	-$(INSTALL_DIR) $(DESTDIR)$(docdir)/HTML
- 	if test -f html/index.html ; then \
- 	  for file in html/* ; do \
--		$(INSTALL_DATA) $$file $(DESTDIR)$(docdir); \
-+		$(INSTALL_DATA) $$file $(DESTDIR)$(docdir)/HTML; \
- 	  done \
- 	fi
- 	if test -f fltk.pdf ; then \
-@@ -153,25 +158,30 @@ refman.pdf: $(HTMLFILES) Doxybook src/fl
- 	echo "Generating PDF documentation ..."
- 	$(DOXYDOC) Doxybook ;\
- 	(cd latex ;\
--	pdflatex --interaction=nonstopmode refman.tex ;\
-+	sed -i 's/\(\\caption{\)\\hyperlink{[^}]*}/\1/' classFl__Input.tex classFl__Tree.tex ;\
-+	$(PDFLATEX) ;\
- 	makeindex refman.idx ;\
--	pdflatex --interaction=nonstopmode refman.tex ;\
-+	$(PDFLATEX) ;\
- 	latex_count=5;\
- 	while egrep -s 'Rerun (LaTeX|to get cross-references right)' refman.log \
- 		&& [ $$latex_count -gt 0 ] ;\
- 	    do \
- 	      echo "Rerunning latex ..." ;\
--	      pdflatex --interaction=nonstopmode refman.tex ;\
-+	      $(PDFLATEX) ;\
- 	      latex_count=`expr $$latex_count - 1` ;\
- 	    done ; \
- 	cd ..) > pdfall.log 2>&1
-+        MD5=`(echo $(DEB_DATE) && du -b $@) | md5sum | cut -c -32` && \
-+        sed -i "s|^/ID \\[\\(<[0-9A-F]\\{32\\}>\\) \\1]$$|/ID [<$$MD5> <$$MD5>]|" $@
- 
- src/fltk-book.tex: src/fltk-book.tex.in
- 	DOXY_VERSION=`$(DOXYDOC) --version`; \
--	YEAR=`date +%Y`; \
-+	YEAR=`date -d'$(DEB_DATE)' +%Y`; \
- 	FLTK_VERSION=`cat ../VERSION`; \
-+	TODAY=`date -d'$(DEB_DATE)' +'%B %e, %Y'`; \
- 	sed -e"s/@YEAR@/$$YEAR/g" -e"s/@VERSION@/$$FLTK_VERSION/g" \
--	    -e"s/@DOXY_VERSION@/$$DOXY_VERSION/g" < $< > $@
-+	    -e"s/@DOXY_VERSION@/$$DOXY_VERSION/g" \
-+	    -e"s/\\\\today{}/$$TODAY/g" < $< > $@
- 
- #
- # End of "$Id: Makefile 10361 2014-10-05 22:39:31Z AlbrechtS $".
---- tigervnc-1.7.0+dfsg.orig/fltk/documentation/src/fltk-book.tex.in
-+++ tigervnc-1.7.0+dfsg/fltk/documentation/src/fltk-book.tex.in
-@@ -30,15 +30,17 @@
- \makeindex
- \setcounter{tocdepth}{1}
- \renewcommand{\footrulewidth}{0.4pt}
-+\newcommand{\clearemptydoublepage}{\newpage{\pagestyle{empty}\cleardoublepage}}
-+\newcommand{\+}{\discretionary{\mbox{\scriptsize$\hookleftarrow$}}{}{}}
- \begin{document}
- \begin{titlepage}
- \vspace*{4.5cm}
- \begin{center}
- {\Huge FLTK @VERSION@ Programming Manual}\\
- \vspace*{2cm}
--\begin{ImageNoCaption}
-+\begin{DoxyImageNoCaption}
-  \mbox{\includegraphics[width=6cm]{FL200}}
--\end{ImageNoCaption}\\
-+\end{DoxyImageNoCaption}
- \vspace*{2cm}
- {\Large
- Revision 9 by F. Costantini, D. Gibson, M. Melcher, \\
-@@ -46,11 +48,11 @@ A. Schlosser, B. Spitzak, and M. Sweet.}
- \vspace*{1.5cm}
- {\large Copyright 1998-@YEAR@ by Bill Spitzak and others.}\\
- \vspace*{0.75cm}
--{\Small
-+{\small
- This software and manual are provided under the terms of the GNU Library General Public License.}\\
--{\Small
-+{\small
- Permission is granted to reproduce this manual or any portion for any purpose,}\\
--{\Small
-+{\small
- provided this copyright and permission notice are preserved.}\\
- \vspace*{2.5cm}
- {\large Generated by Doxygen @DOXY_VERSION@}\\
---- tigervnc-1.7.0+dfsg.orig/fltk/fltk-config.in
-+++ tigervnc-1.7.0+dfsg/fltk/fltk-config.in
-@@ -223,26 +223,27 @@ else
-     includes=
- fi
- 
--if test "$libdir" != /usr/lib -a "$libdir" != /usr/lib32; then
--    libs=-L$libdir
--else
--    libs=
--fi
-+# if test "$libdir" != /usr/lib -a "$libdir" != /usr/lib32; then
-+#     libs=-L$libdir
-+# else
-+#     libs=
-+# fi
-+libs=
- 
- # Calculate needed libraries
- LDSTATIC="$libdir/libfltk.a $LDLIBS"
--LDLIBS="-lfltk$SHAREDSUFFIX $LDLIBS"
-+LDLIBS="-lfltk$SHAREDSUFFIX -lX11"
- 
- if test x$use_forms = xyes; then
-     LDLIBS="-lfltk_forms$SHAREDSUFFIX $LDLIBS"
-     LDSTATIC="$libdir/libfltk_forms.a $LDSTATIC"
- fi
- if test x$use_gl = xyes; then
--    LDLIBS="-lfltk_gl$SHAREDSUFFIX @GLLIB@ $LDLIBS"
-+    LDLIBS="-lfltk_gl$SHAREDSUFFIX $LDLIBS"
-     LDSTATIC="$libdir/libfltk_gl.a @GLLIB@ $LDSTATIC"
- fi
- if test x$use_images = xyes; then
--    LDLIBS="-lfltk_images$SHAREDSUFFIX $IMAGELIBS $LDLIBS"
-+    LDLIBS="-lfltk_images$SHAREDSUFFIX $LDLIBS"
-     LDSTATIC="$libdir/libfltk_images.a $STATICIMAGELIBS $LDSTATIC"
- fi
- 
-@@ -281,8 +282,8 @@ if test -n "$compile"; then
- 
-     post="$prog"
- 
--    echo $CXX $ARCHFLAGS $includes $CXXFLAGS $debug -o "'$prog'" "'$compile'" $LDSTATIC
--    $CXX $ARCHFLAGS $includes $CXXFLAGS $debug -o "$prog" "$compile" $LDSTATIC || exit 1
-+    echo $CXX $ARCHFLAGS $includes $CXXFLAGS $debug -o "'$prog'" "'$compile'" $LDLIBS
-+    $CXX $ARCHFLAGS $includes $CXXFLAGS $debug -o "$prog" "$compile" $LDLIBS || exit 1
- fi
- 
- if test -n "$post"; then
-@@ -327,11 +328,11 @@ EOF
- fi
- 
- if test "$echo_cflags" = "yes"; then
--    echo $includes $CFLAGS
-+    echo "$includes $CFLAGS" | sed -e 's/ -[gO][^ ]*//g'
- fi
- 
- if test "$echo_cxxflags" = "yes"; then
--    echo $includes $CXXFLAGS
-+    echo "$includes $CXXFLAGS" | sed -e 's/ -[gO][^ ]*//g'
- fi
- 
- if test "$echo_optim" = "yes"; then
---- tigervnc-1.7.0+dfsg.orig/fltk/makeinclude.in
-+++ tigervnc-1.7.0+dfsg/fltk/makeinclude.in
-@@ -25,7 +25,7 @@ includedir	= @includedir@
- libdir		= @libdir@
- mandir		= @mandir@
- srcdir		= @srcdir@
--docdir		= $(datadir)/doc/fltk
-+docdir		= $(datadir)/doc/fltk1.3-doc
- VPATH		= @srcdir@
- USEMMFILES	= @USEMMFILES@
- 
-@@ -131,7 +131,7 @@ INSTALL_DESKTOP	= @INSTALL_DESKTOP@
- UNINSTALL_DESKTOP = @UNINSTALL_DESKTOP@
- 
- # Be quiet when building...
--.SILENT:
-+#.SILENT:
- 
- # Build commands and filename extensions...
- .SUFFIXES:	.0 .1 .3 .6 .c .cxx .mm .h .fl .man .o .z $(EXEEXT)
---- tigervnc-1.7.0+dfsg.orig/fltk/src/Makefile
-+++ tigervnc-1.7.0+dfsg/fltk/src/Makefile
-@@ -216,6 +216,9 @@ UTF8CFILES = \
- FLTKFLAGS = -DFL_LIBRARY
- include ../makeinclude
- 
-+CFLAGS   := $(CFLAGS:-fPIE=-fPIC)
-+CXXFLAGS := $(CXXFLAGS:-fPIE=-fPIC)
-+
- MMFILES = $(shell if test $(USEMMFILES) = Yes; then echo $(OBJCPPFILES); fi)
- 
- OBJECTS =  $(MMFILES:.mm=.o) $(CPPFILES:.cxx=.o) $(CFILES:.c=.o) $(UTF8CFILES:.c=.o)
-@@ -236,7 +239,7 @@ $(LIBNAME): $(OBJECTS)
- 
- libfltk.so.1.3: $(OBJECTS)
- 	echo $(DSOCOMMAND) $@ ...
--	$(DSOCOMMAND) $@ $(OBJECTS) $(LDLIBS)
-+	$(DSOCOMMAND) $@ $(OBJECTS) $(LDLIBS) -lpthread
- 	$(RM) libfltk.so
- 	$(LN) libfltk.so.1.3 libfltk.so
- 
