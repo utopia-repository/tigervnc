@@ -1,0 +1,3 @@
+[submodule "fltk"]
+	path = fltk
+	url = git://anonscm.debian.org/users/ucko/fltk1.3.git
