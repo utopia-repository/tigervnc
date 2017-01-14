@@ -275,6 +275,14 @@ get-orig-source:
 
 .PHONY: get-orig-source
 
+clean-git: clean
+	QUILT_PATCHES=debian/patches quilt push debian-changes-fltk && \
+	  chmod 0755 \
+	    fltk/debian/fix-fltk-targets-noconfig \
+	    fltk/debian/rules
+
+.PHONY: clean-git
+
 clean::
 	rm -rf $(DEB_BUILDDIR)
 	rm -f debian/*.debhelper.log

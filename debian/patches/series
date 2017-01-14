@@ -1,3 +1,4 @@
+debian-changes-fltk
 # 0001-xorg-fix-glx-compile.patch
 # 0002-xorg-fix-compilation-with-werror-int-to-pointer-cast.patch has been applied upstream
 #0100-fixup-format-string-vulnerabilities-in-tigervnc.patch
