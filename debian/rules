@@ -12,10 +12,10 @@ DEB_SRCDIR   = .
 #DEB_BUILDDIR = $(CURDIR)/obj-$(DEB_BUILD_GNU_TYPE)
 
 # Normal situation
-#VNC_PATCH = $(CURDIR)/unix/xserver117.patch
+VNC_PATCH = $(CURDIR)/unix/xserver116.patch
 # However in this case we do not have this file from upstream so we use a
 # debian specific copy instead.
-VNC_PATCH = $(CURDIR)/debian/xserver119.patch
+#VNC_PATCH = $(CURDIR)/debian/xserver119.patch
 
 include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/class/cmake.mk
