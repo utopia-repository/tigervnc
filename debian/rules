@@ -23,8 +23,7 @@ include /usr/share/cdbs/1/class/cmake.mk
 # Do our complex patch dance first! After that quilt patch system can proceed!
 clean:: unpatch
 unpatch: reverse-patches-dance
-apply-patches: apply-patches-dance
-reverse-patches-dance: reverse-patches
+patch: apply-patches-dance
 
 include /usr/share/cdbs/1/rules/patchsys-quilt.mk
 
@@ -92,13 +91,15 @@ debug-debian-rules:
 
 .PHONY: apply-patches-dance reverse-patches-dance
 
-apply-patches-dance: apply-patches-vnc-patch-xorg
+apply-patches-dance: apply-patches
+apply-patches: apply-patches-vnc-patch-xorg
 apply-patches-vnc-patch-xorg: apply-patches-unify-xorg-and-vnc-tree
 apply-patches-unify-xorg-and-vnc-tree:
 
 reverse-patches-dance: reverse-patches-remove-xorg-from-vnc-tree
 reverse-patches-remove-xorg-from-vnc-tree: reverse-patches-vnc-unpatch-xorg
 reverse-patches-vnc-unpatch-xorg: reverse-patches-deautoreconf
+reverse-patches-deautoreconf: reverse-patches
 
 .PHONY: reverse-patches-deautoreconf
 
