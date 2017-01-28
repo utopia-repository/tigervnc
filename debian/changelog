@@ -1,4 +1,8 @@
-tigervnc (1.7.0+dfsg-3) UNRELEASED; urgency=low
+tigervnc (1.7.0+dfsg-3) unstable; urgency=high
+
+  [ Salvatore Bonaccorso ]
+  * Fix buffer overflow in ModifiablePixelBuffer::fillRect (CVE-2017-5581)
+    (Closes: #852213)
 
   [ Joachim Falk ]
   * Shut up lintian manpage-has-errors-from-man for vnc.conf.5x.gz
@@ -6,7 +10,7 @@ tigervnc (1.7.0+dfsg-3) UNRELEASED; urgency=low
     to fit into a 80 column manpage output. Broke that into multiple
     lines.
 
- -- Joachim Falk <joachim.falk@gmx.de>  Sat, 07 Jan 2017 08:58:53 +0100
+ -- Ola Lundqvist <opal@debian.org>  Sat, 28 Jan 2017 21:08:53 +0100
 
 tigervnc (1.7.0+dfsg-2) unstable; urgency=high
 
