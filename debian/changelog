@@ -1,3 +1,9 @@
+tigervnc (1.7.0+dfsg-5) UNRELEASED; urgency=medium
+
+  * Changed default -depth from 32 to 24 to heed warning in man Xtigervnc.
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Fri, 03 Feb 2017 01:35:09 +0100
+
 tigervnc (1.7.0+dfsg-4) unstable; urgency=medium
 
   * Make sure libtool do not complain about missing symbol.
