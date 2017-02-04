@@ -71,6 +71,7 @@ use warnings;
 use File::Path;
 use File::Spec;
 use File::Basename qw(dirname basename);
+use File::Temp;
 use DirHandle;
 use File::stat;
 use IO::File;
@@ -653,19 +654,17 @@ sub CreateX509Cert {
       print STDERR "Can't remove old X509Key file '$options->{'X509Key'}': $!!\n";
       exit 1;
     }
-    my $toSSLFh;
-    my @CMD = split(/\s+/, $options->{'sslAutoGenCertCommand'});
-    $CMD[0] = &getCommand($CMD[0]);
-    push @CMD, "-config", "-" unless grep { $_ eq "-config" } @CMD;
-    push @CMD, "-out", $options->{'X509Cert'} unless grep { $_ eq "-out" } @CMD;
-    push @CMD, "-keyout", $options->{'X509Key'} unless grep { $_ eq "-keyout" } @CMD;
-    unless (defined open($toSSLFh, "|-", @CMD)) {
-      print STDERR "Can't start openssl pipe: $!!\n";
+    my $toSSLFh = eval { File::Temp->new(
+      TMPDIR   => 1,
+      SUFFIX   => '.cnf',
+      TEMPLATE => "ssleay-XXXXXXXXXX"); };
+    unless (defined $toSSLFh) {
+      print STDERR "$PROG: Can't create temporary openssl configuration file: $!!\n";
       exit 1;
     }
     my $configSSLFh;
     unless (defined open($configSSLFh, "<", "/etc/tigervnc/ssleay.cnf")) {
-      print STDERR "Can't open openssl configuration template /etc/tigervnc/ssleay.cnf: $!\n";
+      print STDERR "$PROG: Can't open openssl configuration template /etc/tigervnc/ssleay.cnf: $!\n";
       exit 1;
     }
     while (my $line = <$configSSLFh>) {
@@ -673,6 +672,25 @@ sub CreateX509Cert {
       print $toSSLFh $line;
     }
     close $configSSLFh;
+    $toSSLFh->flush;
+
+    my @CMD = split(/\s+/, $options->{'sslAutoGenCertCommand'});
+    $CMD[0] = &getCommand($CMD[0]);
+    push @CMD, "-config", $toSSLFh->filename unless grep { $_ eq "-config" } @CMD;
+    push @CMD, "-out", $options->{'X509Cert'} unless grep { $_ eq "-out" } @CMD;
+    push @CMD, "-keyout", $options->{'X509Key'} unless grep { $_ eq "-keyout" } @CMD;
+    my $oldUMASK = umask 0077;
+    if (system {$CMD[0]} (@CMD)) {
+      if ($!) {
+        print STDERR "\n$PROG: Can't start ",
+          join(" ", map { &quotedString($_); } @CMD), ": $!!\n";
+      } else {
+        print STDERR "\n$PROG: Failed command ",
+          join(" ", map { &quotedString($_); } @CMD), ": $?!\n";
+      }
+      exit 1;
+    }
+    umask $oldUMASK;
     close $toSSLFh;
     if ($? != 0) {
       unlink $options->{'X509Cert'};
