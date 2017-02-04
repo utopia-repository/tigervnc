@@ -13,7 +13,7 @@ DEB_SRCDIR   = .
 
 # Normal situation
 VNC_PATCH = $(CURDIR)/unix/xserver116.patch
-VNC_LIBTOOL_PATCH = $(CURDIR)/contrib/packages/deb/ubuntu-xenial/debian/xorg-source-patches/debian_libtool.patch
+VNC_LIBTOOL_PATCH = $(CURDIR)/contrib/packages/deb/ubuntu-trusty/debian/patches/debian_libtool.patch
 # However in this case we do not have this file from upstream so we use a
 # debian specific copy instead.
 
