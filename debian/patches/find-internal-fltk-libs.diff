@@ -1,0 +1,17 @@
+--- a/CMakeLists.txt.orig	2017-02-04 16:46:27.063999896 +0100
++++ b/CMakeLists.txt	2017-02-04 17:26:41.920139101 +0100
+@@ -227,7 +227,13 @@
+ set(FLTK_SKIP_FLUID TRUE)
+ set(FLTK_SKIP_OPENGL TRUE)
+ set(FLTK_SKIP_FORMS TRUE)
+-find_package(FLTK)
++#find_package(FLTK)
++set(FLTK_LIBRARIES "fltk_images;fltk;dl;png")
++set(FLTK_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/fltk)
++add_library(fltk_images STATIC IMPORTED)
++set_property(TARGET fltk_images PROPERTY IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/fltk/lib/libfltk_images.a)
++add_library(fltk STATIC IMPORTED)
++set_property(TARGET fltk PROPERTY IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/fltk/lib/libfltk.a)
+ 
+ if(UNIX AND NOT APPLE)
+   # No proper handling for extra X11 libs that FLTK might need...

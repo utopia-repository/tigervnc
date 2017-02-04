@@ -19,7 +19,8 @@ debian-changes-fltk
 0905-Added-RH-patch-tigervnc11-rh690245.patch-which-add-T.patch
 # applied upstream
 #0906-Added-RH-patch-tigervnc11-ldnow.patch-disabling-lazy.patch
-find-fltk-libs.diff
+#find-fltk-libs.diff
+find-internal-fltk-libs.diff
 fix-linking.diff
 
 #f/tigervnc-cookie.patch # already applied
