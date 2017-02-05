@@ -1,3 +1,11 @@
+tigervnc (1.7.0+dfsg-6) UNRELEASED; urgency=medium
+
+  [ Joachim Falk ]
+  * Applied upstream patch [PATCH] Fix -inetd not working with xserver >=
+    1.19. Closes: #852633.
+
+ -- Joachim Falk <joachim.falk@gmx.de>  Sun, 05 Feb 2017 17:14:01 +0100
+
 tigervnc (1.7.0+dfsg-5) unstable; urgency=medium
 
   [ Ola Lundqvist ]
