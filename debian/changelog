@@ -1,3 +1,11 @@
+tigervnc (1.7.0+dfsg-6~bpo8+1) jessie-backports; urgency=high
+
+  * Rebuild for jessie-backports.
+  * Fix CVE-2017-5581.
+  * Drop patches related to Xorg 1.19 support, and continue using Xorg 1.16 patches.
+
+ -- James Lu <bitflip3@gmail.com>  Sat, 04 Mar 2017 12:10:42 -0800
+
 tigervnc (1.7.0+dfsg-6) unstable; urgency=high
 
   [ Joachim Falk ]
